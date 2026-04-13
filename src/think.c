@@ -1,6 +1,7 @@
 #include "think.h"
 #include <stdio.h>
 #include "float.h"
+#include <limits.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -81,6 +82,14 @@ static unsigned long long compute_nps(unsigned long long nodes, long long elapse
     }
 
     return (nodes * 1000ULL) / (unsigned long long)elapsed_ms;
+}
+
+static int random_index(int upper_bound) {
+    if (upper_bound <= 1) {
+        return 0;
+    }
+
+    return rand() % upper_bound;
 }
 
 static void print_depth_info(int depth, const SearchResult *result, const SearchStats *stats, long long elapsed_ms) {
@@ -681,6 +690,9 @@ static SearchResult search_root(Board *board, int depth, RepetitionHistory *hist
     SearchResult result = {0.0f, MOVE_NONE, {0}, 0};
     float alpha = -FLT_MAX;
     float beta = FLT_MAX;
+    SearchResult top_cp_candidates[256];
+    int top_cp_candidate_count = 0;
+    int best_cp = INT_MIN;
 
     MoveList list;
     movegen_generate_legal(board, &list);
@@ -730,14 +742,26 @@ static SearchResult search_root(Board *board, int depth, RepetitionHistory *hist
 
         print_move_info(depth, i + 1, move, score);
 
+        SearchResult current = {0.0f, MOVE_NONE, {0}, 0};
+        current.score = score;
+        current.move = move;
+        current.pv[0] = move;
+        current.pv_length = 1;
+        for (int j = 0; j < child.pv_length && current.pv_length < MAX_PV_MOVES; ++j) {
+            current.pv[current.pv_length++] = child.pv[j];
+        }
+
+        int score_cp = score_to_cp(score);
+        if (score_cp > best_cp) {
+            best_cp = score_cp;
+            top_cp_candidate_count = 0;
+            top_cp_candidates[top_cp_candidate_count++] = current;
+        } else if (score_cp == best_cp && top_cp_candidate_count < 256) {
+            top_cp_candidates[top_cp_candidate_count++] = current;
+        }
+
         if (score > result.score || result.move == MOVE_NONE) {
-            result.score = score;
-            result.move = move;
-            result.pv[0] = move;
-            result.pv_length = 1;
-            for (int j = 0; j < child.pv_length && result.pv_length < MAX_PV_MOVES; ++j) {
-                result.pv[result.pv_length++] = child.pv[j];
-            }
+            result = current;
         }
 
         if (score > alpha) {
@@ -749,12 +773,24 @@ static SearchResult search_root(Board *board, int depth, RepetitionHistory *hist
         }
     }
 
+    if (top_cp_candidate_count > 0) {
+        result = top_cp_candidates[random_index(top_cp_candidate_count)];
+    }
+
     return result;
 }
 
 Move think(Board *board, const SearchLimits *limits, const RepetitionHistory *history) {
+    static int rng_seeded = 0;
+
     if (board == NULL) {
         return MOVE_NONE;
+    }
+
+    if (!rng_seeded) {
+        unsigned int seed = (unsigned int)time(NULL) ^ (unsigned int)clock();
+        srand(seed);
+        rng_seeded = 1;
     }
 
     int depth = 0;
