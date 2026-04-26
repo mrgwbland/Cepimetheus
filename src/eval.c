@@ -5,6 +5,52 @@
 
 #define MATE_SCORE 100000.0f
 
+typedef struct {
+    int pawn_value;
+    int knight_value;
+    int bishop_value;
+    int rook_value;
+    int queen_value;
+    int king_value;
+    int endgame_threshold;
+    int tempo_bonus;
+    int centre_control_bonus;
+    int king_ring_penalty;
+    int endgame_pawn_advancement_bonus;
+    int passed_pawn_bonus;
+    int doubled_pawn_penalty;
+    int isolated_pawn_penalty;
+    int knight_rim_penalty;
+    int bishop_mobility_bonus;
+    int rook_control_bonus;
+    int rook_open_file_bonus;
+    int endgame_rook_bonus;
+    int queen_mobility_bonus;
+    int king_corner_distance_bonus;
+} EvalParams;
+EvalParams default_eval_params = {
+    .pawn_value = 100,
+    .knight_value = 300,
+    .bishop_value = 320,
+    .rook_value = 400,
+    .queen_value = 950,
+    .king_value = 0,
+    .endgame_threshold = 1500,
+    .tempo_bonus = 20,
+    .centre_control_bonus = 3,
+    .king_ring_penalty = 2,
+    .endgame_pawn_advancement_bonus = 2,
+    .passed_pawn_bonus = 4,
+    .doubled_pawn_penalty = 5,
+    .isolated_pawn_penalty = 10,
+    .knight_rim_penalty = 3,
+    .bishop_mobility_bonus = 1,
+    .rook_control_bonus = 1,
+    .rook_open_file_bonus = 50,
+    .endgame_rook_bonus = 100,
+    .queen_mobility_bonus = 1,
+    .king_corner_distance_bonus = 3
+};
 /* File masks - one per file (A-H) */
 static const U64 file_masks[8] = {
     0x0101010101010101ULL, /* A-file */
@@ -15,15 +61,6 @@ static const U64 file_masks[8] = {
     0x2020202020202020ULL, /* F-file */
     0x4040404040404040ULL, /* G-file */
     0x8080808080808080ULL  /* H-file */
-};
-
-static const int piece_values[6] = {
-    100, /* Pawn */
-    300, /* Knight */
-    320, /* Bishop */
-    500, /* Rook */
-    950, /* Queen */
-    0    /* King */
 };
 
 /* Count the number of set bits in a 64-bit bitboard. */
@@ -181,16 +218,37 @@ static float evaluate_piece(const Board *board,
     int file = file_of(square);
     int rank = rank_of(square);
     bool is_white = (side == WHITE);
-    float piece_value = (float)piece_values[type];
-
+    float piece_value;
+    switch (type) {
+        case WHITE_PAWN:
+            piece_value = (float)default_eval_params.pawn_value;
+            break;
+        case WHITE_KNIGHT:
+            piece_value = (float)default_eval_params.knight_value;
+            break;
+        case WHITE_BISHOP:
+            piece_value = (float)default_eval_params.bishop_value;
+            break;
+        case WHITE_ROOK:
+            piece_value = (float)default_eval_params.rook_value;
+            break;
+        case WHITE_QUEEN:
+            piece_value = (float)default_eval_params.queen_value;
+            break;
+        case WHITE_KING:
+            piece_value = (float)default_eval_params.king_value;
+            break;
+        default:
+            return 0.0f;
+    }
     if (type == WHITE_PAWN) {
         int pawn_rank = is_white ? rank : (7 - rank);
         if (endgame == 1) {
             /* Reward advanced pawns in the endgame. */
-            piece_value += 2.0f * (float)pawn_rank;
+            piece_value += default_eval_params.endgame_pawn_advancement_bonus * (float)pawn_rank;
             if (passed_pawns[square]) {
                 /* Passed pawns are further rewarded for advancement. */
-                piece_value += 4.0f * (float)pawn_rank;
+                piece_value += default_eval_params.passed_pawn_bonus * (float)pawn_rank;
             }
         }
 
@@ -198,15 +256,15 @@ static float evaluate_piece(const Board *board,
         int this_file_count = pawns_per_file[file];
 
         if (this_file_count > 1) {
-            /* Doubled pawn penalty: -5 points for each same-color pawn on the file. */
-            piece_value -= 5.0f * (float)(this_file_count - 1);
+            /* Doubled pawn penalty: - points for each same-color pawn on the file. */
+            piece_value -= default_eval_params.doubled_pawn_penalty * (float)(this_file_count - 1);
         }
 
         bool has_left = (file > 0) && (pawns_per_file[file - 1] > 0);
         bool has_right = (file < 7) && (pawns_per_file[file + 1] > 0);
         if (!has_left && !has_right) {
-            /* Isolated pawn penalty: -10 points if no same-color pawns on adjacent files. */
-            piece_value -= 10.0f;
+            /* Isolated pawn penalty: - points if no same-color pawns on adjacent files. */
+            piece_value -= default_eval_params.isolated_pawn_penalty;
         }
 
         return piece_value;
@@ -214,37 +272,37 @@ static float evaluate_piece(const Board *board,
 
     if (type == WHITE_KNIGHT) {
         /* Knights on the rim are grim. */
-        return piece_value + 3.0f * (float)popcount_u64(bitboard_knight_attacks(square));
+        return piece_value + default_eval_params.knight_rim_penalty * (float)popcount_u64(bitboard_knight_attacks(square));
     }
 
     if (type == WHITE_BISHOP) {
         /* Reward bishops with mobility through pawn occupancy only. 
         This is because a bishop on g2 with a knight on f3 is still good whereas if there was a pawn on f3 it would be blocked*/
         U64 pawn_occupancy = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
-        return piece_value + 1.5f * (float)popcount_u64(bitboard_bishop_attacks(square, pawn_occupancy));
+        return piece_value + default_eval_params.bishop_mobility_bonus * (float)popcount_u64(bitboard_bishop_attacks(square, pawn_occupancy));
     }
 
     if (type == WHITE_ROOK) {
         if (endgame == -1) {
             /* Reward squares controlled. */
-            piece_value += 1.0f * (float)popcount_u64(bitboard_rook_attacks(square, board->occupancy[BOTH]));
+            piece_value += default_eval_params.rook_control_bonus * (float)popcount_u64(bitboard_rook_attacks(square, board->occupancy[BOTH]));
 
             U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
             U64 file_mask = file_masks[file];
-            /* Open file bonus: +50 points if no pawns on the file. */
+            /* Open file bonus: + points if no pawns on the file. */
             if (popcount_u64(all_pawns & file_mask) == 0) {
-                piece_value += 50.0f;
+                piece_value += default_eval_params.rook_open_file_bonus;
             }
         } else {
             /* Rooks are better in the endgame. */
-            piece_value += 100.0f;
+            piece_value += default_eval_params.endgame_rook_bonus;
         }
 
         return piece_value;
     }
 
     if (type == WHITE_QUEEN) {
-        return piece_value + 0.5f * (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+        return piece_value + default_eval_params.queen_mobility_bonus * (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
     }
 
     /* If nothing prior, it is a king. */
@@ -270,7 +328,7 @@ static float evaluate_piece(const Board *board,
     }
 
     /* In endgames favor activity; in middlegames favor safety. */
-    piece_value += (float)(endgame * corner_distance * 3);
+    piece_value += (float)(endgame * corner_distance * default_eval_params.king_corner_distance_bonus);
     return piece_value;
 }
 
@@ -279,17 +337,17 @@ bool eval_is_endgame_position(const Board *board) {
         return false;
     }
 
-    int non_king_count = 0;
-    non_king_count += popcount_u64(board->pieces[WHITE_KNIGHT]);
-    non_king_count += popcount_u64(board->pieces[WHITE_BISHOP]);
-    non_king_count += popcount_u64(board->pieces[WHITE_ROOK]);
-    non_king_count += popcount_u64(board->pieces[WHITE_QUEEN]);
-    non_king_count += popcount_u64(board->pieces[BLACK_KNIGHT]);
-    non_king_count += popcount_u64(board->pieces[BLACK_BISHOP]);
-    non_king_count += popcount_u64(board->pieces[BLACK_ROOK]);
-    non_king_count += popcount_u64(board->pieces[BLACK_QUEEN]);
+    int piece_value = 0;
+    piece_value += popcount_u64(board->pieces[WHITE_KNIGHT])*default_eval_params.knight_value;
+    piece_value += popcount_u64(board->pieces[WHITE_BISHOP])*default_eval_params.bishop_value;
+    piece_value += popcount_u64(board->pieces[WHITE_ROOK])*default_eval_params.rook_value;
+    piece_value += popcount_u64(board->pieces[WHITE_QUEEN])*default_eval_params.queen_value;
+    piece_value += popcount_u64(board->pieces[BLACK_KNIGHT])*default_eval_params.knight_value;
+    piece_value += popcount_u64(board->pieces[BLACK_BISHOP])*default_eval_params.bishop_value;
+    piece_value += popcount_u64(board->pieces[BLACK_ROOK])*default_eval_params.rook_value;
+    piece_value += popcount_u64(board->pieces[BLACK_QUEEN])*default_eval_params.queen_value;
 
-    return non_king_count <= 4;
+    return piece_value <= default_eval_params.endgame_threshold;
 }
 
 float evaluate_position(Board *board, const RepetitionHistory *history, int ply) {
@@ -356,18 +414,18 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
     if(endgame == -1) {
         
         /* Unless the position is zugzwang, having a move is often better. */
-        tempo_bonus = 20.0f;
+        tempo_bonus = default_eval_params.tempo_bonus;
         /* Centre control. not a big deal in endgames */
         static const int center_squares[4] = {27, 28, 35, 36}; /* d4, e4, d5, e5 */
         for (int i = 0; i < 4; ++i) {
             int square = center_squares[i];
-            white_score += 3.0f * (float)count_attackers_on_square(board, square, WHITE);
-            black_score += 3.0f * (float)count_attackers_on_square(board, square, BLACK);
+            white_score += default_eval_params.centre_control_bonus * (float)count_attackers_on_square(board, square, WHITE);
+            black_score += default_eval_params.centre_control_bonus * (float)count_attackers_on_square(board, square, BLACK);
         }
     }    
 
-    white_score -= 2.0f * (float)count_king_ring_attackers(board, WHITE);
-    black_score -= 2.0f * (float)count_king_ring_attackers(board, BLACK);
+    white_score -= default_eval_params.king_ring_penalty * (float)count_king_ring_attackers(board, WHITE);
+    black_score -= default_eval_params.king_ring_penalty * (float)count_king_ring_attackers(board, BLACK);
 
 
     if (side_to_move == WHITE) {
