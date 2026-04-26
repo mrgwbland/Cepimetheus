@@ -343,6 +343,8 @@ static float quiescence(Board *board,
         }
 
         Move move = ranked_moves[i].move;
+
+        // Only consider captures and checks in quiescence search.
         if (!move_iscapture(board, move) && !move_ischeck(board, move)) {
             continue;
         }
