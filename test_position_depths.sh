@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 POSITIONS_FILE="$SCRIPT_DIR/test_positions.txt"
-DEFAULT_DEPTH_MIN=1
+DEFAULT_DEPTH_MIN=6
 DEFAULT_DEPTH_MAX=6
 
 FEN=""
