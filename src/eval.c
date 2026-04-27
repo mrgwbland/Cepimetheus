@@ -32,7 +32,7 @@ EvalParams default_eval_params = {
     .pawn_value = 100,
     .knight_value = 300,
     .bishop_value = 320,
-    .rook_value = 450,
+    .rook_value = 500,
     .queen_value = 950,
     .king_value = 0,
     .endgame_threshold = 1500,
@@ -47,7 +47,7 @@ EvalParams default_eval_params = {
     .bishop_mobility_bonus = 1,
     .rook_control_bonus = 1,
     .rook_open_file_bonus = 50,
-    .endgame_rook_bonus = 100,
+    .endgame_rook_bonus = 50,
     .queen_mobility_bonus = 1,
     .king_corner_distance_bonus = 3
 };

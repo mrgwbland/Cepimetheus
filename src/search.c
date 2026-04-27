@@ -301,10 +301,6 @@ static float quiescence(Board *board,
                         int ply,
                         TranspositionTable *table,
                         SearchControl *control) {
-    const int qsearch_max_ply = 16;
-    const int qsearch_forced_only_move_ply_limit = 12;
-    const int qsearch_noncapture_check_ply_limit = 6;
-
     if (search_should_stop(control)) {
         return evaluate_position(board, history, ply);
     }
@@ -318,38 +314,19 @@ static float quiescence(Board *board,
         return 0.0f;
     }
 
-    if (ply >= qsearch_max_ply) {
-        return evaluate_position(board, history, ply);
+    /* Stand-pat: evaluate current position. */
+    float stand_pat = evaluate_position(board, history, ply);
+
+    if (stand_pat >= beta) {
+        return beta;
     }
 
-    bool in_check = board_is_in_check(board, board->side);
+    if (stand_pat > alpha) {
+        alpha = stand_pat;
+    }
 
     MoveList list;
     movegen_generate_legal(board, &list);
-
-    if (list.count == 0) {
-        return evaluate_position(board, history, ply);
-    }
-
-    if (!in_check) {
-        /* Stand-pat is only valid when side to move can choose to pass tactical action. */
-        float stand_pat = evaluate_position(board, history, ply);
-
-        if (stand_pat >= beta) {
-            return beta;
-        }
-
-        if (stand_pat > alpha) {
-            alpha = stand_pat;
-        }
-    }
-
-    bool allow_forced_only_move = (!in_check &&
-                                   list.count == 1 &&
-                                   ply < qsearch_forced_only_move_ply_limit);
-    bool allow_noncapture_checks = (!in_check &&
-                                    !allow_forced_only_move &&
-                                    ply < qsearch_noncapture_check_ply_limit);
 
     Move ordered_moves[MAX_ORDERED_MOVES];
     int ordered_count = build_ordered_moves(board, &list, table, ordered_moves);
@@ -367,13 +344,9 @@ static float quiescence(Board *board,
 
         Move move = ranked_moves[i].move;
 
-        bool is_capture = move_iscapture(board, move);
-        if (!is_capture) {
-            if (!in_check && !allow_forced_only_move) {
-                if (!allow_noncapture_checks || !move_ischeck(board, move)) {
-                    continue;
-                }
-            }
+        // Only consider captures and checks in quiescence search.
+        if (!move_iscapture(board, move) && !move_ischeck(board, move)) {
+            continue;
         }
 
         Undo undo;
