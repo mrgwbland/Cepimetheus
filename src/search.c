@@ -460,8 +460,47 @@ static float quiescence(Board *board,
                                     !allow_forced_only_move &&
                                     ply < qsearch_noncapture_check_ply_limit);
 
+    /* Filter moves first: collect captures and relevant checks before ordering. */
+    Move filtered_moves[MAX_ORDERED_MOVES];
+    int filtered_count = 0;
+
+    for (int i = 0; i < list.count && filtered_count < MAX_ORDERED_MOVES; ++i) {
+        Move move = list.moves[i];
+        bool is_capture = move_iscapture(board, move);
+
+        if (is_capture) {
+            filtered_moves[filtered_count++] = move;
+        } else if (in_check || allow_forced_only_move) {
+            /* When in check or forced single move, accept all legal moves. */
+            filtered_moves[filtered_count++] = move;
+        } else if (allow_noncapture_checks) {
+            /* Pre-compute check status for quiet moves only at shallow plies. */
+            if (move_ischeck(board, move)) {
+                filtered_moves[filtered_count++] = move;
+            }
+        }
+    }
+
+    /* Build ordered moves from the already-filtered set via direct scoring. */
     Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = build_ordered_moves(board, &list, table, ordered_moves);
+    int ordered_count = 0;
+
+    if (filtered_count > 0) {
+        ScoredMove scored_moves[MAX_ORDERED_MOVES];
+        int scored_count = 0;
+        for (int i = 0; i < filtered_count && i < MAX_ORDERED_MOVES; ++i) {
+            scored_moves[scored_count].move = filtered_moves[i];
+            scored_moves[scored_count].score = estimate_move_score(board, filtered_moves[i]);
+            ++scored_count;
+        }
+
+        qsort(scored_moves, (size_t)scored_count, sizeof(ScoredMove), compare_scored_moves);
+        for (int i = 0; i < scored_count; ++i) {
+            ordered_moves[i] = scored_moves[i].move;
+        }
+
+        ordered_count = scored_count;
+    }
 
     RankedMove ranked_moves[MAX_ORDERED_MOVES] = {0};
     for (int i = 0; i < ordered_count; ++i) {
@@ -475,15 +514,6 @@ static float quiescence(Board *board,
         }
 
         Move move = ranked_moves[i].move;
-
-        bool is_capture = move_iscapture(board, move);
-        if (!is_capture) {
-            if (!in_check && !allow_forced_only_move) {
-                if (!allow_noncapture_checks || !move_ischeck(board, move)) {
-                    continue;
-                }
-            }
-        }
 
         Undo undo;
 
