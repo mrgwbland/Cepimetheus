@@ -170,7 +170,7 @@ bool board_is_draw(const Board *board, const RepetitionHistory *history) {
             start = halfmove_limit;
         }
 
-        //Intentionally declaring a twofold as a draw, functionally similar for engine's play
+        //Intentionally declaring a twofold as a draw, functionally identical for engine's play, albeit not for analysis
         for (int i = start; i < history_limit; ++i) {
             if (history->keys[i] == current_key) {
                 return true;

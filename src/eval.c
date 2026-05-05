@@ -20,7 +20,7 @@ typedef struct {
     int passed_pawn_bonus;
     int doubled_pawn_penalty;
     int isolated_pawn_penalty;
-    int knight_square_bonus;
+    int knight_mobility_bonus;
     int bishop_mobility_bonus;
     int rook_control_bonus;
     int rook_open_file_bonus;
@@ -43,7 +43,7 @@ EvalParams default_eval_params = {
     .passed_pawn_bonus = 4,
     .doubled_pawn_penalty = 5,
     .isolated_pawn_penalty = 10,
-    .knight_square_bonus = 3,
+    .knight_mobility_bonus = 3,
     .bishop_mobility_bonus = 1,
     .rook_control_bonus = 1,
     .rook_open_file_bonus = 50,
@@ -273,7 +273,7 @@ static float evaluate_piece(const Board *board,
 
     if (type == WHITE_KNIGHT) {
         /* Knights on the rim are grim. */
-        return piece_value + default_eval_params.knight_square_bonus * (float)popcount_u64(bitboard_knight_attacks(square));
+        return piece_value + default_eval_params.knight_mobility_bonus * (float)popcount_u64(bitboard_knight_attacks(square));
     }
 
     if (type == WHITE_BISHOP) {
