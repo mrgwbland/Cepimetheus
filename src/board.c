@@ -495,6 +495,9 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
 
     if (piece_type == 0 && promotion != MOVE_PROMO_NONE) {
         piece_to_move = promotion_piece(side, promotion);
+        if (piece_to_move < 0) {
+            return false;
+        }
     }
 
     add_piece_at(board, piece_to_move, to);

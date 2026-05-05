@@ -28,7 +28,6 @@ static void generate_pawn_moves(Board *board, MoveList *list, int side) {
     while (pawns) {
         int from = bitboard_pop_lsb(&pawns);
         int rank = from >> 3;
-        int file = from & 7;
         int one = from + step;
         if (one >= 0 && one < 64 && !(board->occupancy[BOTH] & bitboard_square(one))) {
             if (rank == promo_rank) {

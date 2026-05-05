@@ -226,7 +226,7 @@ Move think(Board *board,
                              &stats,
                              search_context,
                              &control,
-                             NULL,//print_move_info_callback,
+                             print_move_info_callback,
                              NULL);
 
         if (control.stop) {

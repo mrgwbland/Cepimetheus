@@ -6,9 +6,7 @@
 
 typedef uint32_t Move;
 
-enum {
-    MOVE_NONE = 0xffffffffu
-};
+#define MOVE_NONE UINT32_C(0xffffffff)
 
 enum {
     MOVE_FLAG_CAPTURE = 1 << 0,
