@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 
-#define TRANSITION_TABLE_SIZE (1U << 20) /* 1 million entries */
+#define TRANSPOSITION_TABLE_SIZE (1U << 20) /* 1 million entries */
 #define MAX_ORDERED_MOVES 256
 
 typedef struct {
@@ -39,6 +39,7 @@ struct SearchContext {
     TranspositionTable table;
 };
 
+//Basic piece values for move ordering heuristics. Not used for leaf node evaluation, which has its own piece values and more complex logic.
 static const int piece_values[6] = {
     100, /* Pawn */
     300, /* Knight */
@@ -558,7 +559,7 @@ SearchContext *search_context_create(void) {
         return NULL;
     }
 
-    context->table.size = TRANSITION_TABLE_SIZE;
+    context->table.size = TRANSPOSITION_TABLE_SIZE;
     context->table.entries = calloc(context->table.size, sizeof(*context->table.entries));
     return context;
 }

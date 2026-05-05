@@ -20,7 +20,7 @@ typedef struct {
     int passed_pawn_bonus;
     int doubled_pawn_penalty;
     int isolated_pawn_penalty;
-    int knight_rim_penalty;
+    int knight_square_bonus;
     int bishop_mobility_bonus;
     int rook_control_bonus;
     int rook_open_file_bonus;
@@ -43,7 +43,7 @@ EvalParams default_eval_params = {
     .passed_pawn_bonus = 4,
     .doubled_pawn_penalty = 5,
     .isolated_pawn_penalty = 10,
-    .knight_rim_penalty = 3,
+    .knight_square_bonus = 3,
     .bishop_mobility_bonus = 1,
     .rook_control_bonus = 1,
     .rook_open_file_bonus = 50,
@@ -209,7 +209,7 @@ static void mark_passed_pawns(const Board *board, int side, bool passed_pawns[64
 static float evaluate_piece(const Board *board,
                             int piece,
                             int square,
-                            int endgame,
+                            bool endgame,
                             const bool passed_pawns[64],
                             const int white_pawns_per_file[8],
                             const int black_pawns_per_file[8]) {
@@ -243,7 +243,7 @@ static float evaluate_piece(const Board *board,
     }
     if (type == WHITE_PAWN) {
         int pawn_rank = is_white ? rank : (7 - rank);
-        if (endgame == 1) {
+        if (endgame) {
             /* Reward advanced pawns in the endgame. */
             piece_value += default_eval_params.endgame_pawn_advancement_bonus * (float)pawn_rank;
             if (passed_pawns[square]) {
@@ -272,7 +272,7 @@ static float evaluate_piece(const Board *board,
 
     if (type == WHITE_KNIGHT) {
         /* Knights on the rim are grim. */
-        return piece_value + default_eval_params.knight_rim_penalty * (float)popcount_u64(bitboard_knight_attacks(square));
+        return piece_value + default_eval_params.knight_square_bonus * (float)popcount_u64(bitboard_knight_attacks(square));
     }
 
     if (type == WHITE_BISHOP) {
@@ -283,7 +283,7 @@ static float evaluate_piece(const Board *board,
     }
 
     if (type == WHITE_ROOK) {
-        if (endgame == -1) {
+        if (!endgame) {
             /* Reward squares controlled. */
             piece_value += default_eval_params.rook_control_bonus * (float)popcount_u64(bitboard_rook_attacks(square, board->occupancy[BOTH]));
 
@@ -306,7 +306,7 @@ static float evaluate_piece(const Board *board,
     }
 
     /* If nothing prior, it is a king. */
-    if (endgame == -1) {
+    if (!endgame) {
         /* In opening/middlegame, king safety is important. */
         piece_value -= (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
     }
@@ -328,7 +328,11 @@ static float evaluate_piece(const Board *board,
     }
 
     /* In endgames favor activity; in middlegames favor safety. */
-    piece_value += (float)(endgame * corner_distance * default_eval_params.king_corner_distance_bonus);
+    if (endgame) {
+        piece_value += (float)(corner_distance * default_eval_params.king_corner_distance_bonus);
+    } else {        
+        piece_value -= (float)(corner_distance * default_eval_params.king_corner_distance_bonus);
+    }
     return piece_value;
 }
 
@@ -374,7 +378,7 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
 
     /* Determine if the position is an endgame.
     Endgame eval is different from opening/middlegame eval, so we need to know which phase we're in. */
-    int endgame = eval_is_endgame_position(board) ? 1 : -1;
+    bool endgame = eval_is_endgame_position(board);
 
     int white_pawns_per_file[8];
     int black_pawns_per_file[8];
@@ -411,7 +415,7 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
         }
     }
     float tempo_bonus = 0.0f;
-    if(endgame == -1) {
+    if(!endgame) {
         
         /* Unless the position is zugzwang, having a move is often better. */
         tempo_bonus = default_eval_params.tempo_bonus;
