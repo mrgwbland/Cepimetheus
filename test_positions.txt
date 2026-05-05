@@ -1,3 +1,4 @@
 # name|fen
 tacticalposition|3r2rk/pp3p1p/2p1pq2/2P1P2R/2n5/3P4/P3Q1B1/1K1R4 b - - 0 34
 smotheredmate|1r2kb1r/3npppp/5n2/QN6/3q4/7P/PPPB1PP1/2KR3R b k - 0 14
+tactic2|r2q2k1/1R3p1p/p3B1p1/3Pp3/Pp2P3/1Pb1Q2P/2b2PP1/6K1 b - - 4 35

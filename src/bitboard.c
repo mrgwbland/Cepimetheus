@@ -83,7 +83,7 @@ void bitboard_init_tables(void) {
 U64 bitboard_square(int square) {
     return 1ULL << square;
 }
-
+//Returns the index of the least significant set bit and clears it from the bitboard
 int bitboard_pop_lsb(U64 *bitboard) {
     if (*bitboard == 0) {
         return -1;
@@ -91,7 +91,7 @@ int bitboard_pop_lsb(U64 *bitboard) {
 
     U64 value = *bitboard;
     int square = __builtin_ctzll(value);
-    *bitboard = value & (value - 1ULL);
+    *bitboard = value & (value - 1ULL);// Clear the least significant bit
     return square;
 }
 

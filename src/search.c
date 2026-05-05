@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 
-#define TRANSPOSITION_TABLE_SIZE (1U << 20) /* 1 million entries */
+#define TRANSPOSITION_TABLE_SIZE (1U << 20) /* 1 million entries, this must be a power of 2 */
 #define MAX_ORDERED_MOVES 256
 
 typedef struct {

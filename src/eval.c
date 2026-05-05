@@ -64,13 +64,14 @@ static const U64 file_masks[8] = {
 };
 
 /* Count the number of set bits in a 64-bit bitboard. */
+/* Brian Kernighan’s Algorithm */
 static int popcount_u64(U64 bb) {
     int count = 0;
 
     /* Repeatedly remove the least-significant set bit until empty. */
     while (bb) {
-        bitboard_pop_lsb(&bb);
-        ++count;
+        bb &= (bb - 1);//Don't use bitboard_pop_lsb here since we just want to count, not get the index of the lsb.
+        count++;
     }
 
     return count;
