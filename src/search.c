@@ -22,10 +22,18 @@ typedef struct {
     bool searched;
 } RankedMove;
 
+typedef enum {
+    TT_SCORE_UPPER,
+    TT_SCORE_EXACT,
+    TT_SCORE_LOWER,
+} TranspositionScoreType;
+
 typedef struct {
     bool valid;
     U64 hash;
     int depth;
+    float score;
+    TranspositionScoreType score_type;
     int move_count;
     Move moves[MAX_ORDERED_MOVES];
 } TranspositionEntry;
@@ -164,7 +172,98 @@ static const TranspositionEntry *transposition_table_lookup(const TranspositionT
     return entry;
 }
 
-static void transposition_table_store(TranspositionTable *table, U64 hash, int depth, const Move *moves, int move_count) {
+static bool transposition_table_probe(const TranspositionTable *table,
+                                      U64 hash,
+                                      int depth,
+                                      float alpha,
+                                      float beta,
+                                      float *score) {
+    const TranspositionEntry *entry = transposition_table_lookup(table, hash);
+    if (entry == NULL || entry->depth < depth || score == NULL) {
+        return false;
+    }
+
+    switch (entry->score_type) {
+        case TT_SCORE_EXACT:
+            *score = entry->score;
+            return true;
+
+        case TT_SCORE_LOWER:
+            if (entry->score >= beta) {
+                *score = entry->score;
+                return true;
+            }
+            break;
+
+        case TT_SCORE_UPPER:
+            if (entry->score <= alpha) {
+                *score = entry->score;
+                return true;
+            }
+            break;
+    }
+
+    return false;
+}
+
+static TranspositionScoreType transposition_score_type(float score, float alpha, float beta) {
+    if (score <= alpha) {
+        return TT_SCORE_UPPER;
+    }
+
+    if (score >= beta) {
+        return TT_SCORE_LOWER;
+    }
+
+    return TT_SCORE_EXACT;
+}
+
+static bool transposition_entry_should_replace_same_hash(const TranspositionEntry *entry,
+                                                         int depth,
+                                                         float score,
+                                                         TranspositionScoreType score_type) {
+    if (!entry->valid) {
+        return true;
+    }
+
+    if (depth > entry->depth) {
+        return true;
+    }
+
+    if (depth < entry->depth) {
+        return false;
+    }
+
+    if (score_type == TT_SCORE_EXACT) {
+        return entry->score_type != TT_SCORE_EXACT;
+    }
+
+    if (entry->score_type == TT_SCORE_EXACT) {
+        return false;
+    }
+
+    if (score_type != entry->score_type) {
+        return false;
+    }
+
+    if (score_type == TT_SCORE_LOWER) {
+        return score > entry->score;
+    }
+
+    if (score_type == TT_SCORE_UPPER) {
+        return score < entry->score;
+    }
+
+    return false;
+}
+
+static void transposition_table_store(TranspositionTable *table,
+                                      U64 hash,
+                                      int depth,
+                                      float score,
+                                      TranspositionScoreType score_type,
+                                      const Move *moves,
+                                      int move_count) {
     if (table == NULL || table->entries == NULL || table->size == 0 || moves == NULL || move_count <= 0) {
         return;
     }
@@ -174,17 +273,19 @@ static void transposition_table_store(TranspositionTable *table, U64 hash, int d
     }
 
     TranspositionEntry *entry = &table->entries[transposition_table_index(table, hash)];
-    if (entry->valid && entry->hash == hash && depth <= entry->depth) {
-        return;
-    }
-
-    if (entry->valid && entry->hash != hash && depth <= entry->depth) {
+    if (entry->valid && entry->hash == hash) {
+        if (!transposition_entry_should_replace_same_hash(entry, depth, score, score_type)) {
+            return;
+        }
+    } else if (entry->valid && entry->hash != hash && depth <= entry->depth) {
         return;
     }
 
     entry->valid = true;
     entry->hash = hash;
     entry->depth = depth;
+    entry->score = score;
+    entry->score_type = score_type;
     entry->move_count = move_count;
     memcpy(entry->moves, moves, (size_t)move_count * sizeof(Move));
 }
@@ -305,6 +406,8 @@ static float quiescence(Board *board,
     const int qsearch_max_ply = 16;
     const int qsearch_forced_only_move_ply_limit = 12;
     const int qsearch_noncapture_check_ply_limit = 6;
+    const float alpha_orig = alpha;
+    const float beta_orig = beta;
 
     if (search_should_stop(control)) {
         return evaluate_position(board, history, ply);
@@ -317,6 +420,11 @@ static float quiescence(Board *board,
 
     if (board_is_draw(board, history)) {
         return 0.0f;
+    }
+
+    float tt_score = 0.0f;
+    if (transposition_table_probe(table, board_position_key(board), 0, alpha, beta, &tt_score)) {
+        return tt_score;
     }
 
     if (ply >= qsearch_max_ply) {
@@ -410,7 +518,8 @@ static float quiescence(Board *board,
     Move final_order[MAX_ORDERED_MOVES];
     int final_count = finalize_move_order(ranked_moves, ordered_count, final_order);
     if (final_count > 0) {
-        transposition_table_store(table, board_position_key(board), 0, final_order, final_count);
+        TranspositionScoreType score_type = transposition_score_type(alpha, alpha_orig, beta_orig);
+        transposition_table_store(table, board_position_key(board), 0, alpha, score_type, final_order, final_count);
     }
 
     return alpha;
@@ -427,6 +536,8 @@ static SearchResult negamax(Board *board,
                             TranspositionTable *table,
                             SearchControl *control) {
     SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
+    const float alpha_orig = alpha;
+    const float beta_orig = beta;
 
     if (search_should_stop(control)) {
         result.score = evaluate_position(board, history, ply);
@@ -437,6 +548,12 @@ static SearchResult negamax(Board *board,
 
     if (board_is_draw(board, history)) {
         result.score = 0.0f;
+        return result;
+    }
+
+    float tt_score = 0.0f;
+    if (transposition_table_probe(table, board_position_key(board), depth, alpha, beta, &tt_score)) {
+        result.score = tt_score;
         return result;
     }
 
@@ -547,7 +664,8 @@ static SearchResult negamax(Board *board,
     Move final_order[MAX_ORDERED_MOVES];
     int final_count = finalize_move_order(ranked_moves, ordered_count, final_order);
     if (final_count > 0) {
-        transposition_table_store(table, board_position_key(board), depth, final_order, final_count);
+        TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
+        transposition_table_store(table, board_position_key(board), depth, result.score, score_type, final_order, final_count);
     }
 
     return result;
@@ -584,6 +702,8 @@ SearchResult search_root(Board *board,
     SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
     float alpha = -FLT_MAX;
     float beta = FLT_MAX;
+    const float alpha_orig = alpha;
+    const float beta_orig = beta;
 
     TranspositionTable *table = NULL;
     if (context != NULL && context->table.entries != NULL) {
@@ -679,7 +799,8 @@ SearchResult search_root(Board *board,
     Move final_order[MAX_ORDERED_MOVES];
     int final_count = finalize_move_order(ranked_moves, ordered_count, final_order);
     if (final_count > 0) {
-        transposition_table_store(table, board_position_key(board), depth, final_order, final_count);
+        TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
+        transposition_table_store(table, board_position_key(board), depth, result.score, score_type, final_order, final_count);
     }
 
     return result;
