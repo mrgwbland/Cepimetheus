@@ -732,7 +732,7 @@ SearchResult search_root(Board *board,
         result.move = list.moves[0];
         result.pv[0] = list.moves[0];
         result.pv_length = 1;
-        result.forced_root_move = true;
+        result.forced_root_move = (control != NULL && control->allow_forced_root_move);
         return result;
     }
 

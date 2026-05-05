@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
     bool hard_time_limited;
     long long hard_stop_time_ms;
+    bool allow_forced_root_move;
     bool stop;
     volatile bool *external_stop;
 } SearchControl;

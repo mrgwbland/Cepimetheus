@@ -189,6 +189,8 @@ Move think(Board *board,
         control.hard_time_limited = true;
         control.hard_stop_time_ms = start_time_ms + (long long)hard_time_limit_ms;
     }
+    // Only return single moves instantly if playing on clock time
+    control.allow_forced_root_move = (time_limited && movetime_ms <= 0 && !depth_explicitly_set && !infinite_search);
 
     SearchContext *search_context = search_context_create();
 
@@ -245,8 +247,8 @@ Move think(Board *board,
             best_result = result;
         }
 
-        // If the root search resulted in only one legal move then we can stop searching immediately, no matter the time limits, as we won't find a better move by searching deeper
-        if (result.forced_root_move) {
+        // If the root search resulted in only one legal move then we can stop searching immediately, but only for clock-based searches.
+        if (control.allow_forced_root_move && result.forced_root_move) {
             break;
         }
 
