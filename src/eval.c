@@ -309,6 +309,25 @@ bool eval_is_endgame_position(const Board *board) {
     return total_piece_value <= ENDGAME_THRESHOLD;
 }
 
+EvalTerminalState eval_terminal_state(const Board *board, int legal_move_count) {
+    if (board == NULL || legal_move_count > 0) {
+        return EVAL_TERMINAL_NONE;
+    }
+
+    return board_is_in_check(board, board->side) ? EVAL_TERMINAL_CHECKMATE : EVAL_TERMINAL_STALEMATE;
+}
+
+float eval_terminal_score(EvalTerminalState terminal_state, int ply) {
+    switch (terminal_state) {
+        case EVAL_TERMINAL_CHECKMATE:
+            return -MATE_SCORE + (float)ply;
+        case EVAL_TERMINAL_STALEMATE:
+        case EVAL_TERMINAL_NONE:
+        default:
+            return 0.0f;
+    }
+}
+
 float evaluate_position(Board *board, const RepetitionHistory *history, int ply) {
     if (board == NULL) {
         return 0.0f;
@@ -321,12 +340,9 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
     MoveList list;
     movegen_generate_legal(board, &list);
 
-    if (list.count == 0) {
-        /* No legal moves: checkmate or stalemate. */
-        if (board_is_in_check(board, board->side)) {
-            /* Checkmate: very bad for side to move. */
-            return -MATE_SCORE + (float)ply;
-        }
+    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
+    if (terminal_state != EVAL_TERMINAL_NONE) {
+        return eval_terminal_score(terminal_state, ply);
     }
 
     int side_to_move = board->side;

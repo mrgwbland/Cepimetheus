@@ -151,6 +151,7 @@ U64 board_position_key(const Board *board) {
     return key;
 }
 
+// Checks for 50-move rule and threefold repetition; stalemate should be checked when legal moves are already generated
 bool board_is_draw(const Board *board, const RepetitionHistory *history) {
     if (board == NULL) {
         return false;
@@ -178,10 +179,7 @@ bool board_is_draw(const Board *board, const RepetitionHistory *history) {
         }
     }
 
-    MoveList list;
-    movegen_generate_legal((Board *)board, &list);
-
-    return list.count == 0 && !board_is_in_check(board, board->side);
+    return false;
 }
 
 void board_clear(Board *board) {

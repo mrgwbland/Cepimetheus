@@ -426,8 +426,9 @@ static float quiescence(Board *board,
     MoveList list;
     movegen_generate_legal(board, &list);
 
-    if (list.count == 0) {
-        return evaluate_position(board, history, ply);
+    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
+    if (terminal_state != EVAL_TERMINAL_NONE) {
+        return eval_terminal_score(terminal_state, ply);
     }
 
     if (!in_check) {
@@ -620,8 +621,9 @@ static SearchResult negamax(Board *board,
     MoveList list;
     movegen_generate_legal(board, &list);
 
-    if (list.count == 0) {
-        result.score = quiescence(board, alpha, beta, history, stats, ply, table, control);
+    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
+    if (terminal_state != EVAL_TERMINAL_NONE) {
+        result.score = eval_terminal_score(terminal_state, ply);
         return result;
     }
 
@@ -743,8 +745,9 @@ SearchResult search_root(Board *board,
         return result;
     }
 
-    if (list.count == 0) {
-        result.score = quiescence(board, alpha, beta, history, stats, 0, table, control);
+    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
+    if (terminal_state != EVAL_TERMINAL_NONE) {
+        result.score = eval_terminal_score(terminal_state, 0);
         return result;
     }
 
