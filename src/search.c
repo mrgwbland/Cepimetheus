@@ -47,16 +47,6 @@ struct SearchContext {
     TranspositionTable table;
 };
 
-//Basic piece values for move ordering heuristics. Not used for leaf node evaluation, which has its own piece values and more complex logic.
-static const int piece_values[6] = {
-    100, /* Pawn */
-    300, /* Knight */
-    320, /* Bishop */
-    500, /* Rook */
-    950, /* Queen */
-    0    /* King */
-};
-
 static long long current_time_ms(void) {
     struct timeval now;
     if (gettimeofday(&now, NULL) != 0) {
