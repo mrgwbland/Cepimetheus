@@ -115,17 +115,64 @@ static bool board_has_en_passant_capture(const Board *board) {
     int rank = rank_of(ep_square);
 
     if (board->side == WHITE) {
-        if (file > 0 && rank > 0 && (board->pieces[WHITE_PAWN] & (1ULL << (ep_square - 9)))) {
+        int captured_square = ep_square - 8;
+        if (file > 0 && rank > 0 &&
+            (board->pieces[WHITE_PAWN] & (1ULL << (ep_square - 9))) &&
+            (captured_square >= 0 && (board->pieces[BLACK_PAWN] & (1ULL << captured_square)))) {
             return true;
         }
-        if (file < 7 && rank > 0 && (board->pieces[WHITE_PAWN] & (1ULL << (ep_square - 7)))) {
+        if (file < 7 && rank > 0 &&
+            (board->pieces[WHITE_PAWN] & (1ULL << (ep_square - 7))) &&
+            (captured_square >= 0 && (board->pieces[BLACK_PAWN] & (1ULL << captured_square)))) {
             return true;
         }
     } else {
-        if (file > 0 && rank < 7 && (board->pieces[BLACK_PAWN] & (1ULL << (ep_square + 7)))) {
+        int captured_square = ep_square + 8;
+        if (file > 0 && rank < 7 &&
+            (board->pieces[BLACK_PAWN] & (1ULL << (ep_square + 7))) &&
+            (captured_square < 64 && (board->pieces[WHITE_PAWN] & (1ULL << captured_square)))) {
             return true;
         }
-        if (file < 7 && rank < 7 && (board->pieces[BLACK_PAWN] & (1ULL << (ep_square + 9)))) {
+        if (file < 7 && rank < 7 &&
+            (board->pieces[BLACK_PAWN] & (1ULL << (ep_square + 9))) &&
+            (captured_square < 64 && (board->pieces[WHITE_PAWN] & (1ULL << captured_square)))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool board_has_valid_en_passant_target(const Board *board, int ep_square, int side) {
+    if (board == NULL || ep_square < 0 || ep_square >= 64) {
+        return false;
+    }
+
+    int file = file_of(ep_square);
+    int rank = rank_of(ep_square);
+
+    if (side == WHITE) {
+        int captured_square = ep_square - 8;
+        if (file > 0 && rank > 0 &&
+            (board->pieces[WHITE_PAWN] & (1ULL << (ep_square - 9))) &&
+            (captured_square >= 0 && (board->pieces[BLACK_PAWN] & (1ULL << captured_square)))) {
+            return true;
+        }
+        if (file < 7 && rank > 0 &&
+            (board->pieces[WHITE_PAWN] & (1ULL << (ep_square - 7))) &&
+            (captured_square >= 0 && (board->pieces[BLACK_PAWN] & (1ULL << captured_square)))) {
+            return true;
+        }
+    } else {
+        int captured_square = ep_square + 8;
+        if (file > 0 && rank < 7 &&
+            (board->pieces[BLACK_PAWN] & (1ULL << (ep_square + 7))) &&
+            (captured_square < 64 && (board->pieces[WHITE_PAWN] & (1ULL << captured_square)))) {
+            return true;
+        }
+        if (file < 7 && rank < 7 &&
+            (board->pieces[BLACK_PAWN] & (1ULL << (ep_square + 9))) &&
+            (captured_square < 64 && (board->pieces[WHITE_PAWN] & (1ULL << captured_square)))) {
             return true;
         }
     }
@@ -341,8 +388,8 @@ bool board_set_fen(Board *board, const char *fen) {
             return false;
         }
     }
-    if (board->ep_square >= 64) {
-        return false;
+    if (!board_has_valid_en_passant_target(board, board->ep_square, board->side)) {
+        board->ep_square = -1;
     }
 
     if (token_count >= 5) {
@@ -478,6 +525,10 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     if (flags & MOVE_FLAG_EN_PASSANT) {
         captured_square = side == WHITE ? to - 8 : to + 8;
         int captured_piece = piece_for_side_at_type(side ^ 1, 0);
+        if (to != board->ep_square || target_piece >= 0 || captured_square < 0 || captured_square >= 64 ||
+            board_piece_at(board, captured_square) != captured_piece) {
+            return false;
+        }
         remove_piece_at(board, captured_piece, captured_square);
     } else if (target_piece >= 0) {
         remove_piece_at(board, target_piece, to);
