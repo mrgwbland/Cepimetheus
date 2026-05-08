@@ -14,7 +14,8 @@ const int piece_values[6] = {
     0    /* King */
 };
 
-enum EvalParams {
+enum EvalParams
+{
     ENDGAME_THRESHOLD = 1500,
     TEMPO_BONUS = 20,
     CENTRE_CONTROL_BONUS = 3,
@@ -45,44 +46,56 @@ static const U64 file_masks[8] = {
 
 /* Count the number of set bits in a 64-bit bitboard. */
 /* Brian Kernighan’s Algorithm */
-static int popcount_u64(U64 bb) {
+static int popcount_u64(U64 bb)
+{
     int count = 0;
 
     /* Repeatedly remove the least-significant set bit until empty. */
-    while (bb) {
-        bb &= (bb - 1);//Don't use bitboard_pop_lsb here since we just want to count, not get the index of the lsb.
+    while (bb)
+    {
+        bb &= (bb - 1); // Don't use bitboard_pop_lsb here since we just want to count, not get the index of the lsb.
         count++;
     }
 
     return count;
 }
 
-static int rank_of(int square) {
+static int rank_of(int square)
+{
     return square >> 3;
 }
 
-static int file_of(int square) {
+static int file_of(int square)
+{
     return square & 7;
 }
 
-static int count_attackers_on_square(const Board *board, int square, int attacker_side) {
+static int count_attackers_on_square(const Board *board, int square, int attacker_side)
+{
     int attackers = 0;
 
     int file = file_of(square);
     int rank = rank_of(square);
 
-    if (attacker_side == WHITE) {
-        if (file > 0 && rank > 0 && (board->pieces[WHITE_PAWN] & (1ULL << (square - 9)))) {
+    if (attacker_side == WHITE)
+    {
+        if (file > 0 && rank > 0 && (board->pieces[WHITE_PAWN] & (1ULL << (square - 9))))
+        {
             ++attackers;
         }
-        if (file < 7 && rank > 0 && (board->pieces[WHITE_PAWN] & (1ULL << (square - 7)))) {
+        if (file < 7 && rank > 0 && (board->pieces[WHITE_PAWN] & (1ULL << (square - 7))))
+        {
             ++attackers;
         }
-    } else {
-        if (file > 0 && rank < 7 && (board->pieces[BLACK_PAWN] & (1ULL << (square + 7)))) {
+    }
+    else
+    {
+        if (file > 0 && rank < 7 && (board->pieces[BLACK_PAWN] & (1ULL << (square + 7))))
+        {
             ++attackers;
         }
-        if (file < 7 && rank < 7 && (board->pieces[BLACK_PAWN] & (1ULL << (square + 9)))) {
+        if (file < 7 && rank < 7 && (board->pieces[BLACK_PAWN] & (1ULL << (square + 9))))
+        {
             ++attackers;
         }
     }
@@ -106,9 +119,11 @@ static int count_attackers_on_square(const Board *board, int square, int attacke
     return attackers;
 }
 
-static int count_king_ring_attackers(const Board *board, int king_side) {
+static int count_king_ring_attackers(const Board *board, int king_side)
+{
     int king_square = board->king_square[king_side];
-    if (king_square < 0 || king_square >= 64) {
+    if (king_square < 0 || king_square >= 64)
+    {
         return 0;
     }
 
@@ -117,7 +132,8 @@ static int count_king_ring_attackers(const Board *board, int king_side) {
     int attackers = 0;
 
     U64 bb = ring;
-    while (bb) {
+    while (bb)
+    {
         int square = bitboard_pop_lsb(&bb);
         attackers += count_attackers_on_square(board, square, attacker_side);
     }
@@ -125,19 +141,24 @@ static int count_king_ring_attackers(const Board *board, int king_side) {
     return attackers;
 }
 
-static void count_pawns_per_file(U64 pawns, int pawns_per_file[8]) {
-    for (int i = 0; i < 8; ++i) {
+static void count_pawns_per_file(U64 pawns, int pawns_per_file[8])
+{
+    for (int i = 0; i < 8; ++i)
+    {
         pawns_per_file[i] = 0;
     }
 
-    for (int f = 0; f < 8; ++f) {
+    for (int f = 0; f < 8; ++f)
+    {
         pawns_per_file[f] = popcount_u64(pawns & file_masks[f]);
     }
 }
 
 /* Get mask for all ranks ahead of given rank (for white pawns: rank+1 to 7) */
-static U64 get_ranks_ahead_white(int rank) {
-    if (rank >= 7) {
+static U64 get_ranks_ahead_white(int rank)
+{
+    if (rank >= 7)
+    {
         return 0;
     }
 
@@ -145,16 +166,20 @@ static U64 get_ranks_ahead_white(int rank) {
 }
 
 /* Get mask for all ranks ahead of given rank (for black pawns: 0 to rank-1) */
-static U64 get_ranks_ahead_black(int rank) {
-    if (rank <= 0) {
+static U64 get_ranks_ahead_black(int rank)
+{
+    if (rank <= 0)
+    {
         return 0;
     }
 
     return (1ULL << (rank * 8)) - 1;
 }
 
-static void mark_passed_pawns(const Board *board, int side, bool passed_pawns[64]) {
-    for (int i = 0; i < 64; ++i) {
+static void mark_passed_pawns(const Board *board, int side, bool passed_pawns[64])
+{
+    for (int i = 0; i < 64; ++i)
+    {
         passed_pawns[i] = false;
     }
 
@@ -162,18 +187,21 @@ static void mark_passed_pawns(const Board *board, int side, bool passed_pawns[64
     U64 enemy_pawns = board->pieces[side == WHITE ? BLACK_PAWN : WHITE_PAWN];
 
     U64 bb = own_pawns;
-    while (bb) {
+    while (bb)
+    {
         int square = bitboard_pop_lsb(&bb);
         int file = file_of(square);
         int rank = rank_of(square);
 
         /* Create mask for current file and adjacent files. */
         U64 check_files = 0;
-        if (file > 0) {
+        if (file > 0)
+        {
             check_files |= file_masks[file - 1];
         }
         check_files |= file_masks[file];
-        if (file < 7) {
+        if (file < 7)
+        {
             check_files |= file_masks[file + 1];
         }
 
@@ -181,7 +209,8 @@ static void mark_passed_pawns(const Board *board, int side, bool passed_pawns[64
         U64 ranks_ahead = (side == WHITE) ? get_ranks_ahead_white(rank) : get_ranks_ahead_black(rank);
 
         /* Check if any enemy pawns exist in the check region. */
-        if ((enemy_pawns & check_files & ranks_ahead) == 0) {
+        if ((enemy_pawns & check_files & ranks_ahead) == 0)
+        {
             passed_pawns[square] = true;
         }
     }
@@ -193,20 +222,26 @@ static float evaluate_piece(const Board *board,
                             bool endgame,
                             const bool passed_pawns[64],
                             const int white_pawns_per_file[8],
-                            const int black_pawns_per_file[8]) {
+                            const int black_pawns_per_file[8])
+{
     int side = board_piece_color(piece);
     int type = board_piece_type(piece);
     int file = file_of(square);
     int rank = rank_of(square);
     bool is_white = (side == WHITE);
     int piece_value = piece_values[type];
-    
-    if (type == WHITE_PAWN) {
+
+    switch (type)
+    {
+    case WHITE_PAWN:
+    {
         int pawn_rank = is_white ? rank : (7 - rank);
-        if (endgame) {
+        if (endgame)
+        {
             /* Reward advanced pawns in the endgame. */
             piece_value += ENDGAME_PAWN_ADVANCEMENT_BONUS * (float)pawn_rank;
-            if (passed_pawns[square]) {
+            if (passed_pawns[square])
+            {
                 /* Passed pawns are further rewarded for advancement. */
                 piece_value += PASSED_PAWN_BONUS * (float)pawn_rank;
             }
@@ -215,125 +250,149 @@ static float evaluate_piece(const Board *board,
         const int *pawns_per_file = is_white ? white_pawns_per_file : black_pawns_per_file;
         int this_file_count = pawns_per_file[file];
 
-        if (this_file_count > 1) {
+        if (this_file_count > 1)
+        {
             /* Doubled pawn penalty: - points for each same-color pawn on the file. */
             piece_value -= DOUBLED_PAWN_PENALTY * (float)(this_file_count - 1);
         }
 
         bool has_left = (file > 0) && (pawns_per_file[file - 1] > 0);
         bool has_right = (file < 7) && (pawns_per_file[file + 1] > 0);
-        if (!has_left && !has_right) {
+        if (!has_left && !has_right)
+        {
             /* Isolated pawn penalty: - points if no same-color pawns on adjacent files. */
             piece_value -= ISOLATED_PAWN_PENALTY;
         }
-
-        return piece_value;
+        break;
     }
-
-    if (type == WHITE_KNIGHT) {
+    case WHITE_KNIGHT:
         /* Knights on the rim are grim. */
-        return piece_value + KNIGHT_MOBILITY_BONUS * (float)popcount_u64(bitboard_knight_attacks(square));
-    }
-
-    if (type == WHITE_BISHOP) {
-        /* Reward bishops with mobility through pawn occupancy only. 
+        piece_value += KNIGHT_MOBILITY_BONUS * (float)popcount_u64(bitboard_knight_attacks(square));
+        break;
+    case WHITE_BISHOP:
+    {
+        /* Reward bishops with mobility through pawn occupancy only.
         This is because a bishop on g2 with a knight on f3 is still good whereas if there was a pawn on f3 it would be blocked*/
         U64 pawn_occupancy = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
-        return piece_value + BISHOP_MOBILITY_BONUS * (float)popcount_u64(bitboard_bishop_attacks(square, pawn_occupancy));
+        piece_value += BISHOP_MOBILITY_BONUS * (float)popcount_u64(bitboard_bishop_attacks(square, pawn_occupancy));
+        break;
     }
-
-    if (type == WHITE_ROOK) {
-        if (!endgame) {
+    case WHITE_ROOK:
+        if (!endgame)
+        {
             /* Reward squares controlled. */
             piece_value += ROOK_CONTROL_BONUS * (float)popcount_u64(bitboard_rook_attacks(square, board->occupancy[BOTH]));
 
             U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
             U64 file_mask = file_masks[file];
             /* Open file bonus: + points if no pawns on the file. */
-            if (popcount_u64(all_pawns & file_mask) == 0) {
+            if (popcount_u64(all_pawns & file_mask) == 0)
+            {
                 piece_value += ROOK_OPEN_FILE_BONUS;
             }
-        } else {
+        }
+        else
+        {
             /* Rooks are better in the endgame. */
             piece_value += ENDGAME_ROOK_BONUS;
         }
+        break;
+    case WHITE_QUEEN:
+        piece_value += QUEEN_MOBILITY_BONUS * (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+        break;
+    case WHITE_KING:
+    {
+        /* If nothing prior, it is a king. */
+        if (!endgame)
+        {
+            /* In opening/middlegame, king safety is important. */
+            piece_value -= (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+        }
 
-        return piece_value;
-    }
+        /* Calculate Manhattan distance to closest corner. */
+        int distance_a1 = file + rank;
+        int distance_h1 = (7 - file) + rank;
+        int distance_a8 = file + (7 - rank);
+        int distance_h8 = (7 - file) + (7 - rank);
+        int corner_distance = distance_a1;
+        if (distance_h1 < corner_distance)
+        {
+            corner_distance = distance_h1;
+        }
+        if (distance_a8 < corner_distance)
+        {
+            corner_distance = distance_a8;
+        }
+        if (distance_h8 < corner_distance)
+        {
+            corner_distance = distance_h8;
+        }
 
-    if (type == WHITE_QUEEN) {
-        return piece_value + QUEEN_MOBILITY_BONUS * (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+        /* In endgames favor activity; in middlegames favor safety. */
+        if (endgame)
+        {
+            piece_value += (float)(corner_distance * KING_CORNER_DISTANCE_BONUS);
+        }
+        else
+        {
+            piece_value -= (float)(corner_distance * KING_CORNER_DISTANCE_BONUS);
+        }
+        break;
     }
-
-    /* If nothing prior, it is a king. */
-    if (!endgame) {
-        /* In opening/middlegame, king safety is important. */
-        piece_value -= (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
-    }
-
-    /* Calculate Manhattan distance to closest corner. */
-    int distance_a1 = file + rank;
-    int distance_h1 = (7 - file) + rank;
-    int distance_a8 = file + (7 - rank);
-    int distance_h8 = (7 - file) + (7 - rank);
-    int corner_distance = distance_a1;
-    if (distance_h1 < corner_distance) {
-        corner_distance = distance_h1;
-    }
-    if (distance_a8 < corner_distance) {
-        corner_distance = distance_a8;
-    }
-    if (distance_h8 < corner_distance) {
-        corner_distance = distance_h8;
-    }
-
-    /* In endgames favor activity; in middlegames favor safety. */
-    if (endgame) {
-        piece_value += (float)(corner_distance * KING_CORNER_DISTANCE_BONUS);
-    } else {        
-        piece_value -= (float)(corner_distance * KING_CORNER_DISTANCE_BONUS);
+    default:
+        break;
     }
     return piece_value;
 }
 
-bool eval_is_endgame_position(const Board *board) {
-    if (board == NULL) {
+bool eval_is_endgame_position(const Board *board)
+{
+    if (board == NULL)
+    {
         return false;
     }
 
     int total_piece_value = 0;
-    for (int i = 0; i < WHITE_KING; i++) {
+    for (int i = 0; i < WHITE_KING; i++)
+    {
         total_piece_value += popcount_u64(board->pieces[i]) * piece_values[i];
     }
 
     return total_piece_value <= ENDGAME_THRESHOLD;
 }
 
-EvalTerminalState eval_terminal_state(const Board *board, int legal_move_count) {
-    if (board == NULL || legal_move_count > 0) {
+EvalTerminalState eval_terminal_state(const Board *board, int legal_move_count)
+{
+    if (board == NULL || legal_move_count > 0)
+    {
         return EVAL_TERMINAL_NONE;
     }
 
     return board_is_in_check(board, board->side) ? EVAL_TERMINAL_CHECKMATE : EVAL_TERMINAL_STALEMATE;
 }
 
-float eval_terminal_score(EvalTerminalState terminal_state, int ply) {
-    switch (terminal_state) {
-        case EVAL_TERMINAL_CHECKMATE:
-            return -MATE_SCORE + (float)ply;
-        case EVAL_TERMINAL_STALEMATE:
-        case EVAL_TERMINAL_NONE:
-        default:
-            return 0.0f;
+float eval_terminal_score(EvalTerminalState terminal_state, int ply)
+{
+    switch (terminal_state)
+    {
+    case EVAL_TERMINAL_CHECKMATE:
+        return -MATE_SCORE + (float)ply;
+    case EVAL_TERMINAL_STALEMATE:
+    case EVAL_TERMINAL_NONE:
+    default:
+        return 0.0f;
     }
 }
 
-float evaluate_position(Board *board, const RepetitionHistory *history, int ply) {
-    if (board == NULL) {
+float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
+{
+    if (board == NULL)
+    {
         return 0.0f;
     }
 
-    if (board_is_draw(board, history)) {
+    if (board_is_draw(board, history))
+    {
         return 0.0f;
     }
 
@@ -341,7 +400,8 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
     movegen_generate_legal(board, &list);
 
     EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
-    if (terminal_state != EVAL_TERMINAL_NONE) {
+    if (terminal_state != EVAL_TERMINAL_NONE)
+    {
         return eval_terminal_score(terminal_state, ply);
     }
 
@@ -364,9 +424,11 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
     float white_score = 0.0f;
     float black_score = 0.0f;
 
-    for (int piece = 0; piece < PIECE_NB; ++piece) {
+    for (int piece = 0; piece < PIECE_NB; ++piece)
+    {
         U64 bb = board->pieces[piece];
-        while (bb) {
+        while (bb)
+        {
             int square = bitboard_pop_lsb(&bb);
             int side = board_piece_color(piece);
             const bool *passed = (side == WHITE) ? white_passed_pawns : black_passed_pawns;
@@ -378,32 +440,37 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
                                          white_pawns_per_file,
                                          black_pawns_per_file);
 
-            if (side == WHITE) {
+            if (side == WHITE)
+            {
                 white_score += value;
-            } else {
+            }
+            else
+            {
                 black_score += value;
             }
         }
     }
     float tempo_bonus = 0.0f;
-    if(!endgame) {
-        
+    if (!endgame)
+    {
+
         /* Unless the position is zugzwang, having a move is often better. */
         tempo_bonus = TEMPO_BONUS;
         /* Centre control. not a big deal in endgames */
         static const int center_squares[4] = {27, 28, 35, 36}; /* d4, e4, d5, e5 */
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 4; ++i)
+        {
             int square = center_squares[i];
             white_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, WHITE);
             black_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, BLACK);
         }
-    }    
+    }
 
     white_score -= KING_RING_PENALTY * (float)count_king_ring_attackers(board, WHITE);
     black_score -= KING_RING_PENALTY * (float)count_king_ring_attackers(board, BLACK);
 
-
-    if (side_to_move == WHITE) {
+    if (side_to_move == WHITE)
+    {
         return white_score - black_score + tempo_bonus;
     }
 
