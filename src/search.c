@@ -408,7 +408,7 @@ static int finalize_move_order(const RankedMove *ranked_moves, int move_count, M
     return final_count;
 }
 
-/* Quiescence search: only explores captures and checks. */
+/* Quiescence search: only explores captures, checks and single legal move positions. */
 static float quiescence(Board *board,
                         float alpha,
                         float beta,
@@ -424,7 +424,9 @@ static float quiescence(Board *board,
     const float beta_orig = beta;
 
     if (search_should_stop(control)) {
-        return evaluate_position(board, history, ply);
+        MoveList eval_list;
+        movegen_generate_legal(board, &eval_list);
+        return evaluate_position(board, history, ply, &eval_list);
     }
 
     ++stats->nodes;
@@ -442,7 +444,9 @@ static float quiescence(Board *board,
     }
 
     if (ply >= qsearch_max_ply) {
-        return evaluate_position(board, history, ply);
+        MoveList eval_list;
+        movegen_generate_legal(board, &eval_list);
+        return evaluate_position(board, history, ply, &eval_list);
     }
 
     bool in_check = board_is_in_check(board, board->side);
@@ -457,7 +461,7 @@ static float quiescence(Board *board,
 
     if (!in_check) {
         /* Stand-pat is only valid when side to move can choose to pass tactical action. */
-        float stand_pat = evaluate_position(board, history, ply);
+        float stand_pat = evaluate_position(board, history, ply, &list);
 
         if (stand_pat >= beta) {
             return beta;
@@ -585,7 +589,9 @@ static SearchResult negamax(Board *board,
     const float beta_orig = beta;
 
     if (search_should_stop(control)) {
-        result.score = evaluate_position(board, history, ply);
+        MoveList eval_list;
+        movegen_generate_legal(board, &eval_list);
+        result.score = evaluate_position(board, history, ply, &eval_list);
         return result;
     }
 

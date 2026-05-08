@@ -44,22 +44,6 @@ static const U64 file_masks[8] = {
     0x8080808080808080ULL  /* H-file */
 };
 
-/* Count the number of set bits in a 64-bit bitboard. */
-/* Brian Kernighan’s Algorithm */
-static int popcount_u64(U64 bb)
-{
-    int count = 0;
-
-    /* Repeatedly remove the least-significant set bit until empty. */
-    while (bb)
-    {
-        bb &= (bb - 1); // Don't use bitboard_pop_lsb here since we just want to count, not get the index of the lsb.
-        count++;
-    }
-
-    return count;
-}
-
 static int rank_of(int square)
 {
     return square >> 3;
@@ -101,20 +85,20 @@ static int count_attackers_on_square(const Board *board, int square, int attacke
     }
 
     U64 knights = (attacker_side == WHITE) ? board->pieces[WHITE_KNIGHT] : board->pieces[BLACK_KNIGHT];
-    attackers += popcount_u64(bitboard_knight_attacks(square) & knights);
+    attackers += __builtin_popcountll(bitboard_knight_attacks(square) & knights);
 
     U64 kings = (attacker_side == WHITE) ? board->pieces[WHITE_KING] : board->pieces[BLACK_KING];
-    attackers += popcount_u64(bitboard_king_attacks(square) & kings);
+    attackers += __builtin_popcountll(bitboard_king_attacks(square) & kings);
 
     U64 bishops_and_queens = (attacker_side == WHITE)
                                  ? (board->pieces[WHITE_BISHOP] | board->pieces[WHITE_QUEEN])
                                  : (board->pieces[BLACK_BISHOP] | board->pieces[BLACK_QUEEN]);
-    attackers += popcount_u64(bitboard_bishop_attacks(square, board->occupancy[BOTH]) & bishops_and_queens);
+    attackers += __builtin_popcountll(bitboard_bishop_attacks(square, board->occupancy[BOTH]) & bishops_and_queens);
 
     U64 rooks_and_queens = (attacker_side == WHITE)
                                ? (board->pieces[WHITE_ROOK] | board->pieces[WHITE_QUEEN])
                                : (board->pieces[BLACK_ROOK] | board->pieces[BLACK_QUEEN]);
-    attackers += popcount_u64(bitboard_rook_attacks(square, board->occupancy[BOTH]) & rooks_and_queens);
+    attackers += __builtin_popcountll(bitboard_rook_attacks(square, board->occupancy[BOTH]) & rooks_and_queens);
 
     return attackers;
 }
@@ -150,7 +134,7 @@ static void count_pawns_per_file(U64 pawns, int pawns_per_file[8])
 
     for (int f = 0; f < 8; ++f)
     {
-        pawns_per_file[f] = popcount_u64(pawns & file_masks[f]);
+        pawns_per_file[f] = __builtin_popcountll(pawns & file_masks[f]);
     }
 }
 
@@ -267,26 +251,26 @@ static float evaluate_piece(const Board *board,
     }
     case WHITE_KNIGHT:
         /* Knights on the rim are grim. */
-        piece_value += KNIGHT_MOBILITY_BONUS * (float)popcount_u64(bitboard_knight_attacks(square));
+        piece_value += KNIGHT_MOBILITY_BONUS * (float)__builtin_popcountll(bitboard_knight_attacks(square));
         break;
     case WHITE_BISHOP:
     {
         /* Reward bishops with mobility through pawn occupancy only.
         This is because a bishop on g2 with a knight on f3 is still good whereas if there was a pawn on f3 it would be blocked*/
         U64 pawn_occupancy = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
-        piece_value += BISHOP_MOBILITY_BONUS * (float)popcount_u64(bitboard_bishop_attacks(square, pawn_occupancy));
+        piece_value += BISHOP_MOBILITY_BONUS * (float)__builtin_popcountll(bitboard_bishop_attacks(square, pawn_occupancy));
         break;
     }
     case WHITE_ROOK:
         if (!endgame)
         {
             /* Reward squares controlled. */
-            piece_value += ROOK_CONTROL_BONUS * (float)popcount_u64(bitboard_rook_attacks(square, board->occupancy[BOTH]));
+            piece_value += ROOK_CONTROL_BONUS * (float)__builtin_popcountll(bitboard_rook_attacks(square, board->occupancy[BOTH]));
 
             U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
             U64 file_mask = file_masks[file];
             /* Open file bonus: + points if no pawns on the file. */
-            if (popcount_u64(all_pawns & file_mask) == 0)
+            if (__builtin_popcountll(all_pawns & file_mask) == 0)
             {
                 piece_value += ROOK_OPEN_FILE_BONUS;
             }
@@ -298,7 +282,7 @@ static float evaluate_piece(const Board *board,
         }
         break;
     case WHITE_QUEEN:
-        piece_value += QUEEN_MOBILITY_BONUS * (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+        piece_value += QUEEN_MOBILITY_BONUS * (float)__builtin_popcountll(bitboard_queen_attacks(square, board->occupancy[BOTH]));
         break;
     case WHITE_KING:
     {
@@ -306,7 +290,7 @@ static float evaluate_piece(const Board *board,
         if (!endgame)
         {
             /* In opening/middlegame, king safety is important. */
-            piece_value -= (float)popcount_u64(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+            piece_value -= (float)__builtin_popcountll(bitboard_queen_attacks(square, board->occupancy[BOTH]));
         }
 
         /* Calculate Manhattan distance to closest corner. */
@@ -355,7 +339,7 @@ bool eval_is_endgame_position(const Board *board)
     int total_piece_value = 0;
     for (int i = 0; i < WHITE_KING; i++)
     {
-        total_piece_value += popcount_u64(board->pieces[i]) * piece_values[i];
+        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[i];
     }
 
     return total_piece_value <= ENDGAME_THRESHOLD;
@@ -384,9 +368,9 @@ float eval_terminal_score(EvalTerminalState terminal_state, int ply)
     }
 }
 
-float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
+float evaluate_position(Board *board, const RepetitionHistory *history, int ply, const MoveList *list)
 {
-    if (board == NULL)
+    if (board == NULL || list == NULL)
     {
         return 0.0f;
     }
@@ -396,10 +380,7 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply)
         return 0.0f;
     }
 
-    MoveList list;
-    movegen_generate_legal(board, &list);
-
-    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
+    EvalTerminalState terminal_state = eval_terminal_state(board, list->count);
     if (terminal_state != EVAL_TERMINAL_NONE)
     {
         return eval_terminal_score(terminal_state, ply);
