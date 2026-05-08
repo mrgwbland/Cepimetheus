@@ -123,7 +123,7 @@ static int estimate_move_score(Board *board, Move move) {
     return score;
 }
 
-/* Compare function for qsort - sort in descending order of score. */
+/* Compare function for sort - sort in descending order of score. */
 static int compare_scored_moves(const void *a, const void *b) {
     const ScoredMove *move_a = (const ScoredMove *)a;
     const ScoredMove *move_b = (const ScoredMove *)b;
@@ -143,6 +143,30 @@ static int compare_ranked_moves(const void *a, const void *b) {
     }
 
     return 0;
+}
+
+static void insertion_sort_scored_moves(ScoredMove *moves, int count) {
+    for (int i = 1; i < count; ++i) {
+        ScoredMove key = moves[i];
+        int j = i - 1;
+        while (j >= 0 && compare_scored_moves(&moves[j], &key) > 0) {
+            moves[j + 1] = moves[j];
+            --j;
+        }
+        moves[j + 1] = key;
+    }
+}
+
+static void insertion_sort_ranked_moves(RankedMove *moves, int count) {
+    for (int i = 1; i < count; ++i) {
+        RankedMove key = moves[i];
+        int j = i - 1;
+        while (j >= 0 && compare_ranked_moves(&moves[j], &key) > 0) {
+            moves[j + 1] = moves[j];
+            --j;
+        }
+        moves[j + 1] = key;
+    }
 }
 
 static size_t transposition_table_index(const TranspositionTable *table, U64 hash) {
@@ -314,7 +338,7 @@ static int build_ordered_moves(Board *board,
             ++scored_count;
         }
 
-        qsort(scored_moves, (size_t)scored_count, sizeof(ScoredMove), compare_scored_moves);
+        insertion_sort_scored_moves(scored_moves, scored_count);
         for (int i = 0; i < scored_count; ++i) {
             ordered_moves[i] = scored_moves[i].move;
         }
@@ -346,7 +370,7 @@ static int build_ordered_moves(Board *board,
         ++fallback_count;
     }
 
-    qsort(fallback_moves, (size_t)fallback_count, sizeof(ScoredMove), compare_scored_moves);
+    insertion_sort_scored_moves(fallback_moves, fallback_count);
     for (int i = 0; i < fallback_count && ordered_count < MAX_ORDERED_MOVES; ++i) {
         ordered_moves[ordered_count++] = fallback_moves[i].move;
     }
@@ -368,7 +392,7 @@ static int finalize_move_order(const RankedMove *ranked_moves, int move_count, M
         }
     }
 
-    qsort(searched_moves, (size_t)searched_count, sizeof(RankedMove), compare_ranked_moves);
+    insertion_sort_ranked_moves(searched_moves, searched_count);
 
     int final_count = 0;
     for (int i = 0; i < searched_count && final_count < MAX_ORDERED_MOVES; ++i) {
@@ -485,7 +509,7 @@ static float quiescence(Board *board,
             ++scored_count;
         }
 
-        qsort(scored_moves, (size_t)scored_count, sizeof(ScoredMove), compare_scored_moves);
+        insertion_sort_scored_moves(scored_moves, scored_count);
         for (int i = 0; i < scored_count; ++i) {
             ordered_moves[i] = scored_moves[i].move;
         }
