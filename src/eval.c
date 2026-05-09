@@ -30,6 +30,7 @@ enum EvalParams
     ROOK_OPEN_FILE_BONUS = 50,
     ENDGAME_ROOK_BONUS = 100,
     QUEEN_MOBILITY_BONUS = 1,
+    KING_EXPOSURE_PENALTY = 3,
     KING_CORNER_DISTANCE_BONUS = 3
 };
 /* File masks - one per file (A-H) */
@@ -54,7 +55,7 @@ static int file_of(int square)
     return square & 7;
 }
 
-static int count_attackers_on_square(const Board *board, int square, int attacker_side)
+static int count_attackers_on_square(const Board *board, int square, int attacker_side, U64 all_pieces)
 {
     int attackers = 0;
 
@@ -93,17 +94,17 @@ static int count_attackers_on_square(const Board *board, int square, int attacke
     U64 bishops_and_queens = (attacker_side == WHITE)
                                  ? (board->pieces[WHITE_BISHOP] | board->pieces[WHITE_QUEEN])
                                  : (board->pieces[BLACK_BISHOP] | board->pieces[BLACK_QUEEN]);
-    attackers += __builtin_popcountll(bitboard_bishop_attacks(square, board->occupancy[BOTH]) & bishops_and_queens);
+    attackers += __builtin_popcountll(bitboard_bishop_attacks(square, all_pieces) & bishops_and_queens);
 
     U64 rooks_and_queens = (attacker_side == WHITE)
                                ? (board->pieces[WHITE_ROOK] | board->pieces[WHITE_QUEEN])
                                : (board->pieces[BLACK_ROOK] | board->pieces[BLACK_QUEEN]);
-    attackers += __builtin_popcountll(bitboard_rook_attacks(square, board->occupancy[BOTH]) & rooks_and_queens);
+    attackers += __builtin_popcountll(bitboard_rook_attacks(square, all_pieces) & rooks_and_queens);
 
     return attackers;
 }
 
-static int count_king_ring_attackers(const Board *board, int king_side)
+static int count_king_ring_attackers(const Board *board, int king_side, U64 all_pieces)
 {
     int king_square = board->king_square[king_side];
     if (king_square < 0 || king_square >= 64)
@@ -119,7 +120,7 @@ static int count_king_ring_attackers(const Board *board, int king_side)
     while (bb)
     {
         int square = bitboard_pop_lsb(&bb);
-        attackers += count_attackers_on_square(board, square, attacker_side);
+        attackers += count_attackers_on_square(board, square, attacker_side, all_pieces);
     }
 
     return attackers;
@@ -206,7 +207,8 @@ static float evaluate_piece(const Board *board,
                             bool endgame,
                             const bool passed_pawns[64],
                             const int white_pawns_per_file[8],
-                            const int black_pawns_per_file[8])
+                            const int black_pawns_per_file[8],
+                            U64 all_pieces)
 {
     int side = board_piece_color(piece);
     int type = board_piece_type(piece);
@@ -265,7 +267,7 @@ static float evaluate_piece(const Board *board,
         if (!endgame)
         {
             /* Reward squares controlled. */
-            piece_value += ROOK_CONTROL_BONUS * (float)__builtin_popcountll(bitboard_rook_attacks(square, board->occupancy[BOTH]));
+            piece_value += ROOK_CONTROL_BONUS * (float)__builtin_popcountll(bitboard_rook_attacks(square, all_pieces));
 
             U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
             U64 file_mask = file_masks[file];
@@ -282,7 +284,7 @@ static float evaluate_piece(const Board *board,
         }
         break;
     case WHITE_QUEEN:
-        piece_value += QUEEN_MOBILITY_BONUS * (float)__builtin_popcountll(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+        piece_value += QUEEN_MOBILITY_BONUS * (float)__builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
         break;
     case WHITE_KING:
     {
@@ -290,7 +292,7 @@ static float evaluate_piece(const Board *board,
         if (!endgame)
         {
             /* In opening/middlegame, king safety is important. */
-            piece_value -= (float)__builtin_popcountll(bitboard_queen_attacks(square, board->occupancy[BOTH]));
+            piece_value -= KING_EXPOSURE_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
         }
 
         /* Calculate Manhattan distance to closest corner. */
@@ -402,6 +404,8 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply,
     mark_passed_pawns(board, WHITE, white_passed_pawns);
     mark_passed_pawns(board, BLACK, black_passed_pawns);
 
+    U64 all_pieces = board->occupancy[BOTH];
+
     float white_score = 0.0f;
     float black_score = 0.0f;
 
@@ -419,7 +423,8 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply,
                                          endgame,
                                          passed,
                                          white_pawns_per_file,
-                                         black_pawns_per_file);
+                                         black_pawns_per_file,
+                                         all_pieces);
 
             if (side == WHITE)
             {
@@ -442,13 +447,13 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply,
         for (int i = 0; i < 4; ++i)
         {
             int square = center_squares[i];
-            white_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, WHITE);
-            black_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, BLACK);
+            white_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, WHITE, all_pieces);
+            black_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, BLACK, all_pieces);
         }
     }
 
-    white_score -= KING_RING_PENALTY * (float)count_king_ring_attackers(board, WHITE);
-    black_score -= KING_RING_PENALTY * (float)count_king_ring_attackers(board, BLACK);
+    white_score -= KING_RING_PENALTY * (float)count_king_ring_attackers(board, WHITE, all_pieces);
+    black_score -= KING_RING_PENALTY * (float)count_king_ring_attackers(board, BLACK, all_pieces);
 
     if (side_to_move == WHITE)
     {
