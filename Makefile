@@ -1,6 +1,6 @@
 CC ?= gcc
 THREAD_FLAGS ?= -pthread
-CFLAGS ?= -std=c99 -Ofast -march=x86-64-v3 -flto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS)
+CFLAGS ?= -std=c99 -Ofast -march=x86-64-v3 -flto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -g -fno-omit-frame-pointer #(last two for profiling)
 WIN_CC ?= x86_64-w64-mingw32-gcc
 WIN32_CC ?= i686-w64-mingw32-gcc
 

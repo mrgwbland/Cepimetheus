@@ -1,5 +1,6 @@
 *.exe
 *.o
 Cepimetheus
-.data
 /.vscode
+*.data*
+report.txt

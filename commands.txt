@@ -1,0 +1,4 @@
+isready
+position startpos
+go movetime 10000
+quit
