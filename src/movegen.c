@@ -3,15 +3,11 @@
 #include <stdbool.h>
 #include <string.h>
 
-static void add_legal_move(Board *board, MoveList *list, Move move) {
+static void add_pseudo_legal_move(MoveList *list, Move move) {
     if (list->count >= (int)(sizeof(list->moves) / sizeof(list->moves[0]))) {
         return;
     }
-    Undo undo;
-    if (board_make_move(board, move, &undo)) {
-        list->moves[list->count++] = move;
-        board_unmake_move(board, &undo);
-    }
+    list->moves[list->count++] = move;
 }
 
 static int move_capture_flag(const Board *board, int target) {
@@ -31,16 +27,16 @@ static void generate_pawn_moves(Board *board, MoveList *list, int side) {
         int one = from + step;
         if (one >= 0 && one < 64 && !(board->occupancy[BOTH] & bitboard_square(one))) {
             if (rank == promo_rank) {
-                add_legal_move(board, list, move_make(from, one, MOVE_PROMO_KNIGHT, 0));
-                add_legal_move(board, list, move_make(from, one, MOVE_PROMO_BISHOP, 0));
-                add_legal_move(board, list, move_make(from, one, MOVE_PROMO_ROOK, 0));
-                add_legal_move(board, list, move_make(from, one, MOVE_PROMO_QUEEN, 0));
+                add_pseudo_legal_move(list, move_make(from, one, MOVE_PROMO_KNIGHT, 0));
+                add_pseudo_legal_move(list, move_make(from, one, MOVE_PROMO_BISHOP, 0));
+                add_pseudo_legal_move(list, move_make(from, one, MOVE_PROMO_ROOK, 0));
+                add_pseudo_legal_move(list, move_make(from, one, MOVE_PROMO_QUEEN, 0));
             } else {
-                add_legal_move(board, list, move_make(from, one, MOVE_PROMO_NONE, 0));
+                add_pseudo_legal_move(list, move_make(from, one, MOVE_PROMO_NONE, 0));
                 if (rank == start_rank) {
                     int two = from + step * 2;
                     if (two >= 0 && two < 64 && !(board->occupancy[BOTH] & bitboard_square(two))) {
-                        add_legal_move(board, list, move_make(from, two, MOVE_PROMO_NONE, MOVE_FLAG_DOUBLE_PAWN));
+                        add_pseudo_legal_move(list, move_make(from, two, MOVE_PROMO_NONE, MOVE_FLAG_DOUBLE_PAWN));
                     }
                 }
             }
@@ -64,12 +60,12 @@ static void generate_pawn_moves(Board *board, MoveList *list, int side) {
                 continue;
             }
             if (rank == promo_rank) {
-                add_legal_move(board, list, move_make(from, target, MOVE_PROMO_KNIGHT, flags));
-                add_legal_move(board, list, move_make(from, target, MOVE_PROMO_BISHOP, flags));
-                add_legal_move(board, list, move_make(from, target, MOVE_PROMO_ROOK, flags));
-                add_legal_move(board, list, move_make(from, target, MOVE_PROMO_QUEEN, flags));
+                add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_KNIGHT, flags));
+                add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_BISHOP, flags));
+                add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_ROOK, flags));
+                add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_QUEEN, flags));
             } else {
-                add_legal_move(board, list, move_make(from, target, MOVE_PROMO_NONE, flags | MOVE_FLAG_CAPTURE));
+                add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_NONE, flags | MOVE_FLAG_CAPTURE));
             }
         }
     }
@@ -84,7 +80,7 @@ static void generate_knight_moves(Board *board, MoveList *list, int side) {
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
             int flags = board_piece_at(board, target) >= 0 ? MOVE_FLAG_CAPTURE : 0;
-            add_legal_move(board, list, move_make(from, target, MOVE_PROMO_NONE, flags));
+            add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_NONE, flags));
         }
     }
 }
@@ -98,7 +94,7 @@ static void generate_bishop_moves(Board *board, MoveList *list, int side) {
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
             int flags = board_piece_at(board, target) >= 0 ? MOVE_FLAG_CAPTURE : 0;
-            add_legal_move(board, list, move_make(from, target, MOVE_PROMO_NONE, flags));
+            add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_NONE, flags));
         }
     }
 }
@@ -112,7 +108,7 @@ static void generate_rook_moves(Board *board, MoveList *list, int side) {
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
             int flags = board_piece_at(board, target) >= 0 ? MOVE_FLAG_CAPTURE : 0;
-            add_legal_move(board, list, move_make(from, target, MOVE_PROMO_NONE, flags));
+            add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_NONE, flags));
         }
     }
 }
@@ -126,7 +122,7 @@ static void generate_queen_moves(Board *board, MoveList *list, int side) {
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
             int flags = board_piece_at(board, target) >= 0 ? MOVE_FLAG_CAPTURE : 0;
-            add_legal_move(board, list, move_make(from, target, MOVE_PROMO_NONE, flags));
+            add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_NONE, flags));
         }
     }
 }
@@ -143,7 +139,7 @@ static void generate_king_moves(Board *board, MoveList *list, int side) {
     while (targets) {
         int target = bitboard_pop_lsb(&targets);
         int flags = board_piece_at(board, target) >= 0 ? MOVE_FLAG_CAPTURE : 0;
-        add_legal_move(board, list, move_make(from, target, MOVE_PROMO_NONE, flags));
+        add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_NONE, flags));
     }
 
     int enemy = side ^ 1;
@@ -153,14 +149,14 @@ static void generate_king_moves(Board *board, MoveList *list, int side) {
             board_piece_at(board, 7) == WHITE_ROOK &&
             !board_is_square_attacked(board, 5, enemy) &&
             !board_is_square_attacked(board, 6, enemy)) {
-            add_legal_move(board, list, move_make(4, 6, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
+            add_pseudo_legal_move(list, move_make(4, 6, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
         }
         if ((board->castling_rights & CASTLE_WHITE_QUEEN) != 0 &&
             board_piece_at(board, 1) < 0 && board_piece_at(board, 2) < 0 && board_piece_at(board, 3) < 0 &&
             board_piece_at(board, 0) == WHITE_ROOK &&
             !board_is_square_attacked(board, 3, enemy) &&
             !board_is_square_attacked(board, 2, enemy)) {
-            add_legal_move(board, list, move_make(4, 2, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
+            add_pseudo_legal_move(list, move_make(4, 2, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
         }
     } else if (side == BLACK && from == 60 && !board_is_in_check(board, BLACK)) {
         if ((board->castling_rights & CASTLE_BLACK_KING) != 0 &&
@@ -168,19 +164,19 @@ static void generate_king_moves(Board *board, MoveList *list, int side) {
             board_piece_at(board, 63) == BLACK_ROOK &&
             !board_is_square_attacked(board, 61, enemy) &&
             !board_is_square_attacked(board, 62, enemy)) {
-            add_legal_move(board, list, move_make(60, 62, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
+            add_pseudo_legal_move(list, move_make(60, 62, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
         }
         if ((board->castling_rights & CASTLE_BLACK_QUEEN) != 0 &&
             board_piece_at(board, 57) < 0 && board_piece_at(board, 58) < 0 && board_piece_at(board, 59) < 0 &&
             board_piece_at(board, 56) == BLACK_ROOK &&
             !board_is_square_attacked(board, 59, enemy) &&
             !board_is_square_attacked(board, 58, enemy)) {
-            add_legal_move(board, list, move_make(60, 58, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
+            add_pseudo_legal_move(list, move_make(60, 58, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
         }
     }
 }
 
-void movegen_generate_legal(Board *board, MoveList *list) {
+void movegen_generate_pseudo_legal(Board *board, MoveList *list) {
     list->count = 0;
     if (board == NULL) {
         return;
@@ -201,7 +197,7 @@ bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move)
     }
 
     MoveList list;
-    movegen_generate_legal(board, &list);
+    movegen_generate_pseudo_legal(board, &list);
     char buffer[6];
     for (int i = 0; i < list.count; ++i) {
         move_to_string(list.moves[i], buffer);

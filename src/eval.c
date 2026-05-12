@@ -347,9 +347,9 @@ bool eval_is_endgame_position(const Board *board)
     return total_piece_value <= ENDGAME_THRESHOLD;
 }
 
-EvalTerminalState eval_terminal_state(const Board *board, int legal_move_count)
+EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move)
 {
-    if (board == NULL || legal_move_count > 0)
+    if (board == NULL || has_legal_move == true)
     {
         return EVAL_TERMINAL_NONE;
     }

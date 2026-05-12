@@ -425,7 +425,7 @@ static float quiescence(Board *board,
 
     if (search_should_stop(control)) {
         MoveList eval_list;
-        movegen_generate_legal(board, &eval_list);
+        movegen_generate_pseudo_legal(board, &eval_list);
         return evaluate_position(board, history, ply, &eval_list);
     }
 
@@ -445,14 +445,14 @@ static float quiescence(Board *board,
 
     if (ply >= qsearch_max_ply) {
         MoveList eval_list;
-        movegen_generate_legal(board, &eval_list);
+        movegen_generate_pseudo_legal(board, &eval_list);
         return evaluate_position(board, history, ply, &eval_list);
     }
 
     bool in_check = board_is_in_check(board, board->side);
 
     MoveList list;
-    movegen_generate_legal(board, &list);
+    movegen_generate_pseudo_legal(board, &list);
 
     EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
     if (terminal_state != EVAL_TERMINAL_NONE) {
@@ -590,7 +590,7 @@ static SearchResult negamax(Board *board,
 
     if (search_should_stop(control)) {
         MoveList eval_list;
-        movegen_generate_legal(board, &eval_list);
+        movegen_generate_pseudo_legal(board, &eval_list);
         result.score = evaluate_position(board, history, ply, &eval_list);
         return result;
     }
@@ -649,13 +649,7 @@ static SearchResult negamax(Board *board,
     }
 
     MoveList list;
-    movegen_generate_legal(board, &list);
-
-    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
-    if (terminal_state != EVAL_TERMINAL_NONE) {
-        result.score = eval_terminal_score(terminal_state, ply);
-        return result;
-    }
+    movegen_generate_pseudo_legal(board, &list);
 
     Move ordered_moves[MAX_ORDERED_MOVES];
     int ordered_count = build_ordered_moves(board, &list, table, ordered_moves);
@@ -666,6 +660,8 @@ static SearchResult negamax(Board *board,
         ranked_moves[i].searched = false;
     }
 
+    bool has_legal_move = false;
+
     for (int i = 0; i < ordered_count; ++i) {
         if (search_should_stop(control)) {
             break;
@@ -675,8 +671,10 @@ static SearchResult negamax(Board *board,
         Undo undo;
 
         if (!board_make_move(board, move, &undo)) {
-            continue;
+            continue; // Illegal move, skip
         }
+        
+        has_legal_move = true;
 
         U64 key = board_position_key(board);
         if (!repetition_history_push(history, key)) {
@@ -711,6 +709,12 @@ static SearchResult negamax(Board *board,
         if (alpha >= beta) {
             break;
         }
+    }
+    
+    EvalTerminalState terminal_state = eval_terminal_state(board, has_legal_move);
+    if (terminal_state != EVAL_TERMINAL_NONE) {
+        result.score = eval_terminal_score(terminal_state, ply);
+        return result;
     }
 
     Move final_order[MAX_ORDERED_MOVES];
@@ -763,7 +767,7 @@ SearchResult search_root(Board *board,
     }
 
     MoveList list;
-    movegen_generate_legal(board, &list);
+    movegen_generate_pseudo_legal(board, &list);
 
     if (board_is_draw(board, history)) {
         result.score = 0.0f;

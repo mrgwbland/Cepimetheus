@@ -8,7 +8,7 @@ typedef struct MoveList {
     int count;
 } MoveList;
 
-void movegen_generate_legal(Board *board, MoveList *list);
+void movegen_generate_pseudo_legal(Board *board, MoveList *list);
 bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move);
 
 #endif

@@ -581,7 +581,7 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
 
     if (board_is_in_check(board, side)) {
         board_unmake_move(board, undo);
-        return false;
+        return false; // Illegal move that leaves own king in check
     }
 
     return true;
