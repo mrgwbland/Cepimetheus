@@ -244,8 +244,9 @@ void uci_loop(void) {
     RepetitionHistory history;
     push_current_position(&board, &history);
 
-    SearchOptions options;
+    SearchOptions options = {0};
     options.overhead_ms = 100;
+    options.lichess_draw_rules = false;
 
     SearchThreadState search_thread = {0};
     pthread_mutex_init(&search_thread.mutex, NULL);
@@ -258,6 +259,7 @@ void uci_loop(void) {
             printf("id name Cepimetheus\n");
             printf("id author  George Bland\n");
             printf("option name overhead type spin default 100 min 0 max 10000\n");
+            printf("option name lichess_draw_rules type check default false\n");
             printf("uciok\n");
             fflush(stdout);
             continue;
@@ -283,6 +285,15 @@ void uci_loop(void) {
                     int parsed_overhead = atoi(valuetoken);
                     if (parsed_overhead >= 0 && parsed_overhead <= 10000) {
                         options.overhead_ms = parsed_overhead;
+                    }
+                } else if (strncmp(nametoken, "lichess_draw_rules", 18) == 0) {
+                    if (valuetoken != NULL) {
+                        valuetoken += 5;
+                        while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
+                        options.lichess_draw_rules = (strncmp(valuetoken, "true", 4) == 0);
+                    } else {
+                        // No value token means set to true
+                        options.lichess_draw_rules = true;
                     }
                 }
             }

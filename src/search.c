@@ -416,7 +416,8 @@ static float quiescence(Board *board,
                         SearchStats *stats,
                         int ply,
                         TranspositionTable *table,
-                        SearchControl *control) {
+                        SearchControl *control,
+                        bool lichess_draw_rules) {
     const int qsearch_max_ply = 16;
     const int qsearch_forced_only_move_ply_limit = 12;
     const int qsearch_noncapture_check_ply_limit = 6;
@@ -426,7 +427,7 @@ static float quiescence(Board *board,
     if (search_should_stop(control)) {
         MoveList eval_list;
         movegen_generate_pseudo_legal(board, &eval_list);
-        return evaluate_position(board, history, ply, &eval_list);
+        return evaluate_position(board, history, ply, &eval_list, lichess_draw_rules);
     }
 
     ++stats->nodes;
@@ -434,7 +435,7 @@ static float quiescence(Board *board,
         stats->seldepth = ply;
     }
 
-    if (board_is_draw(board, history)) {
+    if (board_is_draw(board, history, lichess_draw_rules)) {
         return 0.0f;
     }
 
@@ -446,7 +447,7 @@ static float quiescence(Board *board,
     if (ply >= qsearch_max_ply) {
         MoveList eval_list;
         movegen_generate_pseudo_legal(board, &eval_list);
-        return evaluate_position(board, history, ply, &eval_list);
+        return evaluate_position(board, history, ply, &eval_list, lichess_draw_rules);
     }
 
     bool in_check = board_is_in_check(board, board->side);
@@ -461,7 +462,7 @@ static float quiescence(Board *board,
 
     if (!in_check) {
         /* Stand-pat is only valid when side to move can choose to pass tactical action. */
-        float stand_pat = evaluate_position(board, history, ply, &list);
+        float stand_pat = evaluate_position(board, history, ply, &list, lichess_draw_rules);
 
         if (stand_pat >= beta) {
             return beta;
@@ -546,7 +547,7 @@ static float quiescence(Board *board,
             continue;
         }
 
-        float score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, table, control);
+        float score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, table, control, lichess_draw_rules);
 
         ranked_moves[i].score = score;
         ranked_moves[i].searched = true;
@@ -583,7 +584,8 @@ static SearchResult negamax(Board *board,
                             SearchStats *stats,
                             int ply,
                             TranspositionTable *table,
-                            SearchControl *control) {
+                            SearchControl *control,
+                            bool lichess_draw_rules) {
     SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
     const float alpha_orig = alpha;
     const float beta_orig = beta;
@@ -591,13 +593,13 @@ static SearchResult negamax(Board *board,
     if (search_should_stop(control)) {
         MoveList eval_list;
         movegen_generate_pseudo_legal(board, &eval_list);
-        result.score = evaluate_position(board, history, ply, &eval_list);
+        result.score = evaluate_position(board, history, ply, &eval_list, lichess_draw_rules);
         return result;
     }
 
     ++stats->nodes;
 
-    if (board_is_draw(board, history)) {
+    if (board_is_draw(board, history, lichess_draw_rules)) {
         result.score = 0.0f;
         return result;
     }
@@ -632,7 +634,8 @@ static SearchResult negamax(Board *board,
                                           stats,
                                           ply + 1,
                                           table,
-                                          control);
+                                          control,
+                                          lichess_draw_rules);
         float null_score = -null_child.score;
 
         board_unmake_move(board, &undo);
@@ -644,7 +647,7 @@ static SearchResult negamax(Board *board,
     }
 
     if (depth == 0) {
-        result.score = quiescence(board, alpha, beta, history, stats, ply, table, control);
+        result.score = quiescence(board, alpha, beta, history, stats, ply, table, control, lichess_draw_rules);
         return result;
     }
 
@@ -682,7 +685,7 @@ static SearchResult negamax(Board *board,
             continue;
         }
 
-        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, table, control);
+        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, table, control, lichess_draw_rules);
         float score = -child.score;
 
         ranked_moves[i].score = score;
@@ -754,7 +757,8 @@ SearchResult search_root(Board *board,
                          SearchContext *context,
                          SearchControl *control,
                          SearchMoveInfoCallback on_move_info,
-                         void *user_data) {
+                         void *user_data,
+                         bool lichess_draw_rules) {
     SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
     float alpha = -FLT_MAX;
     float beta = FLT_MAX;
@@ -769,7 +773,7 @@ SearchResult search_root(Board *board,
     MoveList list;
     movegen_generate_pseudo_legal(board, &list);
 
-    if (board_is_draw(board, history)) {
+    if (board_is_draw(board, history, lichess_draw_rules)) {
         result.score = 0.0f;
         if (list.count > 0) {
             result.move = list.moves[0];
@@ -820,7 +824,7 @@ SearchResult search_root(Board *board,
             continue;
         }
 
-        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, table, control);
+        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, table, control, lichess_draw_rules);
         float score = -child.score;
 
         ranked_moves[i].score = score;

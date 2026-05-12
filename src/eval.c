@@ -370,14 +370,14 @@ float eval_terminal_score(EvalTerminalState terminal_state, int ply)
     }
 }
 
-float evaluate_position(Board *board, const RepetitionHistory *history, int ply, const MoveList *list)
+float evaluate_position(Board *board, const RepetitionHistory *history, int ply, const MoveList *list, bool lichess_draw_rules)
 {
     if (board == NULL || list == NULL)
     {
         return 0.0f;
     }
 
-    if (board_is_draw(board, history))
+    if (board_is_draw(board, history, lichess_draw_rules))
     {
         return 0.0f;
     }

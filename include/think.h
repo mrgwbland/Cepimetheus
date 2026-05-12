@@ -5,6 +5,7 @@
 
 typedef struct SearchOptions {
     int overhead_ms;
+    bool lichess_draw_rules;
 } SearchOptions;
 
 typedef struct SearchLimits {

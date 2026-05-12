@@ -198,13 +198,18 @@ U64 board_position_key(const Board *board) {
     return key;
 }
 
-// Checks for 50-move rule and threefold repetition; stalemate should be checked when legal moves are already generated
-bool board_is_draw(const Board *board, const RepetitionHistory *history) {
+// Checks for 50-move rule, threefold repetition, and Lichess 300-move rule if enabled; stalemate should be checked when legal moves are already generated
+bool board_is_draw(const Board *board, const RepetitionHistory *history, bool lichess_draw_rules) {
     if (board == NULL) {
         return false;
     }
 
     if (board->halfmove_clock >= 100) {
+        return true;
+    }
+
+    // Lichess draw rule: draw if 300 moves (600 ply) have been played
+    if (lichess_draw_rules && history != NULL && history->count > 600) {
         return true;
     }
 

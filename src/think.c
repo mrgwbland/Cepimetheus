@@ -222,6 +222,8 @@ Move think(Board *board,
         SearchStats stats = {0ULL, depth};
         control.stop = false;
 
+        bool lichess_draw_rules = (options != NULL) ? options->lichess_draw_rules : false;
+
         result = search_root(board,
                              depth,
                              &search_history,
@@ -229,7 +231,8 @@ Move think(Board *board,
                              search_context,
                              &control,
                              print_move_info_callback,
-                             NULL);
+                             NULL,
+                             lichess_draw_rules);
 
         if (control.stop) {
             break;

@@ -44,6 +44,7 @@ SearchResult search_root(Board *board,
                          SearchContext *context,
                          SearchControl *control,
                          SearchMoveInfoCallback on_move_info,
-                         void *user_data);
+                         void *user_data,
+                         bool lichess_draw_rules);
 
 #endif
