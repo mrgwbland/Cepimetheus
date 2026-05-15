@@ -408,6 +408,23 @@ static int finalize_move_order(const RankedMove *ranked_moves, int move_count, M
     return final_count;
 }
 
+/* Returns true if any pseudo-legal move is legal in the current position. */
+static bool has_any_legal_move(Board *board, const MoveList *list) {
+    if (board == NULL || list == NULL) {
+        return false;
+    }
+
+    for (int i = 0; i < list->count; ++i) {
+        Undo undo;
+        if (board_make_move(board, list->moves[i], &undo)) {
+            board_unmake_move(board, &undo);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /* Quiescence search: only explores captures, checks and single legal move positions. */
 static float quiescence(Board *board,
                         float alpha,
@@ -454,11 +471,6 @@ static float quiescence(Board *board,
 
     MoveList list;
     movegen_generate_pseudo_legal(board, &list);
-
-    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
-    if (terminal_state != EVAL_TERMINAL_NONE) {
-        return eval_terminal_score(terminal_state, ply);
-    }
 
     if (!in_check) {
         /* Stand-pat is only valid when side to move can choose to pass tactical action. */
@@ -528,6 +540,8 @@ static float quiescence(Board *board,
         ranked_moves[i].searched = false;
     }
 
+    bool has_legal_move = false;
+
     for (int i = 0; i < ordered_count; ++i) {
         if (search_should_stop(control)) {
             break;
@@ -540,6 +554,8 @@ static float quiescence(Board *board,
         if (!board_make_move(board, move, &undo)) {
             continue;
         }
+
+        has_legal_move = true;
 
         U64 key = board_position_key(board);
         if (!repetition_history_push(history, key)) {
@@ -562,6 +578,17 @@ static float quiescence(Board *board,
 
         if (score > alpha) {
             alpha = score;
+        }
+    }
+
+    if (!has_legal_move) {
+        if (!in_check && has_any_legal_move(board, &list)) {
+            return alpha;
+        }
+
+        EvalTerminalState terminal_state = eval_terminal_state(board, false);
+        if (terminal_state != EVAL_TERMINAL_NONE) {
+            return eval_terminal_score(terminal_state, ply);
         }
     }
 
