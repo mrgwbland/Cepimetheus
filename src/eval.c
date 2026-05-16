@@ -5,34 +5,48 @@
 
 #define MATE_SCORE 100000.0f
 
-const int piece_values[6] = {
-    100, /* Pawn */
-    300, /* Knight */
-    350, /* Bishop */
-    450, /* Rook */
-    950, /* Queen */
+int piece_values[6] = {
+    1000, /* Pawn */
+    2850, /* Knight */
+    2950, /* Bishop */
+    3725, /* Rook */
+    9950, /* Queen */
     0    /* King */
 };
 
-enum EvalParams
-{
-    ENDGAME_THRESHOLD = 1500,
-    TEMPO_BONUS = 20,
-    CENTRE_CONTROL_BONUS = 3,
-    KING_RING_PENALTY = 2,
-    ENDGAME_PAWN_ADVANCEMENT_BONUS = 2,
-    PASSED_PAWN_BONUS = 4,
-    DOUBLED_PAWN_PENALTY = 5,
-    ISOLATED_PAWN_PENALTY = 10,
-    KNIGHT_MOBILITY_BONUS = 3,
-    BISHOP_MOBILITY_BONUS = 1,
-    ROOK_CONTROL_BONUS = 1,
-    ROOK_OPEN_FILE_BONUS = 50,
-    ENDGAME_ROOK_BONUS = 100,
-    QUEEN_MOBILITY_BONUS = 1,
-    KING_EXPOSURE_PENALTY = 3,
-    KING_CORNER_DISTANCE_BONUS = 3
+int eval_parameters[14] = {
+    61,   // TEMPO_BONUS
+    31,    // KING_RING_PENALTY
+    1,    // ENDGAME_PAWN_ADVANCEMENT_BONUS
+    55,    // PASSED_PAWN_BONUS
+    143,    // DOUBLED_PAWN_PENALTY
+    72,   // ISOLATED_PAWN_PENALTY
+    70,    // KNIGHT_MOBILITY_BONUS
+    82,    // BISHOP_MOBILITY_BONUS
+    165,    // ROOK_CONTROL_BONUS
+    421,   // ROOK_OPEN_FILE_BONUS
+    1525,  // ENDGAME_ROOK_BONUS
+    25,    // QUEEN_MOBILITY_BONUS
+    86,    // KING_EXPOSURE_PENALTY
+    71     // KING_CORNER_DISTANCE_BONUS
 };
+
+/* Macros redirect the existing engine code to array*/
+#define TEMPO_BONUS                    eval_parameters[0]
+#define KING_RING_PENALTY              eval_parameters[1]
+#define ENDGAME_PAWN_ADVANCEMENT_BONUS eval_parameters[2]
+#define PASSED_PAWN_BONUS              eval_parameters[3]
+#define DOUBLED_PAWN_PENALTY           eval_parameters[4]
+#define ISOLATED_PAWN_PENALTY          eval_parameters[5]
+#define KNIGHT_MOBILITY_BONUS          eval_parameters[6]
+#define BISHOP_MOBILITY_BONUS          eval_parameters[7]
+#define ROOK_CONTROL_BONUS             eval_parameters[8]
+#define ROOK_OPEN_FILE_BONUS           eval_parameters[9]
+#define ENDGAME_ROOK_BONUS             eval_parameters[10]
+#define QUEEN_MOBILITY_BONUS           eval_parameters[11]
+#define KING_EXPOSURE_PENALTY          eval_parameters[12]
+#define KING_CORNER_DISTANCE_BONUS     eval_parameters[13]
+
 /* File masks - one per file (A-H) */
 static const U64 file_masks[8] = {
     0x0101010101010101ULL, /* A-file */
@@ -204,7 +218,7 @@ static void mark_passed_pawns(const Board *board, int side, bool passed_pawns[64
 static float evaluate_piece(const Board *board,
                             int piece,
                             int square,
-                            bool endgame,
+                            float endgame_weight,
                             const bool passed_pawns[64],
                             const int white_pawns_per_file[8],
                             const int black_pawns_per_file[8],
@@ -222,15 +236,11 @@ static float evaluate_piece(const Board *board,
     case WHITE_PAWN:
     {
         int pawn_rank = is_white ? rank : (7 - rank);
-        if (endgame)
+        piece_value += endgame_weight * ENDGAME_PAWN_ADVANCEMENT_BONUS * (float)pawn_rank;
+        if (passed_pawns[square])
         {
-            /* Reward advanced pawns in the endgame. */
-            piece_value += ENDGAME_PAWN_ADVANCEMENT_BONUS * (float)pawn_rank;
-            if (passed_pawns[square])
-            {
-                /* Passed pawns are further rewarded for advancement. */
-                piece_value += PASSED_PAWN_BONUS * (float)pawn_rank;
-            }
+            /* Passed pawns are further rewarded for advancement. */
+            piece_value += endgame_weight * PASSED_PAWN_BONUS * (float)pawn_rank;
         }
 
         const int *pawns_per_file = is_white ? white_pawns_per_file : black_pawns_per_file;
@@ -264,24 +274,18 @@ static float evaluate_piece(const Board *board,
         break;
     }
     case WHITE_ROOK:
-        if (!endgame)
-        {
-            /* Reward squares controlled. */
-            piece_value += ROOK_CONTROL_BONUS * (float)__builtin_popcountll(bitboard_rook_attacks(square, all_pieces));
+        /* Reward squares controlled. */
+        piece_value += (1 - endgame_weight) * ROOK_CONTROL_BONUS * (float)__builtin_popcountll(bitboard_rook_attacks(square, all_pieces));
 
-            U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
-            U64 file_mask = file_masks[file];
-            /* Open file bonus: + points if no pawns on the file. */
-            if (__builtin_popcountll(all_pawns & file_mask) == 0)
-            {
-                piece_value += ROOK_OPEN_FILE_BONUS;
-            }
-        }
-        else
+        U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
+        U64 file_mask = file_masks[file];
+        /* Open file bonus: + points if no pawns on the file. */
+        if (__builtin_popcountll(all_pawns & file_mask) == 0)
         {
-            /* Rooks are better in the endgame. */
-            piece_value += ENDGAME_ROOK_BONUS;
+            piece_value += (1 - endgame_weight) * ROOK_OPEN_FILE_BONUS;
         }
+        /* Rooks are better in the endgame. */
+        piece_value += endgame_weight * ENDGAME_ROOK_BONUS;
         break;
     case WHITE_QUEEN:
         piece_value += QUEEN_MOBILITY_BONUS * (float)__builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
@@ -289,11 +293,8 @@ static float evaluate_piece(const Board *board,
     case WHITE_KING:
     {
         /* If nothing prior, it is a king. */
-        if (!endgame)
-        {
-            /* In opening/middlegame, king safety is important. */
-            piece_value -= KING_EXPOSURE_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
-        }
+        /* In opening/middlegame, king safety is important. */
+        piece_value -= (1 - endgame_weight) * KING_EXPOSURE_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
 
         /* Calculate Manhattan distance to closest corner. */
         int distance_a1 = file + rank;
@@ -314,15 +315,8 @@ static float evaluate_piece(const Board *board,
             corner_distance = distance_h8;
         }
 
-        /* In endgames favor activity; in middlegames favor safety. */
-        if (endgame)
-        {
-            piece_value += (float)(corner_distance * KING_CORNER_DISTANCE_BONUS);
-        }
-        else
-        {
-            piece_value -= (float)(corner_distance * KING_CORNER_DISTANCE_BONUS);
-        }
+        /* In endgames favour activity; in middlegames favour safety. */
+        piece_value += (2*endgame_weight - 1) * (float)(corner_distance * KING_CORNER_DISTANCE_BONUS);
         break;
     }
     default:
@@ -331,20 +325,26 @@ static float evaluate_piece(const Board *board,
     return piece_value;
 }
 
-bool eval_is_endgame_position(const Board *board)
+//I'm not counting pawns to determine endgame because you can have many pawns left in an endgame
+float get_endgame_weight(const Board *board)
 {
     if (board == NULL)
     {
-        return false;
+        return 0;
     }
 
     int total_piece_value = 0;
-    for (int i = 0; i < WHITE_KING; i++)
+    int initial_piece_value = 4*piece_values[WHITE_KNIGHT] + 4*piece_values[WHITE_BISHOP] + 4*piece_values[WHITE_ROOK] + 2*piece_values[WHITE_QUEEN];
+    for (int i = WHITE_KNIGHT; i < WHITE_KING; i++)
+    {
+        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[i];
+    }
+    for (int i = BLACK_KNIGHT; i < BLACK_KING; i++)
     {
         total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[i];
     }
 
-    return total_piece_value <= ENDGAME_THRESHOLD;
+    return 1.0f- (((float)total_piece_value+1)/((float)initial_piece_value+1));// +1 to avoid division by zero, and the 1- to invert the ratio so that it goes from 0 (opening) to 1 (endgame)
 }
 
 EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move)
@@ -392,7 +392,7 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply,
 
     /* Determine if the position is an endgame.
     Endgame eval is different from opening/middlegame eval, so we need to know which phase we're in. */
-    bool endgame = eval_is_endgame_position(board);
+    float endgame_weight = get_endgame_weight(board);
 
     int white_pawns_per_file[8];
     int black_pawns_per_file[8];
@@ -420,7 +420,7 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply,
             float value = evaluate_piece(board,
                                          piece,
                                          square,
-                                         endgame,
+                                         endgame_weight,
                                          passed,
                                          white_pawns_per_file,
                                          black_pawns_per_file,
@@ -437,19 +437,11 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply,
         }
     }
     float tempo_bonus = 0.0f;
-    if (!endgame)
+    if (endgame_weight < 0.6f)
     {
 
         /* Unless the position is zugzwang, having a move is often better. */
         tempo_bonus = TEMPO_BONUS;
-        /* Centre control. not a big deal in endgames */
-        static const int center_squares[4] = {27, 28, 35, 36}; /* d4, e4, d5, e5 */
-        for (int i = 0; i < 4; ++i)
-        {
-            int square = center_squares[i];
-            white_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, WHITE, all_pieces);
-            black_score += CENTRE_CONTROL_BONUS * (float)count_attackers_on_square(board, square, BLACK, all_pieces);
-        }
     }
 
     white_score -= KING_RING_PENALTY * (float)count_king_ring_attackers(board, WHITE, all_pieces);
@@ -461,4 +453,42 @@ float evaluate_position(Board *board, const RepetitionHistory *history, int ply,
     }
 
     return black_score - white_score + tempo_bonus;
+}
+
+/* ==============================================================================
+ * PYTHON BRIDGE INTERFACE (DO NOT REMOVE)
+ * ============================================================================== */
+int evaluate_position_with_weights(const char* fen, int* weights) {
+    // 1. Overwrite global evaluation weights in RAM
+    for (int i = 0; i < 6; ++i) {
+        piece_values[i] = weights[i];
+    }
+    for (int i = 0; i < 14; ++i) {
+        eval_parameters[i] = weights[6 + i];
+    }
+
+    // 2. Initialize the board architecture and parse FEN
+    Board board;
+    board_init(&board); // Crucial: sets up bitboard tables and clears fields
+    
+    if (!board_set_fen(&board, fen)) {
+        return 0; // Guard against corrupted input strings
+    }
+
+    // 3. Generate a pseudo-legal move-list so the engine can accurately check for terminal states
+    MoveList list;
+    movegen_generate_pseudo_legal(&board, &list);
+
+    // 4. Calculate relative score from your internal function
+    float relative_score = evaluate_position(&board, NULL, 0, &list, false);
+
+    // 5. Convert perspective: Your engine evaluates relative to side-to-move.
+    // Stockfish datasets use White-Centric absolute scoring. 
+    // If it's Black's turn, we invert the evaluation score to match Stockfish.
+    int final_score = (int)relative_score;
+    if (board.side == BLACK) {
+        final_score = -final_score;
+    }
+
+    return final_score;
 }

@@ -4,3 +4,4 @@ Cepimetheus
 /.vscode
 *.data*
 report.txt
+*.so

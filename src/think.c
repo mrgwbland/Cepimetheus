@@ -7,6 +7,8 @@
 #include <sys/time.h>
 
 static int score_to_cp(float score) {
+    score /= 10.0f;
+
     if (score >= 0.0f) {
         return (int)(score + 0.5f);
     }

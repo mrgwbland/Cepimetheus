@@ -641,7 +641,7 @@ static SearchResult negamax(Board *board,
     if (depth >= 3 &&
         beta < 10000.0f &&
         !board_is_in_check(board, board->side) &&
-        !eval_is_endgame_position(board)) {
+        get_endgame_weight(board)<0.6f) {
         const int reduction = 2;
         Undo undo;
         undo.snapshot = *board;
