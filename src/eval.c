@@ -6,36 +6,44 @@
 #define MATE_SCORE 100000.0f
 
 int piece_values[6] = {
-    1000, /* Pawn */
-    2850, /* Knight */
-    2950, /* Bishop */
-    3725, /* Rook */
-    9950, /* Queen */
+    1000, /* Pawn (Locked) */
+    2800, /* Knight */
+    2900, /* Bishop */
+    3650, /* Rook */
+    9800, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[14] = {
     61,   // TEMPO_BONUS
     31,    // KING_RING_PENALTY
-    1,    // ENDGAME_PAWN_ADVANCEMENT_BONUS
-    55,    // PASSED_PAWN_BONUS
-    143,    // DOUBLED_PAWN_PENALTY
-    72,   // ISOLATED_PAWN_PENALTY
-    70,    // KNIGHT_MOBILITY_BONUS
-    82,    // BISHOP_MOBILITY_BONUS
-    165,    // ROOK_CONTROL_BONUS
-    421,   // ROOK_OPEN_FILE_BONUS
-    1525,  // ENDGAME_ROOK_BONUS
+    0,    // UNUSED
+    0,    // UNUSED
+    144,    // DOUBLED_PAWN_PENALTY
+    62,   // ISOLATED_PAWN_PENALTY
+    72,    // KNIGHT_MOBILITY_BONUS
+    83,    // BISHOP_MOBILITY_BONUS
+    155,    // ROOK_CONTROL_BONUS
+    440,   // ROOK_OPEN_FILE_BONUS
+    1545,  // ENDGAME_ROOK_BONUS
     25,    // QUEEN_MOBILITY_BONUS
-    86,    // KING_EXPOSURE_PENALTY
-    71     // KING_CORNER_DISTANCE_BONUS
+    92,    // KING_EXPOSURE_PENALTY
+    73     // KING_CORNER_DISTANCE_BONUS
 };
 
+int passed_pawn_rank_bonus[6] = {
+    1, //Rank 2
+    1, //Rank 3
+    1, //Rank 4
+    140, //Rank 5
+    529, //Rank 6
+    847 //Rank 7
+};
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
 #define KING_RING_PENALTY              eval_parameters[1]
 #define ENDGAME_PAWN_ADVANCEMENT_BONUS eval_parameters[2]
-#define PASSED_PAWN_BONUS              eval_parameters[3]
+#define UNUSED                         eval_parameters[3]
 #define DOUBLED_PAWN_PENALTY           eval_parameters[4]
 #define ISOLATED_PAWN_PENALTY          eval_parameters[5]
 #define KNIGHT_MOBILITY_BONUS          eval_parameters[6]
@@ -236,11 +244,10 @@ static float evaluate_piece(const Board *board,
     case WHITE_PAWN:
     {
         int pawn_rank = is_white ? rank : (7 - rank);
-        piece_value += endgame_weight * ENDGAME_PAWN_ADVANCEMENT_BONUS * (float)pawn_rank;
         if (passed_pawns[square])
         {
             /* Passed pawns are further rewarded for advancement. */
-            piece_value += endgame_weight * PASSED_PAWN_BONUS * (float)pawn_rank;
+            piece_value += endgame_weight * passed_pawn_rank_bonus[pawn_rank-1];
         }
 
         const int *pawns_per_file = is_white ? white_pawns_per_file : black_pawns_per_file;
@@ -465,6 +472,10 @@ int evaluate_position_with_weights(const char* fen, int* weights) {
     }
     for (int i = 0; i < 14; ++i) {
         eval_parameters[i] = weights[6 + i];
+    }
+
+    for (int i = 0; i < 6; ++i) {
+        passed_pawn_rank_bonus[i] = weights[6 + 14 + i];
     }
 
     // 2. Initialize the board architecture and parse FEN
