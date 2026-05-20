@@ -6,38 +6,38 @@
 #define MATE_SCORE 100000.0f
 
 int piece_values[6] = {
-    1000, /* Pawn (Locked) */
-    2800, /* Knight */
-    2900, /* Bishop */
-    3650, /* Rook */
-    9800, /* Queen */
+    1000, /* Pawn */
+    2925, /* Knight */
+    3000, /* Bishop */
+    3840, /* Rook */
+    10100, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[14] = {
-    61,   // TEMPO_BONUS
-    31,    // KING_RING_PENALTY
-    0,    // UNUSED
-    0,    // UNUSED
-    144,    // DOUBLED_PAWN_PENALTY
-    62,   // ISOLATED_PAWN_PENALTY
-    72,    // KNIGHT_MOBILITY_BONUS
-    83,    // BISHOP_MOBILITY_BONUS
-    155,    // ROOK_CONTROL_BONUS
-    440,   // ROOK_OPEN_FILE_BONUS
-    1545,  // ENDGAME_ROOK_BONUS
-    25,    // QUEEN_MOBILITY_BONUS
-    92,    // KING_EXPOSURE_PENALTY
-    73     // KING_CORNER_DISTANCE_BONUS
+    58, // TEMPO_BONUS
+    30, // KING_RING_PENALTY
+    0, // UNUSED
+    0, // UNUSED
+    140, // DOUBLED_PAWN_PENALTY
+    68, // ISOLATED_PAWN_PENALTY
+    66, // KNIGHT_MOBILITY_BONUS
+    80, // BISHOP_MOBILITY_BONUS
+    161, // ROOK_CONTROL_BONUS
+    452, // ROOK_OPEN_FILE_BONUS
+    1460, // ENDGAME_ROOK_BONUS
+    24, // QUEEN_MOBILITY_BONUS
+    92, // KING_EXPOSURE_PENALTY
+    71 // KING_CORNER_DISTANCE_BONUS
 };
 
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     1, //Rank 4
-    140, //Rank 5
-    529, //Rank 6
-    847 //Rank 7
+    165, //Rank 5
+    555, //Rank 6
+    870 //Rank 7
 };
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
