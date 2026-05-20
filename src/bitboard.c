@@ -1,10 +1,24 @@
 #include "bitboard.h"
-
 #include "board.h"
+#include <immintrin.h>
 
 static U64 knight_table[64];
 static U64 king_table[64];
 static U64 pawn_table[2][64];
+
+// 102,400 is the exact number of rook blocker permutations across all 64 squares
+U64 rook_table[102400];
+// 5,248 is the exact number of bishop blocker permutations across all 64 squares
+U64 bishop_table[5248];
+
+// Pointers to the start of each square's lookup table
+U64* rook_attacks[64];
+U64* bishop_attacks[64];
+
+// Masks for each square
+U64 rook_masks[64];
+U64 bishop_masks[64];
+
 static int tables_ready = 0;
 
 static int file_of(int square) {
@@ -19,7 +33,56 @@ static int on_board(int file, int rank) {
     return file >= 0 && file < 8 && rank >= 0 && rank < 8;
 }
 
+// Masks exclude the outer edges of the board relative to the piece because pieces on the edge don't affect what is visible behind them.
+
+U64 generate_rook_mask(int sq) {
+    int r = sq / 8, c = sq % 8;
+    U64 mask = 0;
+    // North, South, East, West (excluding the outermost rank/file)
+    for(int i = r + 1; i <= 6; i++) mask |= (1ULL << (i * 8 + c));
+    for(int i = r - 1; i >= 1; i--) mask |= (1ULL << (i * 8 + c));
+    for(int i = c + 1; i <= 6; i++) mask |= (1ULL << (r * 8 + i));
+    for(int i = c - 1; i >= 1; i--) mask |= (1ULL << (r * 8 + i));
+    return mask;
+}
+
+U64 generate_bishop_mask(int sq) {
+    int r = sq / 8, c = sq % 8;
+    U64 mask = 0;
+    // Diagonals (excluding the outermost ranks/files)
+    for(int i = r + 1, j = c + 1; i <= 6 && j <= 6; i++, j++) mask |= (1ULL << (i * 8 + j));
+    for(int i = r + 1, j = c - 1; i <= 6 && j >= 1; i++, j--) mask |= (1ULL << (i * 8 + j));
+    for(int i = r - 1, j = c + 1; i >= 1 && j <= 6; i--, j++) mask |= (1ULL << (i * 8 + j));
+    for(int i = r - 1, j = c - 1; i >= 1 && j >= 1; i--, j--) mask |= (1ULL << (i * 8 + j));
+    return mask;
+}
+
+// Used only during initialisation to figure out the true attacks.
+
+U64 generate_rook_attacks_otb(int sq, U64 blockers) {
+    U64 attacks = 0;
+    int r = sq / 8, c = sq % 8;
+    for(int i = r + 1; i <= 7; i++) { attacks |= (1ULL << (i*8+c)); if(blockers & (1ULL << (i*8+c))) break; }
+    for(int i = r - 1; i >= 0; i--) { attacks |= (1ULL << (i*8+c)); if(blockers & (1ULL << (i*8+c))) break; }
+    for(int i = c + 1; i <= 7; i++) { attacks |= (1ULL << (r*8+i)); if(blockers & (1ULL << (r*8+i))) break; }
+    for(int i = c - 1; i >= 0; i--) { attacks |= (1ULL << (r*8+i)); if(blockers & (1ULL << (r*8+i))) break; }
+    return attacks;
+}
+
+U64 generate_bishop_attacks_otb(int sq, U64 blockers) {
+    U64 attacks = 0;
+    int r = sq / 8, c = sq % 8;
+    for(int i = r + 1, j = c + 1; i <= 7 && j <= 7; i++, j++) { attacks |= (1ULL << (i*8+j)); if(blockers & (1ULL << (i*8+j))) break; }
+    for(int i = r + 1, j = c - 1; i <= 7 && j >= 0; i++, j--) { attacks |= (1ULL << (i*8+j)); if(blockers & (1ULL << (i*8+j))) break; }
+    for(int i = r - 1, j = c + 1; i >= 0 && j <= 7; i--, j++) { attacks |= (1ULL << (i*8+j)); if(blockers & (1ULL << (i*8+j))) break; }
+    for(int i = r - 1, j = c - 1; i >= 0 && j >= 0; i--, j--) { attacks |= (1ULL << (i*8+j)); if(blockers & (1ULL << (i*8+j))) break; }
+    return attacks;
+}
+
 static void build_tables(void) {
+    int rook_table_index = 0;
+    int bishop_table_index = 0;
+
     for (int square = 0; square < 64; ++square) {
         int file = file_of(square);
         int rank = rank_of(square);
@@ -70,6 +133,50 @@ static void build_tables(void) {
             black_pawns |= 1ULL << ((rank - 1) * 8 + (file + 1));
         }
         pawn_table[BLACK][square] = black_pawns;
+
+        /* Generate and store rook/bishop masks for this square */
+        rook_masks[square] = generate_rook_mask(square);
+        bishop_masks[square] = generate_bishop_mask(square);
+
+        /* Build rook attack table for this square */
+        {
+            U64 mask = rook_masks[square];
+            int positions[64];
+            int bits = 0;
+            for (int i = 0; i < 64; ++i) {
+                if (mask & (1ULL << i)) positions[bits++] = i;
+            }
+            int permutations = 1 << bits;
+            rook_attacks[square] = &rook_table[rook_table_index];
+            for (int idx = 0; idx < permutations; ++idx) {
+                U64 blockers = 0;
+                for (int b = 0; b < bits; ++b) {
+                    if (idx & (1 << b)) blockers |= (1ULL << positions[b]);
+                }
+                rook_table[rook_table_index + idx] = generate_rook_attacks_otb(square, blockers);
+            }
+            rook_table_index += permutations;
+        }
+
+        /* Build bishop attack table for this square */
+        {
+            U64 mask = bishop_masks[square];
+            int positions[64];
+            int bits = 0;
+            for (int i = 0; i < 64; ++i) {
+                if (mask & (1ULL << i)) positions[bits++] = i;
+            }
+            int permutations = 1 << bits;
+            bishop_attacks[square] = &bishop_table[bishop_table_index];
+            for (int idx = 0; idx < permutations; ++idx) {
+                U64 blockers = 0;
+                for (int b = 0; b < bits; ++b) {
+                    if (idx & (1 << b)) blockers |= (1ULL << positions[b]);
+                }
+                bishop_table[bishop_table_index + idx] = generate_bishop_attacks_otb(square, blockers);
+            }
+            bishop_table_index += permutations;
+        }
     }
 }
 
@@ -111,77 +218,13 @@ U64 bitboard_pawn_attacks(int side, int square) {
 }
 
 U64 bitboard_bishop_attacks(int square, U64 occupancy) {
-    int file = file_of(square);
-    int rank = rank_of(square);
-    U64 attacks = 0;
-
-    for (int nf = file + 1, nr = rank + 1; on_board(nf, nr); ++nf, ++nr) {
-        int target = nr * 8 + nf;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-    for (int nf = file - 1, nr = rank + 1; on_board(nf, nr); --nf, ++nr) {
-        int target = nr * 8 + nf;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-    for (int nf = file + 1, nr = rank - 1; on_board(nf, nr); ++nf, --nr) {
-        int target = nr * 8 + nf;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-    for (int nf = file - 1, nr = rank - 1; on_board(nf, nr); --nf, --nr) {
-        int target = nr * 8 + nf;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-
-    return attacks;
+    U64 index = _pext_u64(occupancy, bishop_masks[square]);
+    return bishop_attacks[square][index];
 }
 
 U64 bitboard_rook_attacks(int square, U64 occupancy) {
-    int file = file_of(square);
-    int rank = rank_of(square);
-    U64 attacks = 0;
-
-    for (int nr = rank + 1; nr < 8; ++nr) {
-        int target = nr * 8 + file;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-    for (int nr = rank - 1; nr >= 0; --nr) {
-        int target = nr * 8 + file;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-    for (int nf = file + 1; nf < 8; ++nf) {
-        int target = rank * 8 + nf;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-    for (int nf = file - 1; nf >= 0; --nf) {
-        int target = rank * 8 + nf;
-        attacks |= 1ULL << target;
-        if (occupancy & (1ULL << target)) {
-            break;
-        }
-    }
-
-    return attacks;
+    U64 index = _pext_u64(occupancy, rook_masks[square]);
+    return rook_attacks[square][index];
 }
 
 U64 bitboard_queen_attacks(int square, U64 occupancy) {
