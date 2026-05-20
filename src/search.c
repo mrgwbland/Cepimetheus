@@ -8,8 +8,9 @@
 #include <string.h>
 #include <sys/time.h>
 
-#define TRANSPOSITION_TABLE_SIZE (1U << 20) /* 1 million entries, this must be a power of 2 */
+#define TRANSPOSITION_TABLE_SIZE (1U << 20) /* This must be a power of 2 */
 #define MAX_ORDERED_MOVES 256
+#define MAX_PLY_DEPTH 256
 
 typedef struct {
     Move move;
@@ -45,6 +46,7 @@ typedef struct {
 
 struct SearchContext {
     TranspositionTable table;
+    Move killer_moves[MAX_PLY_DEPTH][2];
 };
 
 static long long current_time_ms(void) {
@@ -83,7 +85,7 @@ static bool search_should_stop(SearchControl *control) {
 }
 
 /* Estimate move score for move ordering. This is intentionally cheap. */
-static int estimate_move_score(Board *board, Move move) {
+static int estimate_move_score(Board *board, Move move, const SearchContext *context, int ply) {
     int score = 0;
     int flags = move_flags(move);
 
@@ -118,6 +120,18 @@ static int estimate_move_score(Board *board, Move move) {
     /* Castling. */
     if ((flags & MOVE_FLAG_CASTLE) != 0) {
         score += 100;
+    }
+
+    /* Killer moves: prefer quiet moves that previously caused beta cutoffs. */
+    if (context != NULL && ply >= 0 && ply < MAX_PLY_DEPTH) {
+        /* First killer (most recent) slightly preferred. */
+        if (context->killer_moves[ply][0] != MOVE_NONE && context->killer_moves[ply][0] == move) {
+            score += 5000;
+        }
+
+        if (context->killer_moves[ply][1] != MOVE_NONE && context->killer_moves[ply][1] == move) {
+            score += 4000;
+        }
     }
 
     return score;
@@ -320,21 +334,25 @@ static int find_move_index(const MoveList *list, Move move) {
 
 static int build_ordered_moves(Board *board,
                                const MoveList *list,
-                               const TranspositionTable *table,
+                               const SearchContext *context,
+                               int ply,
                                Move ordered_moves[MAX_ORDERED_MOVES]) {
     if (board == NULL || list == NULL || ordered_moves == NULL || list->count <= 0) {
         return 0;
     }
 
     U64 hash = board_position_key(board);
-    const TranspositionEntry *entry = transposition_table_lookup(table, hash);
+    const TranspositionEntry *entry = NULL;
+    if (context != NULL) {
+        entry = transposition_table_lookup(&context->table, hash);
+    }
 
     if (entry == NULL) {
         ScoredMove scored_moves[MAX_ORDERED_MOVES];
         int scored_count = 0;
         for (int i = 0; i < list->count && i < MAX_ORDERED_MOVES; ++i) {
             scored_moves[scored_count].move = list->moves[i];
-            scored_moves[scored_count].score = estimate_move_score(board, list->moves[i]);
+            scored_moves[scored_count].score = estimate_move_score(board, list->moves[i], context, ply);
             ++scored_count;
         }
 
@@ -366,7 +384,7 @@ static int build_ordered_moves(Board *board,
         }
 
         fallback_moves[fallback_count].move = list->moves[i];
-        fallback_moves[fallback_count].score = estimate_move_score(board, list->moves[i]);
+        fallback_moves[fallback_count].score = estimate_move_score(board, list->moves[i], context, ply);
         ++fallback_count;
     }
 
@@ -432,7 +450,7 @@ static float quiescence(Board *board,
                         RepetitionHistory *history,
                         SearchStats *stats,
                         int ply,
-                        TranspositionTable *table,
+                        SearchContext *context,
                         SearchControl *control,
                         bool lichess_draw_rules) {
     const int qsearch_max_ply = 16;
@@ -457,8 +475,10 @@ static float quiescence(Board *board,
     }
 
     float tt_score = 0.0f;
-    if (transposition_table_probe(table, board_position_key(board), 0, alpha, beta, &tt_score)) {
-        return tt_score;
+    if (context != NULL) {
+        if (transposition_table_probe(&context->table, board_position_key(board), 0, alpha, beta, &tt_score)) {
+            return tt_score;
+        }
     }
 
     if (ply >= qsearch_max_ply) {
@@ -522,7 +542,7 @@ static float quiescence(Board *board,
         int scored_count = 0;
         for (int i = 0; i < filtered_count && i < MAX_ORDERED_MOVES; ++i) {
             scored_moves[scored_count].move = filtered_moves[i];
-            scored_moves[scored_count].score = estimate_move_score(board, filtered_moves[i]);
+            scored_moves[scored_count].score = estimate_move_score(board, filtered_moves[i], context, ply);
             ++scored_count;
         }
 
@@ -563,7 +583,7 @@ static float quiescence(Board *board,
             continue;
         }
 
-        float score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, table, control, lichess_draw_rules);
+        float score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
 
         ranked_moves[i].score = score;
         ranked_moves[i].searched = true;
@@ -573,6 +593,16 @@ static float quiescence(Board *board,
         board_unmake_move(board, &undo);
 
         if (score >= beta) {
+            /* record killer if quiet move */
+            if (context != NULL) {
+                if (!move_iscapture(board, move) && move_promotion(move) == MOVE_PROMO_NONE) {
+                    if (context->killer_moves[ply][0] != move) {
+                        context->killer_moves[ply][1] = context->killer_moves[ply][0];
+                        context->killer_moves[ply][0] = move;
+                    }
+                }
+            }
+
             return beta;
         }
 
@@ -594,9 +624,9 @@ static float quiescence(Board *board,
 
     Move final_order[MAX_ORDERED_MOVES];
     int final_count = finalize_move_order(ranked_moves, ordered_count, final_order);
-    if (final_count > 0) {
+    if (final_count > 0 && context != NULL) {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha_orig, beta_orig);
-        transposition_table_store(table, board_position_key(board), 0, alpha, score_type, final_order, final_count);
+        transposition_table_store(&context->table, board_position_key(board), 0, alpha, score_type, final_order, final_count);
     }
 
     return alpha;
@@ -610,7 +640,7 @@ static SearchResult negamax(Board *board,
                             RepetitionHistory *history,
                             SearchStats *stats,
                             int ply,
-                            TranspositionTable *table,
+                            SearchContext *context,
                             SearchControl *control,
                             bool lichess_draw_rules) {
     SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
@@ -632,9 +662,11 @@ static SearchResult negamax(Board *board,
     }
 
     float tt_score = 0.0f;
-    if (transposition_table_probe(table, board_position_key(board), depth, alpha, beta, &tt_score)) {
-        result.score = tt_score;
-        return result;
+    if (context != NULL) {
+        if (transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, &tt_score)) {
+            result.score = tt_score;
+            return result;
+        }
     }
 
     /* Null-move pruning, avoided in endgames to avoid zugzwang issues. */
@@ -654,15 +686,15 @@ static SearchResult negamax(Board *board,
         ++board->halfmove_clock;
 
         SearchResult null_child = negamax(board,
-                                          depth - 1 - reduction,
-                                          -beta,
-                                          -beta + 1.0f,
-                                          history,
-                                          stats,
-                                          ply + 1,
-                                          table,
-                                          control,
-                                          lichess_draw_rules);
+                          depth - 1 - reduction,
+                          -beta,
+                          -beta + 1.0f,
+                          history,
+                          stats,
+                          ply + 1,
+                          context,
+                          control,
+                          lichess_draw_rules);
         float null_score = -null_child.score;
 
         board_unmake_move(board, &undo);
@@ -674,7 +706,7 @@ static SearchResult negamax(Board *board,
     }
 
     if (depth == 0) {
-        result.score = quiescence(board, alpha, beta, history, stats, ply, table, control, lichess_draw_rules);
+        result.score = quiescence(board, alpha, beta, history, stats, ply, context, control, lichess_draw_rules);
         return result;
     }
 
@@ -682,7 +714,7 @@ static SearchResult negamax(Board *board,
     movegen_generate_pseudo_legal(board, &list);
 
     Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = build_ordered_moves(board, &list, table, ordered_moves);
+    int ordered_count = build_ordered_moves(board, &list, context, ply, ordered_moves);
 
     RankedMove ranked_moves[MAX_ORDERED_MOVES] = {0};
     for (int i = 0; i < ordered_count; ++i) {
@@ -712,7 +744,7 @@ static SearchResult negamax(Board *board,
             continue;
         }
 
-        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, table, control, lichess_draw_rules);
+        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
         float score = -child.score;
 
         ranked_moves[i].score = score;
@@ -737,6 +769,18 @@ static SearchResult negamax(Board *board,
         }
 
         if (alpha >= beta) {
+            /* record killer if quiet move */
+            if (context != NULL) {
+                if (!move_iscapture(board, move) && move_promotion(move) == MOVE_PROMO_NONE) {
+                    if (ply >= 0 && ply < MAX_PLY_DEPTH) {
+                        if (context->killer_moves[ply][0] != move) {
+                            context->killer_moves[ply][1] = context->killer_moves[ply][0];
+                            context->killer_moves[ply][0] = move;
+                        }
+                    }
+                }
+            }
+
             break;
         }
     }
@@ -749,9 +793,9 @@ static SearchResult negamax(Board *board,
 
     Move final_order[MAX_ORDERED_MOVES];
     int final_count = finalize_move_order(ranked_moves, ordered_count, final_order);
-    if (final_count > 0) {
+    if (final_count > 0 && context != NULL) {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(table, board_position_key(board), depth, result.score, score_type, final_order, final_count);
+        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, final_order, final_count);
     }
 
     return result;
@@ -792,10 +836,7 @@ SearchResult search_root(Board *board,
     const float alpha_orig = alpha;
     const float beta_orig = beta;
 
-    TranspositionTable *table = NULL;
-    if (context != NULL && context->table.entries != NULL) {
-        table = &context->table;
-    }
+    /* `context` holds the transposition table and killer moves. */
 
     MoveList list;
     movegen_generate_pseudo_legal(board, &list);
@@ -825,7 +866,7 @@ SearchResult search_root(Board *board,
     }
 
     Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = build_ordered_moves(board, &list, table, ordered_moves);
+    int ordered_count = build_ordered_moves(board, &list, context, 0, ordered_moves);
 
     RankedMove ranked_moves[MAX_ORDERED_MOVES] = {0};
     for (int i = 0; i < ordered_count; ++i) {
@@ -851,7 +892,7 @@ SearchResult search_root(Board *board,
             continue;
         }
 
-        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, table, control, lichess_draw_rules);
+        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, context, control, lichess_draw_rules);
         float score = -child.score;
 
         ranked_moves[i].score = score;
@@ -886,9 +927,9 @@ SearchResult search_root(Board *board,
 
     Move final_order[MAX_ORDERED_MOVES];
     int final_count = finalize_move_order(ranked_moves, ordered_count, final_order);
-    if (final_count > 0) {
+    if (final_count > 0 && context != NULL) {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(table, board_position_key(board), depth, result.score, score_type, final_order, final_count);
+        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, final_order, final_count);
     }
 
     return result;
