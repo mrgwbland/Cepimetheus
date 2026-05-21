@@ -30,9 +30,9 @@ static void apply_uci_move(Board *board, RepetitionHistory *history, const char 
 }
 
 static void apply_position(Board *board, RepetitionHistory *history, char *line) {
-    char *tokens[256];
+    char *tokens[2<<12];
     int token_count = 0;
-    for (char *token = strtok(line, " \t\r\n"); token != NULL && token_count < 256; token = strtok(NULL, " \t\r\n")) {
+    for (char *token = strtok(line, " \t\r\n"); token != NULL && token_count < (2<<12); token = strtok(NULL, " \t\r\n")) {
         tokens[token_count++] = token;
     }
 
