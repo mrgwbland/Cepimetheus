@@ -332,10 +332,26 @@ static int find_move_index(const MoveList *list, Move move) {
     return -1;
 }
 
+static bool move_is_excluded(Move move, const Move *excluded_moves, int excluded_move_count) {
+    if (excluded_moves == NULL || excluded_move_count <= 0) {
+        return false;
+    }
+
+    for (int i = 0; i < excluded_move_count; ++i) {
+        if (excluded_moves[i] == move) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static int build_ordered_moves(Board *board,
                                const MoveList *list,
                                const SearchContext *context,
                                int ply,
+                               const Move *excluded_moves,
+                               int excluded_move_count,
                                Move ordered_moves[MAX_ORDERED_MOVES]) {
     if (board == NULL || list == NULL || ordered_moves == NULL || list->count <= 0) {
         return 0;
@@ -351,6 +367,9 @@ static int build_ordered_moves(Board *board,
         ScoredMove scored_moves[MAX_ORDERED_MOVES];
         int scored_count = 0;
         for (int i = 0; i < list->count && i < MAX_ORDERED_MOVES; ++i) {
+            if (move_is_excluded(list->moves[i], excluded_moves, excluded_move_count)) {
+                continue;
+            }
             scored_moves[scored_count].move = list->moves[i];
             scored_moves[scored_count].score = estimate_move_score(board, list->moves[i], context, ply);
             ++scored_count;
@@ -370,7 +389,7 @@ static int build_ordered_moves(Board *board,
     for (int i = 0; i < entry->move_count && ordered_count < list->count; ++i) {
         Move move = entry->moves[i];
         int index = find_move_index(list, move);
-        if (index >= 0 && !used[index]) {
+        if (index >= 0 && !used[index] && !move_is_excluded(move, excluded_moves, excluded_move_count)) {
             ordered_moves[ordered_count++] = move;
             used[index] = true;
         }
@@ -380,6 +399,10 @@ static int build_ordered_moves(Board *board,
     int fallback_count = 0;
     for (int i = 0; i < list->count && fallback_count < MAX_ORDERED_MOVES; ++i) {
         if (used[i]) {
+            continue;
+        }
+
+        if (move_is_excluded(list->moves[i], excluded_moves, excluded_move_count)) {
             continue;
         }
 
@@ -714,7 +737,7 @@ static SearchResult negamax(Board *board,
     movegen_generate_pseudo_legal(board, &list);
 
     Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = build_ordered_moves(board, &list, context, ply, ordered_moves);
+    int ordered_count = build_ordered_moves(board, &list, context, ply, NULL, 0, ordered_moves);
 
     RankedMove ranked_moves[MAX_ORDERED_MOVES] = {0};
     for (int i = 0; i < ordered_count; ++i) {
@@ -829,7 +852,9 @@ SearchResult search_root(Board *board,
                          SearchControl *control,
                          SearchMoveInfoCallback on_move_info,
                          void *user_data,
-                         bool lichess_draw_rules) {
+                         bool lichess_draw_rules,
+                         const Move *excluded_moves,
+                         int excluded_move_count) {
     SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
     float alpha = -FLT_MAX;
     float beta = FLT_MAX;
@@ -843,10 +868,14 @@ SearchResult search_root(Board *board,
 
     if (board_is_draw(board, history, lichess_draw_rules)) {
         result.score = 0.0f;
-        if (list.count > 0) {
-            result.move = list.moves[0];
-            result.pv[0] = list.moves[0];
+        for (int i = 0; i < list.count; ++i) {
+            if (move_is_excluded(list.moves[i], excluded_moves, excluded_move_count)) {
+                continue;
+            }
+            result.move = list.moves[i];
+            result.pv[0] = list.moves[i];
             result.pv_length = 1;
+            break;
         }
         return result;
     }
@@ -858,15 +887,17 @@ SearchResult search_root(Board *board,
     }
 
     if (list.count == 1) {
-        result.move = list.moves[0];
-        result.pv[0] = list.moves[0];
-        result.pv_length = 1;
-        result.forced_root_move = (control != NULL && control->allow_forced_root_move);
+        if (!move_is_excluded(list.moves[0], excluded_moves, excluded_move_count)) {
+            result.move = list.moves[0];
+            result.pv[0] = list.moves[0];
+            result.pv_length = 1;
+            result.forced_root_move = (control != NULL && control->allow_forced_root_move);
+        }
         return result;
     }
 
     Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = build_ordered_moves(board, &list, context, 0, ordered_moves);
+    int ordered_count = build_ordered_moves(board, &list, context, 0, excluded_moves, excluded_move_count, ordered_moves);
 
     RankedMove ranked_moves[MAX_ORDERED_MOVES] = {0};
     for (int i = 0; i < ordered_count; ++i) {

@@ -246,6 +246,7 @@ void uci_loop(void) {
 
     SearchOptions options = {0};
     options.overhead_ms = 100;
+    options.multipv = 1;
     options.lichess_draw_rules = false;
 
     SearchThreadState search_thread = {0};
@@ -259,6 +260,7 @@ void uci_loop(void) {
             printf("id name Cepimetheus\n");
             printf("id author  George Bland\n");
             printf("option name overhead type spin default 100 min 0 max 10000\n");
+            printf("option name MultiPV type spin default 1 min 1 max 256\n");
             printf("option name lichess_draw_rules type check default false\n");
             printf("uciok\n");
             fflush(stdout);
@@ -285,6 +287,13 @@ void uci_loop(void) {
                     int parsed_overhead = atoi(valuetoken);
                     if (parsed_overhead >= 0 && parsed_overhead <= 10000) {
                         options.overhead_ms = parsed_overhead;
+                    }
+                } else if (strncmp(nametoken, "MultiPV", 7) == 0 && valuetoken != NULL) {
+                    valuetoken += 5;
+                    while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
+                    int parsed_multipv = atoi(valuetoken);
+                    if (parsed_multipv >= 1 && parsed_multipv <= 256) {
+                        options.multipv = parsed_multipv;
                     }
                 } else if (strncmp(nametoken, "lichess_draw_rules", 18) == 0) {
                     if (valuetoken != NULL) {

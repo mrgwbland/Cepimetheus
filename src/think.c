@@ -53,10 +53,11 @@ static unsigned long long compute_nps(unsigned long long nodes, long long elapse
     return (nodes * 1000ULL) / (unsigned long long)elapsed_ms;
 }
 
-static void print_depth_info(int depth, const SearchResult *result, const SearchStats *stats, long long elapsed_ms) {
+static void print_depth_info(int depth, int multipv, const SearchResult *result, const SearchStats *stats, long long elapsed_ms) {
     unsigned long long nps = compute_nps(stats->nodes, elapsed_ms);
-    printf("info depth %d seldepth %d score cp %d nodes %llu nps %llu time %lld",
+    printf("info depth %d multipv %d seldepth %d score cp %d nodes %llu nps %llu time %lld",
            depth,
+           multipv,
            stats->seldepth,
            score_to_cp(result->score),
            stats->nodes,
@@ -137,6 +138,7 @@ Move think(Board *board,
     int soft_time_limit_ms = 0;
     int hard_time_limit_ms = 0;
     int overhead_ms = 50;
+    int multipv = 1;
     bool depth_explicitly_set = false;
     bool time_limited = false;
     bool infinite_search = false;
@@ -144,6 +146,12 @@ Move think(Board *board,
 
     if (options != NULL) {
         overhead_ms = options->overhead_ms;
+        if (options->multipv > 0) {
+            multipv = options->multipv;
+            if (multipv > 256) {
+                multipv = 256;
+            }
+        }
     }
 
     if (limits != NULL) {
@@ -197,7 +205,6 @@ Move think(Board *board,
     SearchContext *search_context = search_context_create();
 
     SearchResult best_result = {0.0f, MOVE_NONE, {0}, 0, false};
-    SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
 
     /* Iterative deepening: search depths 1 through target_depth. */
     int depth_limit = target_depth;
@@ -221,23 +228,65 @@ Move think(Board *board,
             }
         }
 
-        SearchStats stats = {0ULL, depth};
-        control.stop = false;
-
         bool lichess_draw_rules = (options != NULL) ? options->lichess_draw_rules : false;
+        Move excluded_root_moves[256] = {0};
+        int excluded_root_move_count = 0;
+        SearchResult depth_best_result = {0.0f, MOVE_NONE, {0}, 0, false};
 
-        result = search_root(board,
-                             depth,
-                             &search_history,
-                             &stats,
-                             search_context,
-                             &control,
-                             print_move_info_callback,
-                             NULL,
-                             lichess_draw_rules);
+        for (int multipv_index = 0; multipv_index < multipv; ++multipv_index) {
+            if (stop_signal != NULL && *stop_signal) {
+                break;
+            }
 
-        if (control.stop) {
-            break;
+            SearchStats stats = {0ULL, depth};
+            control.stop = false;
+
+            SearchResult result = search_root(board,
+                                              depth,
+                                              &search_history,
+                                              &stats,
+                                              search_context,
+                                              &control,
+                                              print_move_info_callback,
+                                              NULL,
+                                              lichess_draw_rules,
+                                              excluded_root_moves,
+                                              excluded_root_move_count);
+
+            if (control.stop) {
+                break;
+            }
+
+            if (result.move == MOVE_NONE) {
+                break;
+            }
+
+            long long elapsed_ms = current_time_ms() - start_time_ms;
+            if (elapsed_ms < 0) {
+                elapsed_ms = 0;
+            }
+
+            print_depth_info(depth, multipv_index + 1, &result, &stats, elapsed_ms);
+
+            if (multipv_index == 0) {
+                depth_best_result = result;
+            }
+
+            if (excluded_root_move_count < 256) {
+                excluded_root_moves[excluded_root_move_count++] = result.move;
+            }
+
+            if (control.allow_forced_root_move && result.forced_root_move) {
+                break;
+            }
+
+            if (time_limited && elapsed_ms >= soft_time_limit_ms) {
+                break;
+            }
+        }
+
+        if (depth_best_result.move != MOVE_NONE) {
+            best_result = depth_best_result;
         }
 
         long long elapsed_ms = current_time_ms() - start_time_ms;
@@ -245,19 +294,6 @@ Move think(Board *board,
             elapsed_ms = 0;
         }
 
-        print_depth_info(depth, &result, &stats, elapsed_ms);
-
-        /* Update best result if we have a valid move */
-        if (result.move != MOVE_NONE) {
-            best_result = result;
-        }
-
-        // If the root search resulted in only one legal move then we can stop searching immediately, but only for clock-based searches.
-        if (control.allow_forced_root_move && result.forced_root_move) {
-            break;
-        }
-
-        /* Check if we should stop searching */
         if (time_limited && elapsed_ms >= soft_time_limit_ms) {
             break;
         }

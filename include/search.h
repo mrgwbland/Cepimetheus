@@ -45,6 +45,8 @@ SearchResult search_root(Board *board,
                          SearchControl *control,
                          SearchMoveInfoCallback on_move_info,
                          void *user_data,
-                         bool lichess_draw_rules);
+                         bool lichess_draw_rules,
+                         const Move *excluded_moves,
+                         int excluded_move_count);
 
 #endif
