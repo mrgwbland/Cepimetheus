@@ -7,42 +7,41 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    2925, /* Knight */
-    3000, /* Bishop */
-    3840, /* Rook */
-    10100, /* Queen */
+    3030, /* Knight */
+    3030, /* Bishop */
+    3090, /* Rook */
+    9960, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[14] = {
-    58, // TEMPO_BONUS
-    30, // KING_RING_PENALTY
+    51, // TEMPO_BONUS
+    31, // KING_RING_PENALTY
+    15, // KNIGHT_PAWN_COUNT_PENALTY
     0, // UNUSED
-    0, // UNUSED
-    140, // DOUBLED_PAWN_PENALTY
+    139, // DOUBLED_PAWN_PENALTY
     68, // ISOLATED_PAWN_PENALTY
-    66, // KNIGHT_MOBILITY_BONUS
-    80, // BISHOP_MOBILITY_BONUS
-    161, // ROOK_CONTROL_BONUS
-    452, // ROOK_OPEN_FILE_BONUS
-    1460, // ENDGAME_ROOK_BONUS
+    62, // KNIGHT_MOBILITY_BONUS
+    76, // BISHOP_MOBILITY_BONUS
+    173, // ROOK_CONTROL_BONUS
+    466, // ROOK_OPEN_FILE_BONUS
+    2256, // ENDGAME_ROOK_BONUS
     24, // QUEEN_MOBILITY_BONUS
-    92, // KING_EXPOSURE_PENALTY
+    97, // KING_EXPOSURE_PENALTY
     71 // KING_CORNER_DISTANCE_BONUS
 };
-
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     1, //Rank 4
-    165, //Rank 5
-    555, //Rank 6
-    870 //Rank 7
+    160, //Rank 5
+    544, //Rank 6
+    861 //Rank 7
 };
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
 #define KING_RING_PENALTY              eval_parameters[1]
-#define ENDGAME_PAWN_ADVANCEMENT_BONUS eval_parameters[2]
+#define KNIGHT_PAWN_COUNT_PENALTY      eval_parameters[2]
 #define UNUSED                         eval_parameters[3]
 #define DOUBLED_PAWN_PENALTY           eval_parameters[4]
 #define ISOLATED_PAWN_PENALTY          eval_parameters[5]
@@ -269,7 +268,9 @@ static float evaluate_piece(const Board *board,
         break;
     }
     case WHITE_KNIGHT:
-        /* Knights on the rim are grim. */
+        //Knights reduce in value as pawns leave the board
+        piece_value -= KNIGHT_PAWN_COUNT_PENALTY * (16 - (float)__builtin_popcountll(board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]));
+        // Score knights based on mobility
         piece_value += KNIGHT_MOBILITY_BONUS * (float)__builtin_popcountll(bitboard_knight_attacks(square));
         break;
     case WHITE_BISHOP:
