@@ -7,36 +7,36 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    3045, /* Knight */
-    3035, /* Bishop */
-    2805, /* Rook */
-    9960, /* Queen */
+    3030, /* Knight */
+    3055, /* Bishop */
+    2695, /* Rook */
+    10000, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[14] = {
-    51, // TEMPO_BONUS
-    30, // KING_RING_PENALTY
-    15, // KNIGHT_PAWN_COUNT_PENALTY
-    50, // PAWN_SHIELD_PENALTY
+    52, // TEMPO_BONUS
+    29, // KING_RING_PENALTY
+    12, // KNIGHT_PAWN_COUNT_PENALTY
+    102, // PAWN_SHIELD_PENALTY
     139, // DOUBLED_PAWN_PENALTY
-    68, // ISOLATED_PAWN_PENALTY
-    61, // KNIGHT_MOBILITY_BONUS
-    76, // BISHOP_MOBILITY_BONUS
-    178, // ROOK_CONTROL_BONUS
-    479, // ROOK_OPEN_FILE_BONUS
-    2589, // ENDGAME_ROOK_BONUS
-    24, // QUEEN_MOBILITY_BONUS
-    95, // KING_EXPOSURE_PENALTY
-    69 // KING_CORNER_DISTANCE_BONUS
+    66, // ISOLATED_PAWN_PENALTY
+    64, // KNIGHT_MOBILITY_BONUS
+    77, // BISHOP_MOBILITY_BONUS
+    175, // ROOK_CONTROL_BONUS
+    409, // ROOK_OPEN_FILE_BONUS
+    2777, // ENDGAME_ROOK_BONUS
+    23, // QUEEN_MOBILITY_BONUS
+    26, // KING_EXPOSURE_PENALTY
+    75 // KING_CORNER_DISTANCE_BONUS
 };
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     1, //Rank 4
-    167, //Rank 5
+    163, //Rank 5
     550, //Rank 6
-    862 //Rank 7
+    870 //Rank 7
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -304,7 +304,7 @@ static float evaluate_piece(const Board *board,
         /* If nothing prior, it is a king. */
         /* In opening/middlegame, king safety is important. */
         piece_value -= (1 - endgame_weight) * KING_EXPOSURE_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
-        piece_value -= (1 - endgame_weight) * KING_PAWN_SHIELD_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]));
+        piece_value -= (1 - endgame_weight) * PAWN_SHIELD_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]));
 
         /* Calculate Manhattan distance to closest corner. */
         int distance_a1 = file + rank;
