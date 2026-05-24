@@ -6,7 +6,7 @@
 #define MAX_PV_MOVES 128
 
 typedef struct {
-    float score;
+    int score;
     Move move;
     Move pv[MAX_PV_MOVES];
     int pv_length;
@@ -31,7 +31,7 @@ typedef struct SearchContext SearchContext;
 typedef void (*SearchMoveInfoCallback)(int depth,
                                        int move_number,
                                        Move move,
-                                       float score,
+                                       int score,
                                        void *user_data);
 
 SearchContext *search_context_create(void);

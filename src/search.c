@@ -3,7 +3,7 @@
 #include "eval.h"
 #include "movegen.h"
 
-#include <float.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
@@ -19,7 +19,7 @@ typedef struct {
 
 typedef struct {
     Move move;
-    float score;
+    int score;
     bool searched;
 } RankedMove;
 
@@ -33,7 +33,7 @@ typedef struct {
     bool valid;
     U64 hash;
     int depth;
-    float score;
+    int score;
     TranspositionScoreType score_type;
     Move best_move;
 } TranspositionEntry;
@@ -175,9 +175,9 @@ static const TranspositionEntry *transposition_table_lookup(const TranspositionT
 static bool transposition_table_probe(const TranspositionTable *table,
                                       U64 hash,
                                       int depth,
-                                      float alpha,
-                                      float beta,
-                                      float *score) {
+                                      int alpha,
+                                      int beta,
+                                      int *score) {
     const TranspositionEntry *entry = transposition_table_lookup(table, hash);
     if (entry == NULL || entry->depth < depth || score == NULL) {
         return false;
@@ -206,7 +206,7 @@ static bool transposition_table_probe(const TranspositionTable *table,
     return false;
 }
 
-static TranspositionScoreType transposition_score_type(float score, float alpha, float beta) {
+static TranspositionScoreType transposition_score_type(int score, int alpha, int beta) {
     if (score <= alpha) {
         return TT_SCORE_UPPER;
     }
@@ -220,7 +220,7 @@ static TranspositionScoreType transposition_score_type(float score, float alpha,
 
 static bool transposition_entry_should_replace_same_hash(const TranspositionEntry *entry,
                                                          int depth,
-                                                         float score,
+                                                         int score,
                                                          TranspositionScoreType score_type) {
     if (!entry->valid) {
         return true;
@@ -260,7 +260,7 @@ static bool transposition_entry_should_replace_same_hash(const TranspositionEntr
 static void transposition_table_store(TranspositionTable *table,
                                       U64 hash,
                                       int depth,
-                                      float score,
+                                      int score,
                                       TranspositionScoreType score_type,
                                       Move best_move) {
     if (table == NULL || table->entries == NULL || table->size == 0 || best_move == MOVE_NONE) {
@@ -402,9 +402,9 @@ static bool has_any_legal_move(Board *board, const MoveList *list) {
 }
 
 /* Quiescence search: only explores captures, checks and single legal move positions. */
-static float quiescence(Board *board,
-                        float alpha,
-                        float beta,
+static int quiescence(Board *board,
+                      int alpha,
+                      int beta,
                         RepetitionHistory *history,
                         SearchStats *stats,
                         int ply,
@@ -414,8 +414,8 @@ static float quiescence(Board *board,
     const int qsearch_max_ply = 16;
     const int qsearch_forced_only_move_ply_limit = 12;
     const int qsearch_noncapture_check_ply_limit = 6;
-    const float alpha_orig = alpha;
-    const float beta_orig = beta;
+    const int alpha_orig = alpha;
+    const int beta_orig = beta;
 
     if (search_should_stop(control)) {
         MoveList eval_list;
@@ -429,10 +429,10 @@ static float quiescence(Board *board,
     }
 
     if (board_is_draw(board, history, lichess_draw_rules)) {
-        return 0.0f;
+        return 0;
     }
 
-    float tt_score = 0.0f;
+    int tt_score = 0;
     if (context != NULL) {
         if (transposition_table_probe(&context->table, board_position_key(board), 0, alpha, beta, &tt_score)) {
             return tt_score;
@@ -453,7 +453,7 @@ static float quiescence(Board *board,
 
     if (!in_check) {
         /* Stand-pat is only valid when side to move can choose to pass tactical action. */
-        float stand_pat = evaluate_position(board, history, ply, &list, lichess_draw_rules);
+        int stand_pat = evaluate_position(board, history, ply, &list, lichess_draw_rules);
 
         if (stand_pat >= beta) {
             return beta;
@@ -536,7 +536,7 @@ static float quiescence(Board *board,
             continue;
         }
 
-        float score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+        int score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
 
         if (best_move == MOVE_NONE || score > alpha) {
             best_move = move;
@@ -587,17 +587,17 @@ static float quiescence(Board *board,
 /* Alpha-beta pruned negamax search. */
 static SearchResult negamax(Board *board,
                             int depth,
-                            float alpha,
-                            float beta,
+                            int alpha,
+                            int beta,
                             RepetitionHistory *history,
                             SearchStats *stats,
                             int ply,
                             SearchContext *context,
                             SearchControl *control,
                             bool lichess_draw_rules) {
-    SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
-    const float alpha_orig = alpha;
-    const float beta_orig = beta;
+    SearchResult result = {0, MOVE_NONE, {0}, 0, false};
+    const int alpha_orig = alpha;
+    const int beta_orig = beta;
 
     if (search_should_stop(control)) {
         MoveList eval_list;
@@ -609,11 +609,11 @@ static SearchResult negamax(Board *board,
     ++stats->nodes;
 
     if (board_is_draw(board, history, lichess_draw_rules)) {
-        result.score = 0.0f;
+        result.score = 0;
         return result;
     }
 
-    float tt_score = 0.0f;
+    int tt_score = 0;
     if (context != NULL) {
         if (transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, &tt_score)) {
             result.score = tt_score;
@@ -623,9 +623,9 @@ static SearchResult negamax(Board *board,
 
     /* Null-move pruning, avoided in endgames to avoid zugzwang issues. */
     if (depth >= 3 &&
-        beta < 10000.0f &&
+        beta < 10000 &&
         !board_is_in_check(board, board->side) &&
-        get_endgame_weight(board)<0.6f) {
+        get_endgame_weight(board) < 600) {
         const int reduction = 2;
         Undo undo;
         undo.snapshot = *board;
@@ -640,14 +640,14 @@ static SearchResult negamax(Board *board,
         SearchResult null_child = negamax(board,
                           depth - 1 - reduction,
                           -beta,
-                          -beta + 1.0f,
+                          -beta + 1,
                           history,
                           stats,
                           ply + 1,
                           context,
                           control,
                           lichess_draw_rules);
-        float null_score = -null_child.score;
+        int null_score = -null_child.score;
 
         board_unmake_move(board, &undo);
 
@@ -691,7 +691,7 @@ static SearchResult negamax(Board *board,
         }
 
         SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
-        float score = -child.score;
+        int score = -child.score;
 
         --history->count;
 
@@ -773,11 +773,11 @@ SearchResult search_root(Board *board,
                          bool lichess_draw_rules,
                          const Move *excluded_moves,
                          int excluded_move_count) {
-    SearchResult result = {0.0f, MOVE_NONE, {0}, 0, false};
-    float alpha = -FLT_MAX;
-    float beta = FLT_MAX;
-    const float alpha_orig = alpha;
-    const float beta_orig = beta;
+    SearchResult result = {0, MOVE_NONE, {0}, 0, false};
+    int alpha = -MATE_SCORE;
+    int beta = MATE_SCORE;
+    const int alpha_orig = alpha;
+    const int beta_orig = beta;
 
     /* `context` holds the transposition table and killer moves. */
 
@@ -785,7 +785,7 @@ SearchResult search_root(Board *board,
     movegen_generate_pseudo_legal(board, &list);
 
     if (board_is_draw(board, history, lichess_draw_rules)) {
-        result.score = 0.0f;
+        result.score = 0;
         for (int i = 0; i < list.count; ++i) {
             if (move_is_excluded(list.moves[i], excluded_moves, excluded_move_count)) {
                 continue;
@@ -836,7 +836,7 @@ SearchResult search_root(Board *board,
         }
 
         SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, context, control, lichess_draw_rules);
-        float score = -child.score;
+        int score = -child.score;
 
         --history->count;
 

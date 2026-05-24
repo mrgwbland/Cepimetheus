@@ -6,17 +6,15 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
-static int score_to_cp(float score) {
-    score /= 10.0f;
-
-    if (score >= 0.0f) {
-        return (int)(score + 0.5f);
+static int score_to_cp(int score) {
+    if (score >= 0) {
+        return score / 10;
     }
 
-    return (int)(score - 0.5f);
+    return score / 10;
 }
 
-static void print_move_info(int depth, int move_number, Move move, float score) {
+static void print_move_info(int depth, int move_number, Move move, int score) {
     char move_buffer[6];
     move_to_string(move, move_buffer);
     printf("info depth %d currmove %s currmovenumber %d score cp %d\n",
@@ -30,7 +28,7 @@ static void print_move_info(int depth, int move_number, Move move, float score) 
 static void print_move_info_callback(int depth,
                                      int move_number,
                                      Move move,
-                                     float score,
+                                     int score,
                                      void *user_data) {
     (void)user_data;
     print_move_info(depth, move_number, move, score);
@@ -204,7 +202,7 @@ Move think(Board *board,
 
     SearchContext *search_context = search_context_create();
 
-    SearchResult best_result = {0.0f, MOVE_NONE, {0}, 0, false};
+    SearchResult best_result = {0, MOVE_NONE, {0}, 0, false};
 
     /* Iterative deepening: search depths 1 through target_depth. */
     int depth_limit = target_depth;
@@ -231,7 +229,7 @@ Move think(Board *board,
         bool lichess_draw_rules = (options != NULL) ? options->lichess_draw_rules : false;
         Move excluded_root_moves[256] = {0};
         int excluded_root_move_count = 0;
-        SearchResult depth_best_result = {0.0f, MOVE_NONE, {0}, 0, false};
+        SearchResult depth_best_result = {0, MOVE_NONE, {0}, 0, false};
 
         for (int multipv_index = 0; multipv_index < multipv; ++multipv_index) {
             if (stop_signal != NULL && *stop_signal) {
