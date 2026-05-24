@@ -474,12 +474,12 @@ int evaluate_position_with_weights(const char* fen, int* weights) {
     for (int i = 0; i < 6; ++i) {
         piece_values[i] = weights[i];
     }
-    for (int i = 0; i < 14; ++i) {
+    for (int i = 0; i < 15; ++i) {
         eval_parameters[i] = weights[6 + i];
     }
 
     for (int i = 0; i < 6; ++i) {
-        passed_pawn_rank_bonus[i] = weights[6 + 14 + i];
+        passed_pawn_rank_bonus[i] = weights[6 + 15 + i];
     }
 
     // 2. Initialize the board architecture and parse FEN
