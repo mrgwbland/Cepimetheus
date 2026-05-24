@@ -23,17 +23,15 @@ typedef struct {
     bool searched;
 } RankedMove;
 
-typedef enum {
-    TT_SCORE_UPPER,
-    TT_SCORE_EXACT,
-    TT_SCORE_LOWER,
-} TranspositionScoreType;
+typedef uint8_t TranspositionScoreType;
+#define    TT_SCORE_UPPER 0
+#define    TT_SCORE_EXACT 1
+#define    TT_SCORE_LOWER 2
 
 typedef struct {
-    bool valid;
     U64 hash;
-    int depth;
-    int score;
+    int16_t score;    
+    int8_t depth;
     TranspositionScoreType score_type;
     Move best_move;
 } TranspositionEntry;
@@ -165,7 +163,7 @@ static const TranspositionEntry *transposition_table_lookup(const TranspositionT
     }
 
     const TranspositionEntry *entry = &table->entries[transposition_table_index(table, hash)];
-    if (!entry->valid || entry->hash != hash) {
+    if (entry->hash == 0 || entry->hash != hash) {
         return NULL;
     }
 
@@ -222,10 +220,6 @@ static bool transposition_entry_should_replace_same_hash(const TranspositionEntr
                                                          int depth,
                                                          int score,
                                                          TranspositionScoreType score_type) {
-    if (!entry->valid) {
-        return true;
-    }
-
     if (depth > entry->depth) {
         return true;
     }
@@ -268,15 +262,14 @@ static void transposition_table_store(TranspositionTable *table,
     }
 
     TranspositionEntry *entry = &table->entries[transposition_table_index(table, hash)];
-    if (entry->valid && entry->hash == hash) {
+    if (entry->hash == hash) {
         if (!transposition_entry_should_replace_same_hash(entry, depth, score, score_type)) {
             return;
         }
-    } else if (entry->valid && entry->hash != hash && depth <= entry->depth) {
+    } else if (entry->hash != 0 && depth <= entry->depth) {
         return;
     }
 
-    entry->valid = true;
     entry->hash = hash;
     entry->depth = depth;
     entry->score = score;
