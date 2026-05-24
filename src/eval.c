@@ -7,42 +7,43 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    3030, /* Knight */
-    3030, /* Bishop */
-    3090, /* Rook */
+    3045, /* Knight */
+    3035, /* Bishop */
+    2805, /* Rook */
     9960, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[14] = {
     51, // TEMPO_BONUS
-    31, // KING_RING_PENALTY
+    30, // KING_RING_PENALTY
     15, // KNIGHT_PAWN_COUNT_PENALTY
-    0, // UNUSED
+    50, // PAWN_SHIELD_PENALTY
     139, // DOUBLED_PAWN_PENALTY
     68, // ISOLATED_PAWN_PENALTY
-    62, // KNIGHT_MOBILITY_BONUS
+    61, // KNIGHT_MOBILITY_BONUS
     76, // BISHOP_MOBILITY_BONUS
-    173, // ROOK_CONTROL_BONUS
-    466, // ROOK_OPEN_FILE_BONUS
-    2256, // ENDGAME_ROOK_BONUS
+    178, // ROOK_CONTROL_BONUS
+    479, // ROOK_OPEN_FILE_BONUS
+    2589, // ENDGAME_ROOK_BONUS
     24, // QUEEN_MOBILITY_BONUS
-    97, // KING_EXPOSURE_PENALTY
-    71 // KING_CORNER_DISTANCE_BONUS
+    95, // KING_EXPOSURE_PENALTY
+    69 // KING_CORNER_DISTANCE_BONUS
 };
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     1, //Rank 4
-    160, //Rank 5
-    544, //Rank 6
-    861 //Rank 7
+    167, //Rank 5
+    550, //Rank 6
+    862 //Rank 7
 };
+
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
 #define KING_RING_PENALTY              eval_parameters[1]
 #define KNIGHT_PAWN_COUNT_PENALTY      eval_parameters[2]
-#define UNUSED                         eval_parameters[3]
+#define PAWN_SHIELD_PENALTY                         eval_parameters[3]
 #define DOUBLED_PAWN_PENALTY           eval_parameters[4]
 #define ISOLATED_PAWN_PENALTY          eval_parameters[5]
 #define KNIGHT_MOBILITY_BONUS          eval_parameters[6]
@@ -303,6 +304,7 @@ static float evaluate_piece(const Board *board,
         /* If nothing prior, it is a king. */
         /* In opening/middlegame, king safety is important. */
         piece_value -= (1 - endgame_weight) * KING_EXPOSURE_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
+        piece_value -= (1 - endgame_weight) * KING_PAWN_SHIELD_PENALTY * (float)__builtin_popcountll(bitboard_queen_attacks(square, board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]));
 
         /* Calculate Manhattan distance to closest corner. */
         int distance_a1 = file + rank;
