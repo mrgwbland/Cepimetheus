@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 
-#define TRANSPOSITION_TABLE_SIZE (1U << 26) /* This must be a power of 2 */
+#define TRANSPOSITION_TABLE_SIZE (1U << 20) /* This must be a power of 2 */
 #define MAX_ORDERED_MOVES 256
 #define MAX_PLY_DEPTH 256
 
