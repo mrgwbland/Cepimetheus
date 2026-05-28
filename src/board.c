@@ -223,10 +223,14 @@ bool board_is_draw(const Board *board, const RepetitionHistory *history, bool li
             start = halfmove_limit;
         }
 
-        //Intentionally declaring a twofold as a draw, functionally identical for engine's play, albeit not for analysis
+        // Declare draw on threefold repetition (requires two prior identical positions)
+        int matches = 0;
         for (int i = start; i < history_limit; ++i) {
             if (history->keys[i] == current_key) {
-                return true;
+                ++matches;
+                if (matches >= 2) {
+                    return true;
+                }
             }
         }
     }
