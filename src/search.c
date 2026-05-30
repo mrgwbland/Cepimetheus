@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/time.h>
 
-#define TRANSPOSITION_TABLE_SIZE (1U << 20) /* This must be a power of 2 */
+#define MAX_TRANSPOSITION_TABLE_POWER 30
 #define MAX_ORDERED_MOVES 256
 #define MAX_PLY_DEPTH 256
 
@@ -30,11 +30,11 @@ typedef uint8_t TranspositionScoreType;
 
 typedef struct {
     U64 hash;
+    Move best_move;
     int16_t score;    
     int8_t depth;
     TranspositionScoreType score_type;
-    Move best_move;
-} TranspositionEntry;
+} TranspositionEntry; //16 bytes per entry
 
 typedef struct {
     TranspositionEntry *entries;
@@ -735,14 +735,23 @@ static SearchResult negamax(Board *board,
     return result;
 }
 
-SearchContext *search_context_create(void) {
+SearchContext *search_context_create(size_t hash_power) {
     SearchContext *context = calloc(1, sizeof(*context));
     if (context == NULL) {
         return NULL;
     }
 
-    context->table.size = TRANSPOSITION_TABLE_SIZE;
+    if (hash_power > MAX_TRANSPOSITION_TABLE_POWER) {
+        hash_power = MAX_TRANSPOSITION_TABLE_POWER;
+    }
+
+    context->table.size = (size_t)1 << hash_power;
     context->table.entries = calloc(context->table.size, sizeof(*context->table.entries));
+    if (context->table.entries == NULL) {
+        free(context);
+        return NULL;
+    }
+
     return context;
 }
 

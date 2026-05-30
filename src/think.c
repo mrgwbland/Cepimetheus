@@ -200,7 +200,12 @@ Move think(Board *board,
     // Only return single moves instantly if playing on clock time
     control.allow_forced_root_move = (time_limited && movetime_ms <= 0 && !depth_explicitly_set && !infinite_search);
 
-    SearchContext *search_context = search_context_create();
+    size_t hash_power = 20;
+    if (options != NULL && options->hash_power >= 0) {
+        hash_power = (size_t)options->hash_power;
+    }
+
+    SearchContext *search_context = search_context_create(hash_power);
 
     SearchResult best_result = {0, MOVE_NONE, {0}, 0, false};
 

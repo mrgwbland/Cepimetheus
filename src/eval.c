@@ -265,7 +265,7 @@ static int evaluate_piece(const Board *board,
         if (!has_left && !has_right)
         {
             /* Isolated pawn penalty: - points if no same-color pawns on adjacent files. */
-            piece_value -= ISOLATED_PAWN_PENALTY;
+            piece_value -= ISOLATED_PAWN_PENALTY; //Consider experimenting with this being proportional to the piece value in the future
         }
         break;
     }

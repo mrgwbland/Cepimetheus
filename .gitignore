@@ -5,3 +5,4 @@ Cepimetheus
 *.data*
 report.txt
 *.so
+hash_test.sh

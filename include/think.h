@@ -6,6 +6,7 @@
 typedef struct SearchOptions {
     int overhead_ms;
     int multipv;
+    int hash_power;
     bool lichess_draw_rules;
 } SearchOptions;
 

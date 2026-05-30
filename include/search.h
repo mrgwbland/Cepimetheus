@@ -2,6 +2,7 @@
 #define SEARCH_H
 
 #include "board.h"
+#include <stddef.h>
 
 #define MAX_PV_MOVES 128
 
@@ -34,7 +35,7 @@ typedef void (*SearchMoveInfoCallback)(int depth,
                                        int score,
                                        void *user_data);
 
-SearchContext *search_context_create(void);
+SearchContext *search_context_create(size_t hash_power);
 void search_context_destroy(SearchContext *context);
 
 SearchResult search_root(Board *board,
