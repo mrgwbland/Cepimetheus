@@ -6,37 +6,37 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    3030, /* Knight */
+    3035, /* Knight */
     3055, /* Bishop */
-    2695, /* Rook */
-    10000, /* Queen */
+    2635, /* Rook */
+    9990, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
     52, // TEMPO_BONUS
-    29, // KING_RING_PENALTY
-    12, // KNIGHT_PAWN_COUNT_PENALTY
+    28, // KING_RING_PENALTY
+    13, // KNIGHT_PAWN_COUNT_PENALTY
     102, // PAWN_SHIELD_PENALTY
     139, // DOUBLED_PAWN_PENALTY
     66, // ISOLATED_PAWN_PENALTY
     64, // KNIGHT_MOBILITY_BONUS
     77, // BISHOP_MOBILITY_BONUS
-    175, // ROOK_CONTROL_BONUS
-    409, // ROOK_OPEN_FILE_BONUS
-    2777, // ENDGAME_ROOK_BONUS
-    23, // QUEEN_MOBILITY_BONUS
+    177, // ROOK_CONTROL_BONUS
+    419, // ROOK_OPEN_FILE_BONUS
+    2844, // ENDGAME_ROOK_BONUS
+    24, // QUEEN_MOBILITY_BONUS
     26, // KING_EXPOSURE_PENALTY
-    75, // KING_CORNER_DISTANCE_BONUS
-    1000 // ENDGAME_WEIGHT_SCALE
+    73, // KING_CORNER_DISTANCE_BONUS
+    0 // UNUSED    
 };
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     1, //Rank 4
-    163, //Rank 5
-    550, //Rank 6
-    870 //Rank 7
+    166, //Rank 5
+    552, //Rank 6
+    877 //Rank 7
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -54,7 +54,6 @@ int passed_pawn_rank_bonus[6] = {
 #define QUEEN_MOBILITY_BONUS           eval_parameters[11]
 #define KING_EXPOSURE_PENALTY          eval_parameters[12]
 #define KING_CORNER_DISTANCE_BONUS     eval_parameters[13]
-#define ENDGAME_WEIGHT_SCALE           eval_parameters[14]
 
 /* File masks - one per file (A-H) */
 static const U64 file_masks[8] = {
@@ -248,7 +247,7 @@ static int evaluate_piece(const Board *board,
         if (passed_pawns[square])
         {
             /* Passed pawns are further rewarded for advancement. */
-            piece_value += (int)(((long long)endgame_weight * passed_pawn_rank_bonus[pawn_rank - 1]) / ENDGAME_WEIGHT_SCALE);
+            piece_value += (int)(((long long)endgame_weight * passed_pawn_rank_bonus[pawn_rank - 1]) / 1000);
         }
 
         const int *pawns_per_file = is_white ? white_pawns_per_file : black_pawns_per_file;
@@ -285,17 +284,17 @@ static int evaluate_piece(const Board *board,
     }
     case WHITE_ROOK:
         /* Reward squares controlled. */
-        piece_value += (int)(((long long)(ENDGAME_WEIGHT_SCALE - endgame_weight) * ROOK_CONTROL_BONUS * __builtin_popcountll(bitboard_rook_attacks(square, all_pieces))) / ENDGAME_WEIGHT_SCALE);
+        piece_value += (int)(((long long)(1000 - endgame_weight) * ROOK_CONTROL_BONUS * __builtin_popcountll(bitboard_rook_attacks(square, all_pieces))) / 1000);
 
         U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
         U64 file_mask = file_masks[file];
         /* Open file bonus: + points if no pawns on the file. */
         if (__builtin_popcountll(all_pawns & file_mask) == 0)
         {
-            piece_value += (int)(((long long)(ENDGAME_WEIGHT_SCALE - endgame_weight) * ROOK_OPEN_FILE_BONUS) / ENDGAME_WEIGHT_SCALE);
+            piece_value += (int)(((long long)(1000 - endgame_weight) * ROOK_OPEN_FILE_BONUS) / 1000);
         }
         /* Rooks are better in the endgame. */
-        piece_value += (int)(((long long)endgame_weight * ENDGAME_ROOK_BONUS) / ENDGAME_WEIGHT_SCALE);
+        piece_value += (int)(((long long)endgame_weight * ENDGAME_ROOK_BONUS) / 1000);
         break;
     case WHITE_QUEEN:
         piece_value += QUEEN_MOBILITY_BONUS * __builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
@@ -304,8 +303,8 @@ static int evaluate_piece(const Board *board,
     {
         /* If nothing prior, it is a king. */
         /* In opening/middlegame, king safety is important. */
-        piece_value -= (int)(((long long)(ENDGAME_WEIGHT_SCALE - endgame_weight) * KING_EXPOSURE_PENALTY * __builtin_popcountll(bitboard_queen_attacks(square, all_pieces))) / ENDGAME_WEIGHT_SCALE);
-        piece_value -= (int)(((long long)(ENDGAME_WEIGHT_SCALE - endgame_weight) * PAWN_SHIELD_PENALTY * __builtin_popcountll(bitboard_queen_attacks(square, board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]))) / ENDGAME_WEIGHT_SCALE);
+        piece_value -= (int)(((long long)(1000 - endgame_weight) * KING_EXPOSURE_PENALTY * __builtin_popcountll(bitboard_queen_attacks(square, all_pieces))) / 1000);
+        piece_value -= (int)(((long long)(1000 - endgame_weight) * PAWN_SHIELD_PENALTY * __builtin_popcountll(bitboard_queen_attacks(square, board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]))) / 1000);
 
         /* Calculate Manhattan distance to closest corner. */
         int distance_a1 = file + rank;
@@ -327,7 +326,7 @@ static int evaluate_piece(const Board *board,
         }
 
         /* In endgames favour activity; in middlegames favour safety. */
-        piece_value += (int)(((long long)(2 * endgame_weight - ENDGAME_WEIGHT_SCALE) * corner_distance * KING_CORNER_DISTANCE_BONUS) / ENDGAME_WEIGHT_SCALE);
+        piece_value += (int)(((long long)(2 * endgame_weight - 1000) * corner_distance * KING_CORNER_DISTANCE_BONUS) / 1000);
         break;
     }
     default:
@@ -355,7 +354,7 @@ int get_endgame_weight(const Board *board)
         total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[i];
     }
 
-    return ENDGAME_WEIGHT_SCALE - (int)(((long long)(total_piece_value + 1) * ENDGAME_WEIGHT_SCALE) / (initial_piece_value + 1));// +1 to avoid division by zero, and the 1- to invert the ratio so that it goes from 0 (opening) to 1 (endgame)
+    return 1000 - (int)(((long long)(total_piece_value + 1) * 1000) / (initial_piece_value + 1));// +1 to avoid division by zero, and the 1- to invert the ratio so that it goes from 0 (opening) to 1 (endgame)
 }
 
 EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move)
