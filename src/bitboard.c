@@ -5,6 +5,7 @@
 static U64 knight_table[64];
 static U64 king_table[64];
 static U64 pawn_table[2][64];
+static U64 passed_pawn_masks[2][64];
 
 // 102,400 is the exact number of rook blocker permutations across all 64 squares
 U64 rook_table[102400];
@@ -134,6 +135,36 @@ static void build_tables(void) {
         }
         pawn_table[BLACK][square] = black_pawns;
 
+        U64 white_passed_pawn_mask = 0;
+        for (int passed_file = file - 1; passed_file <= file + 1; ++passed_file)
+        {
+            if (passed_file < 0 || passed_file > 7)
+            {
+                continue;
+            }
+
+            for (int passed_rank = rank + 1; passed_rank < 8; ++passed_rank)
+            {
+                white_passed_pawn_mask |= 1ULL << (passed_rank * 8 + passed_file);
+            }
+        }
+        passed_pawn_masks[WHITE][square] = white_passed_pawn_mask;
+
+        U64 black_passed_pawn_mask = 0;
+        for (int passed_file = file - 1; passed_file <= file + 1; ++passed_file)
+        {
+            if (passed_file < 0 || passed_file > 7)
+            {
+                continue;
+            }
+
+            for (int passed_rank = rank - 1; passed_rank >= 0; --passed_rank)
+            {
+                black_passed_pawn_mask |= 1ULL << (passed_rank * 8 + passed_file);
+            }
+        }
+        passed_pawn_masks[BLACK][square] = black_passed_pawn_mask;
+
         /* Generate and store rook/bishop masks for this square */
         rook_masks[square] = generate_rook_mask(square);
         bishop_masks[square] = generate_bishop_mask(square);
@@ -229,4 +260,9 @@ U64 bitboard_rook_attacks(int square, U64 occupancy) {
 
 U64 bitboard_queen_attacks(int square, U64 occupancy) {
     return bitboard_bishop_attacks(square, occupancy) | bitboard_rook_attacks(square, occupancy);
+}
+
+U64 bitboard_passed_pawn_mask(int side, int square) {
+    bitboard_init_tables();
+    return passed_pawn_masks[side][square];
 }

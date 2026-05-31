@@ -167,73 +167,32 @@ static void count_pawns_per_file(U64 pawns, int pawns_per_file[8])
     }
 }
 
-/* Get mask for all ranks ahead of given rank (for white pawns: rank+1 to 7) */
-static U64 get_ranks_ahead_white(int rank)
+static U64 mark_passed_pawns(const Board *board, int side)
 {
-    if (rank >= 7)
-    {
-        return 0;
-    }
-
-    return 0xFFFFFFFFFFFFFFFFULL << ((rank + 1) * 8);
-}
-
-/* Get mask for all ranks ahead of given rank (for black pawns: 0 to rank-1) */
-static U64 get_ranks_ahead_black(int rank)
-{
-    if (rank <= 0)
-    {
-        return 0;
-    }
-
-    return (1ULL << (rank * 8)) - 1;
-}
-
-static void mark_passed_pawns(const Board *board, int side, bool passed_pawns[64])
-{
-    for (int i = 0; i < 64; ++i)
-    {
-        passed_pawns[i] = false;
-    }
-
     U64 own_pawns = board->pieces[side == WHITE ? WHITE_PAWN : BLACK_PAWN];
     U64 enemy_pawns = board->pieces[side == WHITE ? BLACK_PAWN : WHITE_PAWN];
+    U64 passed_pawns = 0;
 
     U64 bb = own_pawns;
     while (bb)
     {
         int square = bitboard_pop_lsb(&bb);
-        int file = file_of(square);
-        int rank = rank_of(square);
 
-        /* Create mask for current file and adjacent files. */
-        U64 check_files = 0;
-        if (file > 0)
+        /* Check if any enemy pawns exist in the precomputed block mask. */
+        if ((enemy_pawns & bitboard_passed_pawn_mask(side, square)) == 0)
         {
-            check_files |= file_masks[file - 1];
-        }
-        check_files |= file_masks[file];
-        if (file < 7)
-        {
-            check_files |= file_masks[file + 1];
-        }
-
-        /* Get mask for ranks ahead of this pawn. */
-        U64 ranks_ahead = (side == WHITE) ? get_ranks_ahead_white(rank) : get_ranks_ahead_black(rank);
-
-        /* Check if any enemy pawns exist in the check region. */
-        if ((enemy_pawns & check_files & ranks_ahead) == 0)
-        {
-            passed_pawns[square] = true;
+            passed_pawns |= 1ULL << square;
         }
     }
+
+    return passed_pawns;
 }
 
 static int evaluate_piece(const Board *board,
                           int piece,
                           int square,
                           int endgame_weight,
-                          const bool passed_pawns[64],
+                          U64 passed_pawns,
                           const int white_pawns_per_file[8],
                           const int black_pawns_per_file[8],
                           U64 all_pieces)
@@ -250,7 +209,7 @@ static int evaluate_piece(const Board *board,
     case WHITE_PAWN:
     {
         int pawn_rank = is_white ? rank : (7 - rank);
-        if (passed_pawns[square])
+        if (passed_pawns & (1ULL << square))
         {
             /* Passed pawns are further rewarded for advancement. */
             piece_value += (int)(((long long)endgame_weight * passed_pawn_rank_bonus[pawn_rank - 1]) / 1000);
@@ -415,10 +374,8 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     count_pawns_per_file(board->pieces[WHITE_PAWN], white_pawns_per_file);
     count_pawns_per_file(board->pieces[BLACK_PAWN], black_pawns_per_file);
 
-    bool white_passed_pawns[64];
-    bool black_passed_pawns[64];
-    mark_passed_pawns(board, WHITE, white_passed_pawns);
-    mark_passed_pawns(board, BLACK, black_passed_pawns);
+    U64 white_passed_pawns = mark_passed_pawns(board, WHITE);
+    U64 black_passed_pawns = mark_passed_pawns(board, BLACK);
 
     U64 all_pieces = board->occupancy[BOTH];
 
@@ -432,7 +389,7 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
         {
             int square = bitboard_pop_lsb(&bb);
             int side = board_piece_color(piece);
-            const bool *passed = (side == WHITE) ? white_passed_pawns : black_passed_pawns;
+            U64 passed = (side == WHITE) ? white_passed_pawns : black_passed_pawns;
             int value = evaluate_piece(board,
                                        piece,
                                        square,
