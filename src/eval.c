@@ -6,42 +6,48 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    3035, /* Knight */
-    3055, /* Bishop */
-    2635, /* Rook */
-    9990, /* Queen */
+    3090, /* Knight */
+    3095, /* Bishop */
+    2705, /* Rook */
+    10080, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
-    52, // TEMPO_BONUS
-    28, // KING_RING_PENALTY
-    13, // KNIGHT_PAWN_COUNT_PENALTY
-    102, // PAWN_SHIELD_PENALTY
-    139, // DOUBLED_PAWN_PENALTY
-    66, // ISOLATED_PAWN_PENALTY
-    64, // KNIGHT_MOBILITY_BONUS
-    77, // BISHOP_MOBILITY_BONUS
+    51, // TEMPO_BONUS
+    0, // UNUSED
+    15, // KNIGHT_PAWN_COUNT_PENALTY
+    104, // PAWN_SHIELD_PENALTY
+    137, // DOUBLED_PAWN_PENALTY
+    68, // ISOLATED_PAWN_PENALTY
+    62, // KNIGHT_MOBILITY_BONUS
+    76, // BISHOP_MOBILITY_BONUS
     177, // ROOK_CONTROL_BONUS
-    419, // ROOK_OPEN_FILE_BONUS
-    2844, // ENDGAME_ROOK_BONUS
+    436, // ROOK_OPEN_FILE_BONUS
+    2810, // ENDGAME_ROOK_BONUS
     24, // QUEEN_MOBILITY_BONUS
-    26, // KING_EXPOSURE_PENALTY
+    22, // KING_EXPOSURE_PENALTY
     73, // KING_CORNER_DISTANCE_BONUS
-    0 // UNUSED    
+    0 // UNUSED  
 };
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
-    1, //Rank 4
-    166, //Rank 5
-    552, //Rank 6
-    877 //Rank 7
+    8, //Rank 4
+    174, //Rank 5
+    555, //Rank 6
+    893 //Rank 7
+};
+int king_ring_penalty[14] = {
+    20, 5, 90, 138,
+    171, 83, 80, 121,
+    319, 475, 1656, 2627,
+    1315, 2216
 };
 
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
-#define KING_RING_PENALTY              eval_parameters[1]
+#define UNUSED                         eval_parameters[1]
 #define KNIGHT_PAWN_COUNT_PENALTY      eval_parameters[2]
 #define PAWN_SHIELD_PENALTY            eval_parameters[3]
 #define DOUBLED_PAWN_PENALTY           eval_parameters[4]
@@ -453,9 +459,19 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
         /* Unless the position is zugzwang, having a move is often better. */
         tempo_bonus = TEMPO_BONUS;
     }
+    int white_king_ring_attackers = count_king_ring_attackers(board, WHITE, all_pieces);
+    int black_king_ring_attackers = count_king_ring_attackers(board, BLACK, all_pieces);
 
-    white_score -= KING_RING_PENALTY * count_king_ring_attackers(board, WHITE, all_pieces);
-    black_score -= KING_RING_PENALTY * count_king_ring_attackers(board, BLACK, all_pieces);
+    if (white_king_ring_attackers >= 14)
+    {
+        white_king_ring_attackers = 13;
+    }
+    if (black_king_ring_attackers >= 14)
+    {
+        black_king_ring_attackers = 13;
+    }
+    white_score -= king_ring_penalty[white_king_ring_attackers];
+    black_score -= king_ring_penalty[black_king_ring_attackers];
 
     if (side_to_move == WHITE)
     {
@@ -481,6 +497,9 @@ int evaluate_position_with_weights(const char* fen, int* weights) {
         passed_pawn_rank_bonus[i] = weights[6 + 15 + i];
     }
 
+    for (int i = 0; i < 14; ++i) {
+        king_ring_penalty[i] = weights[6 + 15 + 6 + i];
+    }
     // 2. Initialize the board architecture and parse FEN
     Board board;
     board_init(&board); // Crucial: sets up bitboard tables and clears fields

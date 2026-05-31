@@ -87,7 +87,7 @@ static int estimate_move_score(Board *board, Move move, const SearchContext *con
     int flags = move_flags(move);
 
     /* Captures - MVV/LVA (Most Valuable Victim / Least Valuable Aggressor). */
-    if (move_iscapture(board, move)) {
+    if (move_iscapture(move)) {
         int attacker_piece = board_piece_at(board, move_from(move));
         int attacker_type = board_piece_type(attacker_piece);
 
@@ -470,7 +470,7 @@ static int quiescence(Board *board,
 
     for (int i = 0; i < list.count && filtered_count < MAX_ORDERED_MOVES; ++i) {
         Move move = list.moves[i];
-        bool is_capture = move_iscapture(board, move);
+        bool is_capture = move_iscapture(move);
 
         if (is_capture) {
             filtered_moves[filtered_count++] = move;
@@ -542,7 +542,7 @@ static int quiescence(Board *board,
         if (score >= beta) {
             /* record killer if quiet move */
             if (context != NULL) {
-                if (!move_iscapture(board, move) && move_promotion(move) == MOVE_PROMO_NONE) {
+                if (!move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE) {
                     if (context->killer_moves[ply][0] != move) {
                         context->killer_moves[ply][1] = context->killer_moves[ply][0];
                         context->killer_moves[ply][0] = move;
@@ -707,7 +707,7 @@ static SearchResult negamax(Board *board,
         if (alpha >= beta) {
             /* record killer if quiet move */
             if (context != NULL) {
-                if (!move_iscapture(board, move) && move_promotion(move) == MOVE_PROMO_NONE) {
+                if (!move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE) {
                     if (ply >= 0 && ply < MAX_PLY_DEPTH) {
                         if (context->killer_moves[ply][0] != move) {
                             context->killer_moves[ply][1] = context->killer_moves[ply][0];

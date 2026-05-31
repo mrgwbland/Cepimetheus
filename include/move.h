@@ -45,7 +45,7 @@ static inline int move_flags(Move move) {
     return (int)((move >> 15) & 15u);
 }
 
-bool move_iscapture(const struct Board *board, Move move);
+bool move_iscapture(Move move);
 bool move_ischeck(const struct Board *board, Move move);
 void move_to_string(Move move, char buffer[6]);
 void zobrist_hash_to_string(uint64_t hash, char buffer[17]);

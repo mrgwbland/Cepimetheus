@@ -57,19 +57,11 @@ bool zobrist_hash_from_string(const char *text, uint64_t *hash_out) {
     return true;
 }
 
-bool move_iscapture(const struct Board *board, Move move) {
-    if (board == NULL) {
-        return false;
-    }
-    if ((move_flags(move) & MOVE_FLAG_EN_PASSANT) != 0) {
+bool move_iscapture(Move move) {
+    if ((move_flags(move) & MOVE_FLAG_CAPTURE) != 0) {
         return true;
     }
-    int from_piece = board_piece_at(board, move_from(move));
-    if (from_piece < 0) {
-        return false;
-    }
-    int target_piece = board_piece_at(board, move_to(move));
-    return target_piece >= 0 && board_piece_color(target_piece) != board_piece_color(from_piece);
+    return false;
 }
 
 bool move_ischeck(const struct Board *board, Move move) {
