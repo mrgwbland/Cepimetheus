@@ -188,14 +188,14 @@ static U64 mark_passed_pawns(const Board *board, int side)
     return passed_pawns;
 }
 
-static int evaluate_piece(const Board *board,
-                          int piece,
+static int evaluate_piece(int piece,
                           int square,
                           int endgame_weight,
                           U64 passed_pawns,
                           const int white_pawns_per_file[8],
                           const int black_pawns_per_file[8],
-                          U64 all_pieces)
+                          U64 all_pieces,
+                          U64 all_pawns)
 {
     int side = board_piece_color(piece);
     int type = board_piece_type(piece);
@@ -235,7 +235,7 @@ static int evaluate_piece(const Board *board,
     }
     case WHITE_KNIGHT:
         //Knights reduce in value as pawns leave the board
-        piece_value -= KNIGHT_PAWN_COUNT_PENALTY * (16 - __builtin_popcountll(board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]));
+        piece_value -= KNIGHT_PAWN_COUNT_PENALTY * (16 - __builtin_popcountll(all_pawns));
         // Score knights based on mobility
         piece_value += KNIGHT_MOBILITY_BONUS * __builtin_popcountll(bitboard_knight_attacks(square));
         break;
@@ -243,15 +243,13 @@ static int evaluate_piece(const Board *board,
     {
         /* Reward bishops with mobility through pawn occupancy only.
         This is because a bishop on g2 with a knight on f3 is still good whereas if there was a pawn on f3 it would be blocked*/
-        U64 pawn_occupancy = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
-        piece_value += BISHOP_MOBILITY_BONUS * __builtin_popcountll(bitboard_bishop_attacks(square, pawn_occupancy));
+        piece_value += BISHOP_MOBILITY_BONUS * __builtin_popcountll(bitboard_bishop_attacks(square, all_pawns));
         break;
     }
     case WHITE_ROOK:
         /* Reward squares controlled. */
         piece_value += (int)(((long long)(1000 - endgame_weight) * ROOK_CONTROL_BONUS * __builtin_popcountll(bitboard_rook_attacks(square, all_pieces))) / 1000);
 
-        U64 all_pawns = board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN];
         U64 file_mask = file_masks[file];
         /* Open file bonus: + points if no pawns on the file. */
         if (__builtin_popcountll(all_pawns & file_mask) == 0)
@@ -269,7 +267,7 @@ static int evaluate_piece(const Board *board,
         /* If nothing prior, it is a king. */
         /* In opening/middlegame, king safety is important. */
         piece_value -= (int)(((long long)(1000 - endgame_weight) * KING_EXPOSURE_PENALTY * __builtin_popcountll(bitboard_queen_attacks(square, all_pieces))) / 1000);
-        piece_value -= (int)(((long long)(1000 - endgame_weight) * PAWN_SHIELD_PENALTY * __builtin_popcountll(bitboard_queen_attacks(square, board->pieces[WHITE_PAWN] | board->pieces[BLACK_PAWN]))) / 1000);
+        piece_value -= (int)(((long long)(1000 - endgame_weight) * PAWN_SHIELD_PENALTY * __builtin_popcountll(bitboard_queen_attacks(square, all_pawns))) / 1000);
 
         /* Calculate Manhattan distance to closest corner. */
         int distance_a1 = file + rank;
@@ -369,10 +367,14 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     Endgame eval is different from opening/middlegame eval, so we need to know which phase we're in. */
     int endgame_weight = get_endgame_weight(board);
 
+    U64 white_pawns = board->pieces[WHITE_PAWN];
+    U64 black_pawns = board->pieces[BLACK_PAWN];
+    U64 all_pawns = white_pawns | black_pawns;
+
     int white_pawns_per_file[8];
     int black_pawns_per_file[8];
-    count_pawns_per_file(board->pieces[WHITE_PAWN], white_pawns_per_file);
-    count_pawns_per_file(board->pieces[BLACK_PAWN], black_pawns_per_file);
+    count_pawns_per_file(white_pawns, white_pawns_per_file);
+    count_pawns_per_file(black_pawns, black_pawns_per_file);
 
     U64 white_passed_pawns = mark_passed_pawns(board, WHITE);
     U64 black_passed_pawns = mark_passed_pawns(board, BLACK);
@@ -390,14 +392,14 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
             int square = bitboard_pop_lsb(&bb);
             int side = board_piece_color(piece);
             U64 passed = (side == WHITE) ? white_passed_pawns : black_passed_pawns;
-            int value = evaluate_piece(board,
-                                       piece,
+            int value = evaluate_piece(piece,
                                        square,
                                        endgame_weight,
                                        passed,
                                        white_pawns_per_file,
                                        black_pawns_per_file,
-                                       all_pieces);
+                                       all_pieces,
+                                       all_pawns);
 
             if (side == WHITE)
             {
