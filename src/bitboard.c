@@ -34,6 +34,26 @@ static int on_board(int file, int rank) {
     return file >= 0 && file < 8 && rank >= 0 && rank < 8;
 }
 
+static U64 bitboard_pext(U64 value, U64 mask) {
+#if defined(__BMI2__)
+    return _pext_u64(value, mask);
+#else
+    U64 result = 0;
+    U64 bit = 1;
+
+    while (mask) {
+        U64 lsb = mask & (~mask + 1ULL);
+        if (value & lsb) {
+            result |= bit;
+        }
+        mask &= (mask - 1ULL);
+        bit <<= 1;
+    }
+
+    return result;
+#endif
+}
+
 // Masks exclude the outer edges of the board relative to the piece because pieces on the edge don't affect what is visible behind them.
 
 U64 generate_rook_mask(int sq) {
@@ -249,12 +269,12 @@ U64 bitboard_pawn_attacks(int side, int square) {
 }
 
 U64 bitboard_bishop_attacks(int square, U64 occupancy) {
-    U64 index = _pext_u64(occupancy, bishop_masks[square]);
+    U64 index = bitboard_pext(occupancy, bishop_masks[square]);
     return bishop_attacks[square][index];
 }
 
 U64 bitboard_rook_attacks(int square, U64 occupancy) {
-    U64 index = _pext_u64(occupancy, rook_masks[square]);
+    U64 index = bitboard_pext(occupancy, rook_masks[square]);
     return rook_attacks[square][index];
 }
 

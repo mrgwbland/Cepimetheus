@@ -1,11 +1,13 @@
 CC ?= gcc
 THREAD_FLAGS ?= -pthread
 CFLAGS ?= -Ofast -march=x86-64-v3 -flto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -g -fno-omit-frame-pointer #(last two for profiling)
+RELEASE_FLAGS ?= -Ofast -flto -Iinclude $(THREAD_FLAGS)
 WIN_CC ?= x86_64-w64-mingw32-gcc
 WIN32_CC ?= i686-w64-mingw32-gcc
+BUILD_DIR ?= release
 
-TARGET := Cepimetheus
-TUNING_TARGET := engine.so
+TARGET := $(BUILD_DIR)/Cepimetheus
+TUNING_TARGET := $(BUILD_DIR)/engine.so
 
 SRC := \
     src/main.c \
@@ -26,17 +28,24 @@ TUNING_SRC := \
     src/board.c \
     src/bitboard.c
 
-OBJ := $(SRC:.c=.o)
+OBJ := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SRC))
 
-.PHONY: all clean run windows tuning
+.PHONY: all clean run windows tuning release
 
 all: $(TARGET)
+
+$(BUILD_DIR)/%.o: src/%.c
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@
 
 # Compiles the shared library directly from sources to safely inject -fPIC
-tuning: $(TUNING_SRC)
+tuning: $(TUNING_TARGET)
+
+$(TUNING_TARGET): $(TUNING_SRC)
+	mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -fPIC -shared $^ -o $(TUNING_TARGET)
 
 run: $(TARGET)
@@ -44,7 +53,18 @@ run: $(TARGET)
 
 windows:
 	$(MAKE) clean
-	$(MAKE) CC=$(WIN_CC) TARGET=Cepimetheus.exe THREAD_FLAGS='-pthread -static -static-libgcc'
+	$(MAKE) CC=$(WIN_CC) TARGET=$(BUILD_DIR)/Cepimetheus.exe THREAD_FLAGS='-pthread -static -static-libgcc'
+
+release:
+	mkdir -p $(BUILD_DIR)
+	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-64
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-64.exe
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-POPCNT
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-POPCNT.exe
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-AVX2
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-AVX2.exe
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-AVX512
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-7.0.0-AVX512.exe
 
 clean:
-	rm -f $(OBJ) $(TARGET) Cepimetheus.exe $(TUNING_TARGET)
+	rm -rf $(BUILD_DIR)
