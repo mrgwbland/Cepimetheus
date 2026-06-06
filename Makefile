@@ -39,7 +39,7 @@ $(BUILD_DIR)/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ -lm
 
 # Compiles the shared library directly from sources to safely inject -fPIC
 tuning: $(TUNING_TARGET)
@@ -57,14 +57,14 @@ windows:
 
 release:
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-64 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-64.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-POPCNT -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-POPCNT.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX2 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX2.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX512 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX512.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-64
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-64.exe
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-POPCNT
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-POPCNT.exe
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX2
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX2.exe
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX512
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-DEV-AVX512.exe 
 
 clean:
 	rm -rf $(BUILD_DIR)
