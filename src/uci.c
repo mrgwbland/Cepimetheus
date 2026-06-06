@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 static void push_current_position(Board *board, RepetitionHistory *history) {
     if (history == NULL) {
@@ -247,8 +248,10 @@ void uci_loop(void) {
     SearchOptions options = {0};
     options.overhead_ms = 100;
     options.multipv = 1;
-    options.hash_power = 20;
+    options.hash_power = 64;
     options.lichess_draw_rules = false;
+    
+    int max_hash_power = (1 << 30) / 16;
 
     SearchThreadState search_thread = {0};
     pthread_mutex_init(&search_thread.mutex, NULL);
@@ -259,11 +262,11 @@ void uci_loop(void) {
 
         if (strncmp(line, "uci", 3) == 0 && (line[3] == '\0' || line[3] == ' ' || line[3] == '\t' || line[3] == '\r' || line[3] == '\n')) {
             printf("id name Cepimetheus\n");           
-            printf("id version 7.0.0\n");
+            printf("id version DEV\n");
             printf("id author  George Bland\n"); 
             printf("option name overhead type spin default 100 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
-            printf("option name Hash type spin default 20 min 0 max 30\n");
+            printf("option name Hash type spin default 64 min 0 max %d\n", max_hash_power);
             printf("option name lichess_draw_rules type check default false\n");
             printf("uciok\n");
             fflush(stdout);
@@ -302,8 +305,9 @@ void uci_loop(void) {
                     valuetoken += 5;
                     while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
                     int parsed_hash_power = atoi(valuetoken);
-                    if (parsed_hash_power >= 0 && parsed_hash_power <= 30) {
-                        options.hash_power = parsed_hash_power;
+                    if (parsed_hash_power >= 0 && parsed_hash_power <= max_hash_power) {
+                        long long bytes = parsed_hash_power << 20;
+                        options.hash_power = (int)floor(log2(bytes / 16));
                     }
                 } else if (strncmp(nametoken, "lichess_draw_rules", 18) == 0) {
                     if (valuetoken != NULL) {
