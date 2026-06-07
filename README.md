@@ -27,5 +27,5 @@ so far only version 6.4.1 has been tested, it is 1923 (+/- 27) Blitz.
 * PEXT Magic Bitboards
 
 ## Download
-To use this engine please click on the "releases" section of the github page. Starting from version 7.0.0 I am providing both linux and windows binaries at a variety of instruction set support levels, choose the one that best performs on your machine.
+To use this engine please click on the "releases" section of the github page. Starting from version 7.0.0 I am providing both linux and windows binaries at a variety of instruction set support levels, choose the one that best performs on your machine, for most modern cpus this will be AVX2 although AVX512 is superior if your CPU supports it.
 Additionally you can also of course compile it yourself from the source code.
