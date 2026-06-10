@@ -248,10 +248,10 @@ void uci_loop(void) {
     SearchOptions options = {0};
     options.overhead_ms = 100;
     options.multipv = 1;
-    options.hash_power = 64;
+    options.hash_power = 22; // 64 MiB hash
     options.lichess_draw_rules = false;
     
-    int max_hash_power = (1 << 30) / 16;
+    int max_hash = (1 << 30) / 16;
 
     SearchThreadState search_thread = {0};
     pthread_mutex_init(&search_thread.mutex, NULL);
@@ -266,7 +266,7 @@ void uci_loop(void) {
             printf("id author  George Bland\n"); 
             printf("option name overhead type spin default 100 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
-            printf("option name Hash type spin default 64 min 0 max %d\n", max_hash_power);
+            printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
             printf("option name lichess_draw_rules type check default false\n");
             printf("uciok\n");
             fflush(stdout);
@@ -304,10 +304,13 @@ void uci_loop(void) {
                 } else if (strncmp(nametoken, "Hash", 4) == 0 && valuetoken != NULL) {
                     valuetoken += 5;
                     while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
-                    int parsed_hash_power = atoi(valuetoken);
-                    if (parsed_hash_power >= 0 && parsed_hash_power <= max_hash_power) {
-                        long long bytes = parsed_hash_power << 20;
-                        options.hash_power = (int)floor(log2(bytes / 16));
+                    int parsed_hash = atoi(valuetoken);
+                    if (parsed_hash > 0 && parsed_hash <= max_hash) {
+                        long long bytes = (long long)parsed_hash << 20;
+                        options.hash_power = (int)floor(log2((double)bytes / 16));
+                    }
+                    else if (parsed_hash == 0) {
+                        options.hash_power = 0;
                     }
                 } else if (strncmp(nametoken, "lichess_draw_rules", 18) == 0) {
                     if (valuetoken != NULL) {
