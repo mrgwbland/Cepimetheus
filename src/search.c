@@ -39,6 +39,7 @@ typedef struct {
 typedef struct {
     TranspositionEntry *entries;
     size_t size;
+    size_t count;
 } TranspositionTable;
 
 struct SearchContext {
@@ -269,6 +270,10 @@ static void transposition_table_store(TranspositionTable *table,
     } else if (entry->hash != 0 && depth <= entry->depth) {
         return;
     }
+
+    if (entry->hash == 0) {
+            table->count++;
+        }
 
     entry->hash = hash;
     entry->depth = depth;
@@ -780,7 +785,7 @@ SearchResult search_root(Board *board,
     int beta = MATE_SCORE;
     const int alpha_orig = alpha;
     const int beta_orig = beta;
-
+    stats->hashfull = 0;
     /* `context` holds the transposition table and killer moves. */
 
     MoveList list;
@@ -866,7 +871,8 @@ SearchResult search_root(Board *board,
             break;
         }
     }
-
+    // hashfull of 0 means empty TT, 1000 means full TT
+    stats->hashfull = (int)((context->table.count * 1000) / context->table.size);
     if (result.move != MOVE_NONE && context != NULL) {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
         transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, result.move);

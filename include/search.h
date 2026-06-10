@@ -17,6 +17,7 @@ typedef struct {
 typedef struct {
     unsigned long long nodes;
     int seldepth;
+    int hashfull;
 } SearchStats;
 
 typedef struct {
