@@ -87,39 +87,6 @@ static int estimate_move_score(Board *board, Move move, const SearchContext *con
     int score = 0;
     int flags = move_flags(move);
 
-    /* Captures - MVV/LVA (Most Valuable Victim / Least Valuable Aggressor). */
-    if (move_iscapture(move)) {
-        int attacker_piece = board_piece_at(board, move_from(move));
-        int attacker_type = board_piece_type(attacker_piece);
-
-        int victim_piece = board_piece_at(board, move_to(move));
-        int victim_type;
-
-        if ((flags & MOVE_FLAG_EN_PASSANT) != 0) {
-            victim_type = WHITE_PAWN; /* type 0 */
-        } else {
-            victim_type = board_piece_type(victim_piece);
-        }
-
-        if (attacker_type >= 0 && attacker_type < 6 && victim_type >= 0 && victim_type < 6) {
-            score += 10000 + piece_values[victim_type] * 10 - piece_values[attacker_type];
-        }
-    }
-
-    /* Promotions. */
-    if (move_promotion(move) != MOVE_PROMO_NONE) {
-        static const int promo_bonus[5] = {0, 300, 320, 500, 950};
-        int promo = move_promotion(move);
-        if (promo >= 0 && promo <= 4) {
-            score += 20000 + promo_bonus[promo];
-        }
-    }
-
-    /* Castling. */
-    if ((flags & MOVE_FLAG_CASTLE) != 0) {
-        score += 100;
-    }
-
     /* Killer moves: prefer quiet moves that previously caused beta cutoffs. */
     if (context != NULL && ply >= 0 && ply < MAX_PLY_DEPTH) {
         /* First killer (most recent) slightly preferred. */
@@ -129,6 +96,37 @@ static int estimate_move_score(Board *board, Move move, const SearchContext *con
 
         if (context->killer_moves[ply][1] != MOVE_NONE && context->killer_moves[ply][1] == move) {
             score += 4000;
+        }
+    }    
+
+    /* Castling. */
+    if ((flags & MOVE_FLAG_CASTLE) != 0) {
+        return score + 100;
+    }
+
+    /* Captures - MVV/LVA (Most Valuable Victim / Least Valuable Aggressor). */
+    if (move_iscapture(move)) {
+        int attacker_piece = board_piece_at(board, move_from(move));
+        int attacker_value = piece_values[board_piece_type(attacker_piece)];
+
+        int victim_piece = board_piece_at(board, move_to(move));
+        int victim_value;
+
+        if ((flags & MOVE_FLAG_EN_PASSANT) != 0) {
+            victim_value = piece_values[WHITE_PAWN];
+        } else {
+            victim_value = piece_values[board_piece_type(victim_piece)];
+        }
+
+        score += 10000 + victim_value * 10 - attacker_value;
+    }
+
+    /* Promotions. */
+    if (move_promotion(move) != MOVE_PROMO_NONE) {
+        static const int promo_bonus[5] = {0, 300, 320, 500, 950};
+        int promo = move_promotion(move);
+        if (promo >= 0 && promo <= 4) {
+            score += 20000 + promo_bonus[promo];
         }
     }
 

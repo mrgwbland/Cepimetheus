@@ -3,8 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 POSITIONS_FILE="$SCRIPT_DIR/test_positions.txt"
-DEFAULT_DEPTH_MIN=6
-DEFAULT_DEPTH_MAX=6
+DEFAULT_DEPTH_MIN=7
+DEFAULT_DEPTH_MAX=7
 
 FEN=""
 
@@ -90,7 +90,7 @@ prompt_for_depth_range() {
 run_depth() {
     local depth="$1"
 
-    coproc ENGINE { ./Cepimetheus; }
+    coproc ENGINE { release/Cepimetheus; }
     local engine_pid="$ENGINE_PID"
 
     local in_fd="${ENGINE[1]}"
