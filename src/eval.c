@@ -195,7 +195,8 @@ static int evaluate_piece(int piece,
                           const int white_pawns_per_file[8],
                           const int black_pawns_per_file[8],
                           U64 all_pieces,
-                          U64 all_pawns)
+                          U64 all_pawns,
+                          int knight_open_position_penalty)
 {
     int side = board_piece_color(piece);
     int type = board_piece_type(piece);
@@ -235,7 +236,7 @@ static int evaluate_piece(int piece,
     }
     case WHITE_KNIGHT:
         //Knights reduce in value as pawns leave the board
-        piece_value -= KNIGHT_PAWN_COUNT_PENALTY * (16 - __builtin_popcountll(all_pawns));
+        piece_value -= knight_open_position_penalty;
         // Score knights based on mobility
         piece_value += KNIGHT_MOBILITY_BONUS * __builtin_popcountll(bitboard_knight_attacks(square));
         break;
@@ -384,6 +385,8 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     int white_score = 0;
     int black_score = 0;
 
+    int knight_open_position_penalty = KNIGHT_PAWN_COUNT_PENALTY * (16 - __builtin_popcountll(all_pawns));
+
     for (int piece = 0; piece < PIECE_NB; ++piece)
     {
         U64 bb = board->pieces[piece];
@@ -399,7 +402,8 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
                                        white_pawns_per_file,
                                        black_pawns_per_file,
                                        all_pieces,
-                                       all_pawns);
+                                       all_pawns,
+                                       knight_open_position_penalty);
 
             if (side == WHITE)
             {
