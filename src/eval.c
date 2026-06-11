@@ -315,7 +315,7 @@ int get_endgame_weight(const Board *board)
     }
     for (int i = BLACK_KNIGHT; i < BLACK_KING; i++)
     {
-        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[i];
+        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[board_piece_type(i)];
     }
 
     return 1000 - (int)(((long long)(total_piece_value + 1) * 1000) / (initial_piece_value + 1));// +1 to avoid division by zero, and the 1- to invert the ratio so that it goes from 0 (opening) to 1 (endgame)

@@ -53,7 +53,7 @@ static unsigned long long compute_nps(unsigned long long nodes, long long elapse
 
 static void print_depth_info(int depth, int multipv, const SearchResult *result, const SearchStats *stats, long long elapsed_ms) {
     unsigned long long nps = compute_nps(stats->nodes, elapsed_ms);
-    printf("info depth %d multipv %d seldepth %d score cp %d nodes %llu nps %llu time %lld hashfull %d\n",
+    printf("info depth %d multipv %d seldepth %d score cp %d nodes %llu nps %llu time %lld hashfull %d",
            depth,
            multipv,
            stats->seldepth,
