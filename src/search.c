@@ -84,26 +84,28 @@ static bool search_should_stop(SearchControl *control) {
 
 /* Estimate move score for move ordering. This is intentionally cheap. */
 static int estimate_move_score(Board *board, Move move, const SearchContext *context, int ply) {
-    int score = 0;
-    int flags = move_flags(move);
 
     /* Killer moves: prefer quiet moves that previously caused beta cutoffs. */
     if (context != NULL && ply >= 0 && ply < MAX_PLY_DEPTH) {
         /* First killer (most recent) slightly preferred. */
         if (context->killer_moves[ply][0] != MOVE_NONE && context->killer_moves[ply][0] == move) {
-            score += 5000;
+            return 5000;
         }
 
         if (context->killer_moves[ply][1] != MOVE_NONE && context->killer_moves[ply][1] == move) {
-            score += 4000;
+            return 4000;
         }
     }    
 
+    int flags = move_flags(move);
+
     /* Castling. */
     if ((flags & MOVE_FLAG_CASTLE) != 0) {
-        return score + 100;
+        return 100;
     }
 
+    int score = 0;
+    
     /* Captures - MVV/LVA (Most Valuable Victim / Least Valuable Aggressor). */
     if (move_iscapture(move)) {
         int attacker_piece = board_piece_at(board, move_from(move));
