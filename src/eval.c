@@ -6,43 +6,43 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    3090, /* Knight */
-    3095, /* Bishop */
-    2705, /* Rook */
-    10080, /* Queen */
+    3035, /* Knight */
+    3055, /* Bishop */
+    2635, /* Rook */
+    9990, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
-    51, // TEMPO_BONUS
+    77, // TEMPO_BONUS
     0, // UNUSED
-    15, // KNIGHT_PAWN_COUNT_PENALTY
-    104, // PAWN_SHIELD_PENALTY
-    137, // DOUBLED_PAWN_PENALTY
-    68, // ISOLATED_PAWN_PENALTY
-    62, // KNIGHT_MOBILITY_BONUS
-    76, // BISHOP_MOBILITY_BONUS
-    177, // ROOK_CONTROL_BONUS
-    436, // ROOK_OPEN_FILE_BONUS
-    2810, // ENDGAME_ROOK_BONUS
-    24, // QUEEN_MOBILITY_BONUS
-    22, // KING_EXPOSURE_PENALTY
-    73, // KING_CORNER_DISTANCE_BONUS
-    0 // UNUSED  
+    12, // KNIGHT_PAWN_COUNT_PENALTY
+    44, // PAWN_SHIELD_PENALTY
+    132, // DOUBLED_PAWN_PENALTY
+    74, // ISOLATED_PAWN_PENALTY
+    59, // KNIGHT_MOBILITY_BONUS
+    75, // BISHOP_MOBILITY_BONUS
+    96, // ROOK_CONTROL_BONUS
+    178, // ROOK_OPEN_FILE_BONUS
+    2635, // ENDGAME_ROOK_BONUS
+    25, // QUEEN_MOBILITY_BONUS
+    2, // KING_EXPOSURE_PENALTY
+    84, // KING_CORNER_DISTANCE_BONUS
+    0 // UNUSED    
 };
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
-    8, //Rank 4
-    174, //Rank 5
-    555, //Rank 6
-    893 //Rank 7
+    70, //Rank 4
+    253, //Rank 5
+    656, //Rank 6
+    1019 //Rank 7
 };
 int king_ring_penalty[14] = {
-    20, 5, 90, 138,
-    171, 83, 80, 121,
-    319, 475, 1656, 2627,
-    1315, 2216
+    28, 4, 88, 130,
+    162, 67, 51, 90,
+    277, 437, 1604, 2334,
+    1264, 1853
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -156,11 +156,6 @@ static int count_king_ring_attackers(const Board *board, int king_side, U64 all_
 
 static void count_pawns_per_file(U64 pawns, int pawns_per_file[8])
 {
-    for (int i = 0; i < 8; ++i)
-    {
-        pawns_per_file[i] = 0;
-    }
-
     for (int f = 0; f < 8; ++f)
     {
         pawns_per_file[f] = __builtin_popcountll(pawns & file_masks[f]);
@@ -315,7 +310,7 @@ int get_endgame_weight(const Board *board)
     }
     for (int i = BLACK_KNIGHT; i < BLACK_KING; i++)
     {
-        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[board_piece_type(i)];
+        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[i-6];
     }
 
     return 1000 - (int)(((long long)(total_piece_value + 1) * 1000) / (initial_piece_value + 1));// +1 to avoid division by zero, and the 1- to invert the ratio so that it goes from 0 (opening) to 1 (endgame)
