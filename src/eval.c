@@ -6,27 +6,27 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    3035, /* Knight */
-    3055, /* Bishop */
-    2635, /* Rook */
-    9990, /* Queen */
+    3075, /* Knight */
+    3110, /* Bishop */
+    3265, /* Rook */
+    9980, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
     77, // TEMPO_BONUS
-    0, // UNUSED
-    12, // KNIGHT_PAWN_COUNT_PENALTY
+    271, // PAWN_BLOCKING_PENALTY
+    11, // KNIGHT_PAWN_COUNT_PENALTY
     44, // PAWN_SHIELD_PENALTY
     132, // DOUBLED_PAWN_PENALTY
-    74, // ISOLATED_PAWN_PENALTY
-    59, // KNIGHT_MOBILITY_BONUS
+    73, // ISOLATED_PAWN_PENALTY
+    61, // KNIGHT_MOBILITY_BONUS
     75, // BISHOP_MOBILITY_BONUS
     96, // ROOK_CONTROL_BONUS
-    178, // ROOK_OPEN_FILE_BONUS
+    191, // ROOK_OPEN_FILE_BONUS
     2635, // ENDGAME_ROOK_BONUS
     25, // QUEEN_MOBILITY_BONUS
-    2, // KING_EXPOSURE_PENALTY
+    0, // KING_EXPOSURE_PENALTY
     84, // KING_CORNER_DISTANCE_BONUS
     0 // UNUSED    
 };
@@ -34,20 +34,20 @@ int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     70, //Rank 4
-    253, //Rank 5
+    238, //Rank 5
     656, //Rank 6
     1019 //Rank 7
 };
 int king_ring_penalty[14] = {
-    28, 4, 88, 130,
-    162, 67, 51, 90,
-    277, 437, 1604, 2334,
-    1264, 1853
+    29, 5, 89, 131,
+    163, 68, 54, 92,
+    278, 441, 1611, 2329,
+    1376, 1847
 };
 
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
-#define UNUSED                         eval_parameters[1]
+#define PAWN_BLOCKING_PENALTY          eval_parameters[1]
 #define KNIGHT_PAWN_COUNT_PENALTY      eval_parameters[2]
 #define PAWN_SHIELD_PENALTY            eval_parameters[3]
 #define DOUBLED_PAWN_PENALTY           eval_parameters[4]
@@ -191,6 +191,8 @@ static int evaluate_piece(int piece,
                           const int black_pawns_per_file[8],
                           U64 all_pieces,
                           U64 all_pawns,
+                          U64 white_central_blocked_mask,
+                          U64 black_central_blocked_mask,
                           int knight_open_position_penalty)
 {
     int side = board_piece_color(piece);
@@ -234,12 +236,24 @@ static int evaluate_piece(int piece,
         piece_value -= knight_open_position_penalty;
         // Score knights based on mobility
         piece_value += KNIGHT_MOBILITY_BONUS * __builtin_popcountll(bitboard_knight_attacks(square));
+        U64 blocked_mask = is_white ? white_central_blocked_mask : black_central_blocked_mask;
+        if (blocked_mask & (1ULL << square))
+        {
+            piece_value -= (int)(((long long)(1000 - endgame_weight)
+                                * PAWN_BLOCKING_PENALTY/1000));
+        }
         break;
     case WHITE_BISHOP:
     {
         /* Reward bishops with mobility through pawn occupancy only.
         This is because a bishop on g2 with a knight on f3 is still good whereas if there was a pawn on f3 it would be blocked*/
         piece_value += BISHOP_MOBILITY_BONUS * __builtin_popcountll(bitboard_bishop_attacks(square, all_pawns));
+        U64 blocked_mask = is_white ? white_central_blocked_mask : black_central_blocked_mask;
+        if (blocked_mask & (1ULL << square))
+        {
+            piece_value -= (int)(((long long)(1000 - endgame_weight)
+                                * PAWN_BLOCKING_PENALTY/1000));
+        }
         break;
     }
     case WHITE_ROOK:
@@ -372,6 +386,10 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     count_pawns_per_file(white_pawns, white_pawns_per_file);
     count_pawns_per_file(black_pawns, black_pawns_per_file);
 
+    U64 central_files = file_masks[3] | file_masks[4];
+    U64 white_central_blocked_mask = (white_pawns & central_files) << 8;
+    U64 black_central_blocked_mask = (black_pawns & central_files) >> 8;
+
     U64 white_passed_pawns = mark_passed_pawns(board, WHITE);
     U64 black_passed_pawns = mark_passed_pawns(board, BLACK);
 
@@ -398,6 +416,8 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
                                        black_pawns_per_file,
                                        all_pieces,
                                        all_pawns,
+                                       white_central_blocked_mask,
+                                       black_central_blocked_mask,
                                        knight_open_position_penalty);
 
             if (side == WHITE)
