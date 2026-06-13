@@ -6,44 +6,46 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    3075, /* Knight */
-    3110, /* Bishop */
-    3265, /* Rook */
-    9980, /* Queen */
+    2985, /* Knight */
+    3085, /* Bishop */
+    3190, /* Rook */
+    9960, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
-    77, // TEMPO_BONUS
-    271, // PAWN_BLOCKING_PENALTY
-    11, // KNIGHT_PAWN_COUNT_PENALTY
-    44, // PAWN_SHIELD_PENALTY
-    132, // DOUBLED_PAWN_PENALTY
-    73, // ISOLATED_PAWN_PENALTY
-    61, // KNIGHT_MOBILITY_BONUS
-    75, // BISHOP_MOBILITY_BONUS
-    96, // ROOK_CONTROL_BONUS
-    191, // ROOK_OPEN_FILE_BONUS
-    2635, // ENDGAME_ROOK_BONUS
+    85, // TEMPO_BONUS
+    386, // PAWN_BLOCKING_PENALTY
+    12, // KNIGHT_PAWN_COUNT_PENALTY
+    36, // PAWN_SHIELD_PENALTY
+    133, // DOUBLED_PAWN_PENALTY
+    75, // ISOLATED_PAWN_PENALTY
+    75, // KNIGHT_MOBILITY_BONUS
+    77, // BISHOP_MOBILITY_BONUS
+    99, // ROOK_CONTROL_BONUS
+    180, // ROOK_OPEN_FILE_BONUS
+    2715, // ENDGAME_ROOK_BONUS
     25, // QUEEN_MOBILITY_BONUS
-    0, // KING_EXPOSURE_PENALTY
-    84, // KING_CORNER_DISTANCE_BONUS
+    7, // KING_EXPOSURE_PENALTY
+    82, // KING_CORNER_DISTANCE_BONUS
     0 // UNUSED    
 };
+
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     70, //Rank 4
-    238, //Rank 5
-    656, //Rank 6
+    241, //Rank 5
+    652, //Rank 6
     1019 //Rank 7
 };
+
 int king_ring_penalty[14] = {
-    29, 5, 89, 131,
-    163, 68, 54, 92,
-    278, 441, 1611, 2329,
-    1376, 1847
-};
+    31, 9, 91, 133,
+    163, 68, 54, 91,
+    275, 442, 1569, 2321,
+    1481, 1845
+}; //These look overfitted, could benefit from some sort of smoothing
 
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
@@ -386,7 +388,7 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     count_pawns_per_file(white_pawns, white_pawns_per_file);
     count_pawns_per_file(black_pawns, black_pawns_per_file);
 
-    U64 central_files = file_masks[3] | file_masks[4];
+    U64 central_files = file_masks[2] | file_masks[3] | file_masks[4]; // C, D, E files
     U64 white_central_blocked_mask = (white_pawns & central_files) << 8;
     U64 black_central_blocked_mask = (black_pawns & central_files) >> 8;
 
