@@ -262,7 +262,7 @@ void uci_loop(void) {
 
         if (strncmp(line, "uci", 3) == 0 && (line[3] == '\0' || line[3] == ' ' || line[3] == '\t' || line[3] == '\r' || line[3] == '\n')) {
             printf("id name Cepimetheus\n");           
-            printf("id version 7.1.0\n");
+            printf("id version 7.2.0\n");
             printf("id author  George Bland\n"); 
             printf("option name overhead type spin default 100 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");

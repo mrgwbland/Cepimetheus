@@ -28,7 +28,7 @@ int eval_parameters[15] = {
     25, // QUEEN_MOBILITY_BONUS
     7, // KING_EXPOSURE_PENALTY
     82, // KING_CORNER_DISTANCE_BONUS
-    0 // UNUSED    
+    0 // PAWNS_VS_ONE_PIECE_BONUS  
 };
 
 int passed_pawn_rank_bonus[6] = {
@@ -62,6 +62,7 @@ int king_ring_penalty[14] = {
 #define QUEEN_MOBILITY_BONUS           eval_parameters[11]
 #define KING_EXPOSURE_PENALTY          eval_parameters[12]
 #define KING_CORNER_DISTANCE_BONUS     eval_parameters[13]
+#define PAWNS_VS_ONE_PIECE_BONUS       eval_parameters[14]
 
 /* File masks - one per file (A-H) */
 static const U64 file_masks[8] = {
@@ -394,11 +395,62 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
 
     U64 white_passed_pawns = mark_passed_pawns(board, WHITE);
     U64 black_passed_pawns = mark_passed_pawns(board, BLACK);
-
+    
     U64 all_pieces = board->occupancy[BOTH];
 
     int white_score = 0;
     int black_score = 0;
+
+    // Define the specific rank masks for 6th and 7th ranks
+    const U64 white_power_ranks = 0x00FFFF0000000000ULL; // Rank 6 and Rank 7
+    const U64 black_power_ranks = 0x0000000000FFFF00ULL; // Rank 3 and Rank 2
+
+    // Count opponent minor/major pieces to check for the overload condition
+    int white_opp_pieces = __builtin_popcountll(board->pieces[BLACK_KNIGHT] | 
+                                                 board->pieces[BLACK_BISHOP] | 
+                                                 board->pieces[BLACK_ROOK]);
+    int black_opp_pieces = __builtin_popcountll(board->pieces[WHITE_KNIGHT] | 
+                                                 board->pieces[WHITE_BISHOP] | 
+                                                 board->pieces[WHITE_ROOK]);
+
+    bool white_has_no_queen = (board->pieces[BLACK_QUEEN] == 0);
+    bool black_has_no_queen = (board->pieces[WHITE_QUEEN] == 0);
+
+    // Evaluate White's Powerhouse Pawns
+    if (white_has_no_queen && white_opp_pieces <= 1) {
+        U64 white_power_pawns = white_passed_pawns & white_power_ranks;
+        
+        // Isolate pawns that aren't on the edges to prevent wrapping errors
+        U64 non_a_file = white_power_pawns & ~file_masks[0];
+        U64 non_h_file = white_power_pawns & ~file_masks[7];
+
+        // Generate a bitboard of all possible neighbor squares relative to our power pawns
+        U64 adjacent_targets = 
+            (non_a_file >> 1)  | (non_a_file << 7) | (non_a_file >> 9) | // Left, Up-Left, Down-Left
+            (non_h_file << 1)  | (non_h_file << 9) | (non_h_file >> 7) | // Right, Up-Right, Down-Right
+            (white_power_pawns << 8) | (white_power_pawns >> 8);        // Straight Up, Straight Down
+
+        // If any of our power pawns step on an adjacent target square created by another power pawn
+        U64 connected = white_power_pawns & adjacent_targets;
+        
+        if (connected) {
+            // Scale by the endgame weight to ensure it triggers violently in the endgame
+            white_score += (int)(((long long)endgame_weight * PAWNS_VS_ONE_PIECE_BONUS) / 1000);
+        }
+    }
+
+    // Evaluate Black's Powerhouse Pawns
+    if (black_has_no_queen && black_opp_pieces <= 1) {
+        U64 black_power_pawns = black_passed_pawns & black_power_ranks;
+        
+        // Shift left and right to check adjacency
+        U64 connected = black_power_pawns & (((black_power_pawns & ~file_masks[0]) >> 1) | 
+                                             ((black_power_pawns & ~file_masks[7]) << 1));
+        
+        if (connected) {
+            black_score += (int)(((long long)endgame_weight * PAWNS_VS_ONE_PIECE_BONUS) / 1000);
+        }
+    }
 
     int knight_open_position_penalty = KNIGHT_PAWN_COUNT_PENALTY * (16 - __builtin_popcountll(all_pawns));
 
