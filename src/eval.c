@@ -3,49 +3,48 @@
 #include "movegen.h"
 #include <stddef.h>
 
-
 int piece_values[6] = {
     1000, /* Pawn */
-    2985, /* Knight */
-    3085, /* Bishop */
-    3190, /* Rook */
-    9960, /* Queen */
+    2970, /* Knight */
+    3070, /* Bishop */
+    3175, /* Rook */
+    9910, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
     85, // TEMPO_BONUS
-    386, // PAWN_BLOCKING_PENALTY
-    12, // KNIGHT_PAWN_COUNT_PENALTY
-    36, // PAWN_SHIELD_PENALTY
-    133, // DOUBLED_PAWN_PENALTY
-    75, // ISOLATED_PAWN_PENALTY
+    385, // PAWN_BLOCKING_PENALTY
+    10, // KNIGHT_PAWN_COUNT_PENALTY
+    38, // PAWN_SHIELD_PENALTY
+    134, // DOUBLED_PAWN_PENALTY
+    73, // ISOLATED_PAWN_PENALTY
     75, // KNIGHT_MOBILITY_BONUS
-    77, // BISHOP_MOBILITY_BONUS
-    99, // ROOK_CONTROL_BONUS
-    180, // ROOK_OPEN_FILE_BONUS
+    78, // BISHOP_MOBILITY_BONUS
+    97, // ROOK_CONTROL_BONUS
+    187, // ROOK_OPEN_FILE_BONUS
     2715, // ENDGAME_ROOK_BONUS
-    25, // QUEEN_MOBILITY_BONUS
-    7, // KING_EXPOSURE_PENALTY
+    26, // QUEEN_MOBILITY_BONUS
+    4, // KING_EXPOSURE_PENALTY
     82, // KING_CORNER_DISTANCE_BONUS
-    0 // PAWNS_VS_ONE_PIECE_BONUS  
+    2085 // PAWNS_VS_ONE_PIECE_BONUS 
 };
 
 int passed_pawn_rank_bonus[6] = {
     1, //Rank 2
     1, //Rank 3
     70, //Rank 4
-    241, //Rank 5
-    652, //Rank 6
-    1019 //Rank 7
+    232, //Rank 5
+    621, //Rank 6
+    992 //Rank 7
 };
 
 int king_ring_penalty[14] = {
-    31, 9, 91, 133,
-    163, 68, 54, 91,
-    275, 442, 1569, 2321,
-    1481, 1845
-}; //These look overfitted, could benefit from some sort of smoothing
+    785, 786, 770, 842,
+    808, 770, 940, 862,
+    848, 940, 951, 1054,
+    1219, 1538
+}; //Mildly overfitted, but much better after addition of x ray attacks, could benefit from some sort of smoothing
 
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS                    eval_parameters[0]
@@ -122,15 +121,37 @@ static int count_attackers_on_square(const Board *board, int square, int attacke
     U64 kings = (attacker_side == WHITE) ? board->pieces[WHITE_KING] : board->pieces[BLACK_KING];
     attackers += __builtin_popcountll(bitboard_king_attacks(square) & kings);
 
-    U64 bishops_and_queens = (attacker_side == WHITE)
-                                 ? (board->pieces[WHITE_BISHOP] | board->pieces[WHITE_QUEEN])
-                                 : (board->pieces[BLACK_BISHOP] | board->pieces[BLACK_QUEEN]);
-    attackers += __builtin_popcountll(bitboard_bishop_attacks(square, all_pieces) & bishops_and_queens);
+    // --- Diagonal Sliders & Batteries ---
+    U64 white_bishops_queens = board->pieces[WHITE_BISHOP] | board->pieces[WHITE_QUEEN];
+    U64 black_bishops_queens = board->pieces[BLACK_BISHOP] | board->pieces[BLACK_QUEEN];
+    U64 bishops_and_queens = (attacker_side == WHITE) ? white_bishops_queens : black_bishops_queens;
 
-    U64 rooks_and_queens = (attacker_side == WHITE)
-                               ? (board->pieces[WHITE_ROOK] | board->pieces[WHITE_QUEEN])
-                               : (board->pieces[BLACK_ROOK] | board->pieces[BLACK_QUEEN]);
-    attackers += __builtin_popcountll(bitboard_rook_attacks(square, all_pieces) & rooks_and_queens);
+    U64 bishop_attacks = bitboard_bishop_attacks(square, all_pieces);
+    attackers += __builtin_popcountll(bishop_attacks & bishops_and_queens);
+
+    // X-Ray: Remove frontline diagonal attackers from occupancy to find the battery behind them
+    U64 frontline_diagonals = bishop_attacks & (white_bishops_queens | black_bishops_queens);
+    if (frontline_diagonals) {
+        U64 xray_occupancy = all_pieces ^ frontline_diagonals;
+        U64 xray_bishop_attacks = bitboard_bishop_attacks(square, xray_occupancy);
+        attackers += __builtin_popcountll(xray_bishop_attacks & bishops_and_queens);
+    }
+
+    // --- Orthogonal Sliders & Batteries ---
+    U64 white_rooks_queens = board->pieces[WHITE_ROOK] | board->pieces[WHITE_QUEEN];
+    U64 black_rooks_queens = board->pieces[BLACK_ROOK] | board->pieces[BLACK_QUEEN];
+    U64 rooks_and_queens = (attacker_side == WHITE) ? white_rooks_queens : black_rooks_queens;
+
+    U64 rook_attacks = bitboard_rook_attacks(square, all_pieces);
+    attackers += __builtin_popcountll(rook_attacks & rooks_and_queens);
+
+    // X-Ray: Remove frontline orthogonal attackers from occupancy to find the battery behind them
+    U64 frontline_orthogonals = rook_attacks & (white_rooks_queens | black_rooks_queens);
+    if (frontline_orthogonals) {
+        U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
+        U64 xray_rook_attacks = bitboard_rook_attacks(square, xray_occupancy);
+        attackers += __builtin_popcountll(xray_rook_attacks & rooks_and_queens);
+    }
 
     return attackers;
 }
@@ -329,8 +350,13 @@ int get_endgame_weight(const Board *board)
     {
         total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values[i-6];
     }
-
-    return 1000 - (int)(((long long)(total_piece_value + 1) * 1000) / (initial_piece_value + 1));// +1 to avoid division by zero, and the 1- to invert the ratio so that it goes from 0 (opening) to 1 (endgame)
+    
+    int raw_weight = 1000 - (int)(((long long)(total_piece_value + 1) * 1000) / (initial_piece_value + 1));    // +1 to avoid division by zero, and the 1- to invert the ratio so that it goes from 0 (opening) to 1 (endgame)
+    
+    if (raw_weight < 0) return 0;
+    if (raw_weight > 1000) return 1000;
+    
+    return raw_weight;
 }
 
 EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move)
@@ -402,8 +428,8 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     int black_score = 0;
 
     // Define the specific rank masks for 6th and 7th ranks
-    const U64 white_power_ranks = 0x00FFFF0000000000ULL; // Rank 6 and Rank 7
-    const U64 black_power_ranks = 0x0000000000FFFF00ULL; // Rank 3 and Rank 2
+    const U64 white_67_ranks = 0x00FFFF0000000000ULL; // Rank 6 and Rank 7
+    const U64 black_67_ranks = 0x0000000000FFFF00ULL; // Rank 3 and Rank 2
 
     // Count opponent minor/major pieces to check for the overload condition
     int white_opp_pieces = __builtin_popcountll(board->pieces[BLACK_KNIGHT] | 
@@ -416,36 +442,43 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     bool white_has_no_queen = (board->pieces[BLACK_QUEEN] == 0);
     bool black_has_no_queen = (board->pieces[WHITE_QUEEN] == 0);
 
-    // Evaluate White's Powerhouse Pawns
+    // Evaluate White's Connected Pawns vs 1 None Queen
     if (white_has_no_queen && white_opp_pieces <= 1) {
-        U64 white_power_pawns = white_passed_pawns & white_power_ranks;
+        U64 white_67_connected_pawns = white_passed_pawns & white_67_ranks;
         
         // Isolate pawns that aren't on the edges to prevent wrapping errors
-        U64 non_a_file = white_power_pawns & ~file_masks[0];
-        U64 non_h_file = white_power_pawns & ~file_masks[7];
+        U64 non_a_file = white_67_connected_pawns & ~file_masks[0];
+        U64 non_h_file = white_67_connected_pawns & ~file_masks[7];
 
-        // Generate a bitboard of all possible neighbor squares relative to our power pawns
+        // Generate a bitboard of all possible neighbor squares relative to our pawns
         U64 adjacent_targets = 
             (non_a_file >> 1)  | (non_a_file << 7) | (non_a_file >> 9) | // Left, Up-Left, Down-Left
             (non_h_file << 1)  | (non_h_file << 9) | (non_h_file >> 7) | // Right, Up-Right, Down-Right
-            (white_power_pawns << 8) | (white_power_pawns >> 8);        // Straight Up, Straight Down
+            (white_67_connected_pawns << 8) | (white_67_connected_pawns >> 8);        // Straight Up, Straight Down
 
-        // If any of our power pawns step on an adjacent target square created by another power pawn
-        U64 connected = white_power_pawns & adjacent_targets;
+        // If any of our connected pawns step on an adjacent target square created by another connected pawn
+        U64 connected = white_67_connected_pawns & adjacent_targets;
         
         if (connected) {
-            // Scale by the endgame weight to ensure it triggers violently in the endgame
+            // Scale by the endgame weight
             white_score += (int)(((long long)endgame_weight * PAWNS_VS_ONE_PIECE_BONUS) / 1000);
         }
     }
 
-    // Evaluate Black's Powerhouse Pawns
+    // Evaluate Black's Connected Pawns vs 1 None Queen
     if (black_has_no_queen && black_opp_pieces <= 1) {
-        U64 black_power_pawns = black_passed_pawns & black_power_ranks;
+        U64 black_67_connected_pawns = black_passed_pawns & black_67_ranks;
         
-        // Shift left and right to check adjacency
-        U64 connected = black_power_pawns & (((black_power_pawns & ~file_masks[0]) >> 1) | 
-                                             ((black_power_pawns & ~file_masks[7]) << 1));
+        U64 non_a_file = black_67_connected_pawns & ~file_masks[0];
+        U64 non_h_file = black_67_connected_pawns & ~file_masks[7];
+
+        // Same directional lookups apply to Black because adjacency is symmetric
+        U64 adjacent_targets = 
+            (non_a_file >> 1)  | (non_a_file << 7) | (non_a_file >> 9) |
+            (non_h_file << 1)  | (non_h_file << 9) | (non_h_file >> 7) |
+            (black_67_connected_pawns << 8) | (black_67_connected_pawns >> 8);
+
+        U64 connected = black_67_connected_pawns & adjacent_targets;
         
         if (connected) {
             black_score += (int)(((long long)endgame_weight * PAWNS_VS_ONE_PIECE_BONUS) / 1000);
