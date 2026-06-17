@@ -410,16 +410,13 @@ static int quiescence(Board *board,
                         SearchContext *context,
                         SearchControl *control,
                         bool lichess_draw_rules) {
-    const int qsearch_max_depth = 16;
-    const int qsearch_forced_only_move_depth_limit = 12;
-    const int qsearch_noncapture_check_depth_limit = 6;
+    const int qsearch_max_depth = 4;
     const int alpha_orig = alpha;
     const int beta_orig = beta;
 
     if (search_should_stop(control)) {
-        MoveList eval_list;
-        movegen_generate_pseudo_legal(board, &eval_list);
-        return evaluate_position(board, history, ply, &eval_list, lichess_draw_rules);
+        MoveList dummy_list = { .count = 1 };
+        return evaluate_position(board, history, ply, &dummy_list, lichess_draw_rules);
     }
 
     ++stats->nodes;
@@ -439,20 +436,17 @@ static int quiescence(Board *board,
     }
 
     if (qply >= qsearch_max_depth) {
-        MoveList eval_list;
-        movegen_generate_pseudo_legal(board, &eval_list);
-        return evaluate_position(board, history, ply, &eval_list, lichess_draw_rules);
+        MoveList dummy_list = { .count = 1 };
+        return evaluate_position(board, history, ply, &dummy_list, lichess_draw_rules);
     }
 
     bool in_check = board_is_in_check(board, board->side);
     Move best_move = MOVE_NONE;
 
-    MoveList list;
-    movegen_generate_pseudo_legal(board, &list);
-
     if (!in_check) {
         /* Stand-pat is only valid when side to move can choose to pass tactical action. */
-        int stand_pat = evaluate_position(board, history, ply, &list, lichess_draw_rules);
+        MoveList dummy_list = { .count = 1 };
+        int stand_pat = evaluate_position(board, history, ply, &dummy_list, lichess_draw_rules);
 
         if (stand_pat >= beta) {
             return beta;
@@ -463,52 +457,31 @@ static int quiescence(Board *board,
         }
     }
 
-    bool allow_forced_only_move = (!in_check &&
-                                   list.count == 1 &&
-                                   qply < qsearch_forced_only_move_depth_limit);
-    bool allow_noncapture_checks = (!in_check &&
-                                    !allow_forced_only_move &&
-                                    qply < qsearch_noncapture_check_depth_limit);
+    MoveList list;
+    movegen_generate_pseudo_legal(board, &list);
 
-    /* Filter moves first: collect captures and relevant checks before ordering. */
-    Move filtered_moves[MAX_ORDERED_MOVES];
-    int filtered_count = 0;
-
-    for (int i = 0; i < list.count && filtered_count < MAX_ORDERED_MOVES; ++i) {
-        Move move = list.moves[i];
-        bool is_capture = move_iscapture(move);
-
-        if (is_capture) {
-            filtered_moves[filtered_count++] = move;
-        } else if (in_check || allow_forced_only_move) {
-            /* When in check or forced single move, accept all legal moves. */
-            filtered_moves[filtered_count++] = move;
-        } else if (allow_noncapture_checks) {
-            /* Pre-compute check status for quiet moves only at shallow plies. */
-            if (move_ischeck(board, move)) {
-                filtered_moves[filtered_count++] = move;
-            }
-        }
-    }
-
-    /* Build ordered moves from the already-filtered set via direct scoring. */
+    /* Streamlined scoring and sorting directly from list.moves */
     Move ordered_moves[MAX_ORDERED_MOVES];
     int ordered_count = 0;
 
-    if (filtered_count > 0) {
-        ScoredMove scored_moves[MAX_ORDERED_MOVES];
-        int scored_count = 0;
-        for (int i = 0; i < filtered_count && i < MAX_ORDERED_MOVES; ++i) {
-            scored_moves[scored_count].move = filtered_moves[i];
-            scored_moves[scored_count].score = estimate_move_score(board, filtered_moves[i], context, ply);
-            ++scored_count;
-        }
+    ScoredMove scored_moves[MAX_ORDERED_MOVES];
+    int scored_count = 0;
 
+    for (int i = 0; i < list.count && scored_count < MAX_ORDERED_MOVES; ++i) {
+        Move move = list.moves[i];
+        if (in_check || move_iscapture(move)) {
+            scored_moves[scored_count].move = move;
+            // Pass NULL as context to disable killer move sorting in qsearch
+            scored_moves[scored_count].score = estimate_move_score(board, move, NULL, ply);
+            scored_count++;
+        }
+    }
+
+    if (scored_count > 0) {
         insertion_sort_scored_moves(scored_moves, scored_count);
         for (int i = 0; i < scored_count; ++i) {
             ordered_moves[i] = scored_moves[i].move;
         }
-
         ordered_count = scored_count;
     }
 
@@ -546,16 +519,6 @@ static int quiescence(Board *board,
         board_unmake_move(board, &undo);
 
         if (score >= beta) {
-            /* record killer if quiet move */
-            if (context != NULL) {
-                if (!move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE) {
-                    if (context->killer_moves[ply][0] != move) {
-                        context->killer_moves[ply][1] = context->killer_moves[ply][0];
-                        context->killer_moves[ply][0] = move;
-                    }
-                }
-            }
-
             return beta;
         }
 
