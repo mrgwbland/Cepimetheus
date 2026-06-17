@@ -406,12 +406,13 @@ static int quiescence(Board *board,
                         RepetitionHistory *history,
                         SearchStats *stats,
                         int ply,
+                        int qply,
                         SearchContext *context,
                         SearchControl *control,
                         bool lichess_draw_rules) {
-    const int qsearch_max_ply = 16;
-    const int qsearch_forced_only_move_ply_limit = 12;
-    const int qsearch_noncapture_check_ply_limit = 6;
+    const int qsearch_max_depth = 16;
+    const int qsearch_forced_only_move_depth_limit = 12;
+    const int qsearch_noncapture_check_depth_limit = 6;
     const int alpha_orig = alpha;
     const int beta_orig = beta;
 
@@ -437,7 +438,7 @@ static int quiescence(Board *board,
         }
     }
 
-    if (ply >= qsearch_max_ply) {
+    if (qply >= qsearch_max_depth) {
         MoveList eval_list;
         movegen_generate_pseudo_legal(board, &eval_list);
         return evaluate_position(board, history, ply, &eval_list, lichess_draw_rules);
@@ -464,10 +465,10 @@ static int quiescence(Board *board,
 
     bool allow_forced_only_move = (!in_check &&
                                    list.count == 1 &&
-                                   ply < qsearch_forced_only_move_ply_limit);
+                                   qply < qsearch_forced_only_move_depth_limit);
     bool allow_noncapture_checks = (!in_check &&
                                     !allow_forced_only_move &&
-                                    ply < qsearch_noncapture_check_ply_limit);
+                                    qply < qsearch_noncapture_check_depth_limit);
 
     /* Filter moves first: collect captures and relevant checks before ordering. */
     Move filtered_moves[MAX_ORDERED_MOVES];
@@ -534,7 +535,7 @@ static int quiescence(Board *board,
             continue;
         }
 
-        int score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+        int score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, qply + 1, context, control, lichess_draw_rules);
 
         if (best_move == MOVE_NONE || score > alpha) {
             best_move = move;
@@ -605,6 +606,9 @@ static SearchResult negamax(Board *board,
     }
 
     ++stats->nodes;
+    if (ply > stats->seldepth) {
+        stats->seldepth = ply;
+    }
 
     if (board_is_draw(board, history, lichess_draw_rules)) {
         result.score = 0;
@@ -656,7 +660,7 @@ static SearchResult negamax(Board *board,
     }
 
     if (depth == 0) {
-        result.score = quiescence(board, alpha, beta, history, stats, ply, context, control, lichess_draw_rules);
+        result.score = quiescence(board, alpha, beta, history, stats, ply, 0, context, control, lichess_draw_rules);
         return result;
     }
 

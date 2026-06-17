@@ -242,7 +242,7 @@ Move think(Board *board,
                 break;
             }
 
-            SearchStats stats = {0ULL, depth, 0};
+            SearchStats stats = {0ULL, 0, 0};
             control.stop = false;
 
             SearchResult result = search_root(board,
