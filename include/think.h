@@ -2,6 +2,8 @@
 #define THINK_H
 
 #include "movegen.h"
+#include <stddef.h>
+
 
 typedef struct SearchOptions {
     int overhead_ms;
@@ -27,5 +29,7 @@ Move think(Board *board,
            const SearchOptions *options,
            const RepetitionHistory *history,
            volatile bool *stop_signal);
+
+void get_score_string(int score, char *buffer, size_t size);
 
 #endif

@@ -1,5 +1,6 @@
 #include "think.h"
 #include "../include/search.h"
+#include "../include/eval.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -14,14 +15,30 @@ static int score_to_cp(int score) {
     return score / 10;
 }
 
+void get_score_string(int score, char *buffer, size_t size) {
+    int abs_score = score >= 0 ? score : -score;
+    if (abs_score > MATE_SCORE - 256) {
+        int depth = (MATE_SCORE - abs_score + 1) / 2;
+        if (score < 0) {
+            snprintf(buffer, size, "-M%d", depth);
+        } else {
+            snprintf(buffer, size, "M%d", depth);
+        }
+    } else {
+        snprintf(buffer, size, "cp %d", score_to_cp(score));
+    }
+}
+
 static void print_move_info(int depth, int move_number, Move move, int score) {
     char move_buffer[6];
     move_to_string(move, move_buffer);
-    printf("info depth %d currmove %s currmovenumber %d score cp %d\n",
+    char score_buffer[32];
+    get_score_string(score, score_buffer, sizeof(score_buffer));
+    printf("info depth %d currmove %s currmovenumber %d score %s\n",
            depth,
            move_buffer,
            move_number,
-           score_to_cp(score));
+           score_buffer);
     fflush(stdout);
 }
 
@@ -53,11 +70,13 @@ static unsigned long long compute_nps(unsigned long long nodes, long long elapse
 
 static void print_depth_info(int depth, int multipv, const SearchResult *result, const SearchStats *stats, long long elapsed_ms) {
     unsigned long long nps = compute_nps(stats->nodes, elapsed_ms);
-    printf("info depth %d multipv %d seldepth %d score cp %d nodes %llu nps %llu time %lld hashfull %d",
+    char score_buffer[32];
+    get_score_string(result->score, score_buffer, sizeof(score_buffer));
+    printf("info depth %d multipv %d seldepth %d score %s nodes %llu nps %llu time %lld hashfull %d",
            depth,
            multipv,
            stats->seldepth,
-           score_to_cp(result->score),
+           score_buffer,
            stats->nodes,
            nps,
            elapsed_ms,
