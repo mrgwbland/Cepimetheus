@@ -410,7 +410,7 @@ static int quiescence(Board *board,
                         SearchContext *context,
                         SearchControl *control,
                         bool lichess_draw_rules) {
-    const int qsearch_max_depth = 4;
+    const int qsearch_max_depth = 16;
     const int alpha_orig = alpha;
     const int beta_orig = beta;
 
