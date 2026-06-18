@@ -10,6 +10,7 @@ typedef struct SearchOptions {
     int multipv;
     int hash_power;
     bool lichess_draw_rules;
+    bool display_currmove;
 } SearchOptions;
 
 typedef struct SearchLimits {

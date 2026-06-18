@@ -250,6 +250,7 @@ void uci_loop(void) {
     options.multipv = 1;
     options.hash_power = 22; // 64 MiB hash
     options.lichess_draw_rules = false;
+    options.display_currmove = false;
     
     int max_hash = (1 << 30) / 16;
 
@@ -268,6 +269,7 @@ void uci_loop(void) {
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
             printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
             printf("option name lichess_draw_rules type check default false\n");
+            printf("option name display_currmove type check default false\n");
             printf("uciok\n");
             fflush(stdout);
             continue;
@@ -320,6 +322,14 @@ void uci_loop(void) {
                     } else {
                         // No value token means set to true
                         options.lichess_draw_rules = true;
+                    }
+                } else if (strncmp(nametoken, "display_currmove", 16) == 0) {
+                    if (valuetoken != NULL) {
+                        valuetoken += 5;
+                        while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
+                        options.display_currmove = (strncmp(valuetoken, "true", 4) == 0);
+                    } else {
+                        options.display_currmove = true;
                     }
                 }
             }
