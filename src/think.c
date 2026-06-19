@@ -20,9 +20,9 @@ void get_score_string(int score, char *buffer, size_t size) {
     if (abs_score > MATE_SCORE - 256) {
         int depth = (MATE_SCORE - abs_score + 1) / 2;
         if (score < 0) {
-            snprintf(buffer, size, "-M%d", depth);
+            snprintf(buffer, size, "mate -%d", depth);
         } else {
-            snprintf(buffer, size, "M%d", depth);
+            snprintf(buffer, size, "mate %d", depth);
         }
     } else {
         snprintf(buffer, size, "cp %d", score_to_cp(score));
