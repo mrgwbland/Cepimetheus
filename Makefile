@@ -57,14 +57,14 @@ windows:
 
 release:
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-64 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-64.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-POPCNT -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-POPCNT.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-AVX2 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-AVX2.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-AVX512 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-8.0.1-AVX512.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-64 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-64.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-POPCNT -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-POPCNT.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-AVX2 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-AVX2.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-AVX512 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-9.0.0-AVX512.exe -lm
 
 clean:
 	rm -rf $(BUILD_DIR)

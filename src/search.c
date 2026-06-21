@@ -11,6 +11,10 @@
 #define MAX_TRANSPOSITION_TABLE_POWER 30
 #define MAX_ORDERED_MOVES 256
 #define MAX_PLY_DEPTH 256
+#define HISTORY_BONUS_CAP 400
+#define HISTORY_GRAVITY 512
+#define HISTORY_SCALE 32
+#define MAX_QUIET_TRACKED 64
 
 typedef struct
 {
@@ -50,7 +54,19 @@ struct SearchContext
 {
     TranspositionTable table;
     Move killer_moves[MAX_PLY_DEPTH][2];
+    int16_t quiet_history[2][64][64];
 };
+
+static inline int history_bonus(int depth)
+{
+    int b = depth * depth;
+    return b < HISTORY_BONUS_CAP ? b : HISTORY_BONUS_CAP;
+}
+
+static inline void update_history_entry(int16_t *entry, int delta)
+{
+    *entry += HISTORY_SCALE * delta - *entry * abs(delta) / HISTORY_GRAVITY;
+}
 
 static long long current_time_ms(void)
 {
@@ -154,6 +170,12 @@ static int estimate_move_score(Board *board, Move move, const SearchContext *con
         {
             score += 20000 + promo_bonus[promo];
         }
+    }
+
+    /* Quiet history: order quiet non-promotion moves by historical success. */
+    if (score == 0 && context != NULL)
+    {
+        score += context->quiet_history[board->side][move_from(move)][move_to(move)];
     }
 
     return score;
@@ -749,6 +771,8 @@ static SearchResult negamax(Board *board,
     int ordered_count = build_ordered_moves(board, &list, context, ply, NULL, 0, ordered_moves);
 
     bool has_legal_move = false;
+    Move quiet_searched[MAX_QUIET_TRACKED];
+    int quiet_searched_count = 0;
 
     for (int i = 0; i < ordered_count; ++i)
     {
@@ -766,6 +790,13 @@ static SearchResult negamax(Board *board,
         }
 
         has_legal_move = true;
+
+        /* Track searched quiet moves for history malus on cutoff. */
+        if (!move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE
+            && quiet_searched_count < MAX_QUIET_TRACKED)
+        {
+            quiet_searched[quiet_searched_count++] = move;
+        }
 
         U64 key = board_position_key(board);
         if (!repetition_history_push(history, key))
@@ -800,18 +831,31 @@ static SearchResult negamax(Board *board,
 
         if (alpha >= beta)
         {
-            /* record killer if quiet move */
-            if (context != NULL)
+            /* record killer and update history if quiet move */
+            if (context != NULL && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
             {
-                if (!move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+                if (ply >= 0 && ply < MAX_PLY_DEPTH)
                 {
-                    if (ply >= 0 && ply < MAX_PLY_DEPTH)
+                    if (context->killer_moves[ply][0] != move)
                     {
-                        if (context->killer_moves[ply][0] != move)
-                        {
-                            context->killer_moves[ply][1] = context->killer_moves[ply][0];
-                            context->killer_moves[ply][0] = move;
-                        }
+                        context->killer_moves[ply][1] = context->killer_moves[ply][0];
+                        context->killer_moves[ply][0] = move;
+                    }
+                }
+
+                int bonus = history_bonus(depth);
+                int side = board->side;
+
+                /* Bonus for the cutoff move. */
+                update_history_entry(&context->quiet_history[side][move_from(move)][move_to(move)], bonus);
+
+                /* Malus for all quiet moves searched before the cutoff. */
+                for (int q = 0; q < quiet_searched_count; ++q)
+                {
+                    Move qm = quiet_searched[q];
+                    if (qm != move)
+                    {
+                        update_history_entry(&context->quiet_history[side][move_from(qm)][move_to(qm)], -bonus);
                     }
                 }
             }
