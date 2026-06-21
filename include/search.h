@@ -41,6 +41,8 @@ void search_context_destroy(SearchContext *context);
 
 SearchResult search_root(Board *board,
                          int depth,
+                         int alpha,
+                         int beta,
                          RepetitionHistory *history,
                          SearchStats *stats,
                          SearchContext *context,

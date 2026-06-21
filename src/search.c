@@ -873,6 +873,8 @@ void search_context_destroy(SearchContext *context)
 
 SearchResult search_root(Board *board,
                          int depth,
+                         int alpha,
+                         int beta,
                          RepetitionHistory *history,
                          SearchStats *stats,
                          SearchContext *context,
@@ -884,8 +886,6 @@ SearchResult search_root(Board *board,
                          int excluded_move_count)
 {
     SearchResult result = {0, MOVE_NONE, {0}, 0, false};
-    int alpha = -MATE_SCORE;
-    int beta = MATE_SCORE;
     const int alpha_orig = alpha;
     const int beta_orig = beta;
     stats->hashfull = 0;
