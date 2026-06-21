@@ -918,7 +918,7 @@ SearchResult search_root(Board *board,
         return result;
     }
 
-    if (list.count == 1)
+    if (list.count == 1) // Despite this technically being pseudo-legal, because this is root, if there's only one move, it's the only legal move (if no moves then it's mate or stalemate).
     {
         if (!move_is_excluded(list.moves[0], excluded_moves, excluded_move_count))
         {

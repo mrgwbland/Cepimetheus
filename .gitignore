@@ -1,8 +1,7 @@
 *.exe
-*.o
-Cepimetheus
 /.vscode
 *.data*
 report.txt
-*.so
 hash_test.sh
+/examples
+/release
