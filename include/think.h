@@ -29,8 +29,10 @@ Move think(Board *board,
            const SearchLimits *limits,
            const SearchOptions *options,
            const RepetitionHistory *history,
-           volatile bool *stop_signal);
+           volatile bool *stop_signal,
+           unsigned long long *out_nodes);
 
 void get_score_string(int score, char *buffer, size_t size);
+long long current_time_ms(void);
 
 #endif

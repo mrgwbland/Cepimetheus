@@ -62,7 +62,7 @@ static void print_move_info_callback(int depth,
     print_move_info(depth, move_number, move, score);
 }
 
-static long long current_time_ms(void)
+long long current_time_ms(void)
 {
     struct timeval now;
     if (gettimeofday(&now, NULL) != 0)
@@ -172,7 +172,8 @@ Move think(Board *board,
            const SearchLimits *limits,
            const SearchOptions *options,
            const RepetitionHistory *history,
-           volatile bool *stop_signal)
+           volatile bool *stop_signal,
+           unsigned long long *out_nodes)
 {
     if (board == NULL)
     {
@@ -189,6 +190,7 @@ Move think(Board *board,
     bool time_limited = false;
     bool infinite_search = false;
     const int max_iterative_depth = 64;
+    SearchStats stats = {0ULL, 0, 0};
 
     if (options != NULL)
     {
@@ -313,7 +315,6 @@ Move think(Board *board,
                 break;
             }
 
-            SearchStats stats = {0ULL, 0, 0};
             control.stop = false;
 
             SearchResult result;
@@ -388,6 +389,8 @@ Move think(Board *board,
                                      excluded_root_move_count);
             }
 
+
+
             if (control.stop)
             {
                 break;
@@ -442,6 +445,11 @@ Move think(Board *board,
         {
             break;
         }
+    }
+
+    if (out_nodes != NULL)
+    {
+        *out_nodes = stats.nodes;
     }
 
     if (best_result.move == MOVE_NONE)

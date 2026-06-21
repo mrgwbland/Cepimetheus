@@ -158,7 +158,8 @@ static void *search_thread_main(void *arg) {
                       &task->limits,
                       &task->options,
                       &task->history,
-                      task->stop_requested);
+                      task->stop_requested,
+                      NULL);
     print_bestmove(best);
 
     pthread_mutex_lock(task->mutex);
@@ -346,6 +347,106 @@ void uci_loop(void) {
         if (strncmp(line, "position", 8) == 0) {
             search_thread_stop_and_join(&search_thread);
             apply_position(&board, &history, line);
+            continue;
+        }
+
+        if (strncmp(line, "bench", 5) == 0 && (line[5] == '\0' || line[5] == ' ' || line[5] == '\t' || line[5] == '\r' || line[5] == '\n')) {
+            search_thread_stop_and_join(&search_thread);
+
+            int target_depth = 8;
+            char *depth_token = strstr(line, "depth");
+            if (depth_token != NULL) {
+                depth_token += 5;
+                while (*depth_token == ' ' || *depth_token == '\t') depth_token++;
+                int parsed_depth = atoi(depth_token);
+                if (parsed_depth > 0) {
+                    target_depth = parsed_depth;
+                }
+            } else {
+                char *p = line + 5;
+                while (*p == ' ' || *p == '\t') p++;
+                if (*p >= '0' && *p <= '9') {
+                    int parsed_depth = atoi(p);
+                    if (parsed_depth > 0) {
+                        target_depth = parsed_depth;
+                    }
+                }
+            }
+
+            printf("Running benchmark at depth %d...\n", target_depth);
+            fflush(stdout);
+
+            typedef struct {
+                const char *name;
+                const char *fen;
+            } BenchPosition;
+
+            const BenchPosition bench_positions[] = {
+                {"startpos", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"},
+                {"tacticalposition", "3r2rk/pp3p1p/2p1pq2/2P1P2R/2n5/3P4/P3Q1B1/1K1R4 b - - 0 34"},
+                {"smotheredmate", "1r2kb1r/3npppp/5n2/QN6/3q4/7P/PPPB1PP1/2KR3R b k - 0 14"},
+                {"tactic2", "r2q2k1/1R3p1p/p3B1p1/3Pp3/Pp2P3/1Pb1Q2P/2b2PP1/6K1 b - - 4 35"},
+                {"oppositebishops", "8/5p2/2b2B2/2P1P3/4P1k1/4K3/8/8 w - - 89 128"},
+                {"matein5", "8/6k1/2RR2pp/p7/N3r3/6K1/PP4PP/5r2 b - - 0 1"}
+            };
+
+            size_t num_positions = sizeof(bench_positions) / sizeof(bench_positions[0]);
+            unsigned long long total_nodes = 0;
+            long long start_time = current_time_ms();
+
+            for (size_t i = 0; i < num_positions; ++i) {
+                printf("\nPosition %zu/%zu: %s\n", i + 1, num_positions, bench_positions[i].name);
+                printf("FEN: %s\n", bench_positions[i].fen);
+                fflush(stdout);
+
+                Board bench_board;
+                board_init(&bench_board);
+                if (!board_set_fen(&bench_board, bench_positions[i].fen)) {
+                    printf("Error: Invalid FEN %s\n", bench_positions[i].fen);
+                    continue;
+                }
+
+                RepetitionHistory bench_history;
+                repetition_history_init(&bench_history);
+                repetition_history_push(&bench_history, board_position_key(&bench_board));
+
+                SearchLimits limits = {0};
+                limits.depth = target_depth;
+
+                unsigned long long nodes = 0;
+                long long pos_start = current_time_ms();
+                volatile bool stop_signal = false;
+
+                Move best = think(&bench_board, &limits, &options, &bench_history, &stop_signal, &nodes);
+
+                long long pos_time = current_time_ms() - pos_start;
+                if (pos_time < 0) {
+                    pos_time = 0;
+                }
+
+                char move_str[6];
+                move_to_string(best, move_str);
+
+                unsigned long long nps = (nodes * 1000ULL) / (pos_time > 0 ? pos_time : 1);
+                printf("Position %s results: Bestmove: %s, Nodes: %llu, Time: %lld ms, NPS: %llu\n",
+                       bench_positions[i].name, move_str, nodes, pos_time, nps);
+                fflush(stdout);
+
+                total_nodes += nodes;
+            }
+
+            long long total_time = current_time_ms() - start_time;
+            if (total_time < 0) {
+                total_time = 0;
+            }
+
+            unsigned long long overall_nps = (total_nodes * 1000ULL) / (total_time > 0 ? total_time : 1);
+            printf("\n==================================================\n");
+            printf("Total nodes: %llu\n", total_nodes);
+            printf("Total time: %lld ms\n", total_time);
+            printf("Overall NPS: %llu\n", overall_nps);
+            printf("==================================================\n");
+            fflush(stdout);
             continue;
         }
 
