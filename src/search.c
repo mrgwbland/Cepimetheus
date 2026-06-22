@@ -57,6 +57,15 @@ struct SearchContext
     int16_t hh_table[2][64][64];
 };
 
+static const int piece_values[6] = {
+    1000, /* Pawn */
+    3000, /* Knight */
+    3200, /* Bishop */
+    5000, /* Rook */
+    9000, /* Queen */
+    0    /* King */
+};
+
 static inline int history_bonus(int depth)
 {
     int b = depth * depth;
