@@ -5,96 +5,39 @@
 #include <stdbool.h>
 
 int piece_values_mg[6] = {
-    1000, /* Pawn */
-    2945, /* Knight */
-    3040, /* Bishop */
-    3155, /* Rook */
-    9870, /* Queen */
-    0    /* King */
+    1000, 2525, 2740, 3315, 10920, 0
 };
 
 int piece_values_eg[6] = {
-    1000, /* Pawn */
-    2945, /* Knight */
-    3040, /* Bishop */
-    5845, /* Rook */
-    9870, /* Queen */
-    0    /* King */
+    1000, 3740, 3505, 5845, 8990, 0
 };
 
 int eval_parameters_mg[13] = {
-    83,  // TEMPO_BONUS
-    396, // PAWN_BLOCKING_PENALTY
-    10,  // KNIGHT_PAWN_COUNT_PENALTY
-    40,  // PAWN_SHIELD_PENALTY
-    132, // DOUBLED_PAWN_PENALTY
-    78,  // ISOLATED_PAWN_PENALTY
-    74,  // KNIGHT_MOBILITY_BONUS
-    78,  // BISHOP_MOBILITY_BONUS
-    100, // ROOK_CONTROL_BONUS
-    190, // ROOK_OPEN_FILE_BONUS
-    24,  // QUEEN_MOBILITY_BONUS
-    1,   // KING_EXPOSURE_PENALTY
-    97   // KING_CORNER_DISTANCE_BONUS
+    98, 332, 0, 25, 137, 48, 59, 81, 72, 160, 13, 5, 76
 };
 
 int eval_parameters_eg[13] = {
-    83,  // TEMPO_BONUS
-    396, // PAWN_BLOCKING_PENALTY
-    10,  // KNIGHT_PAWN_COUNT_PENALTY
-    40,  // PAWN_SHIELD_PENALTY
-    132, // DOUBLED_PAWN_PENALTY
-    78,  // ISOLATED_PAWN_PENALTY
-    74,  // KNIGHT_MOBILITY_BONUS
-    78,  // BISHOP_MOBILITY_BONUS
-    100, // ROOK_CONTROL_BONUS
-    190, // ROOK_OPEN_FILE_BONUS
-    24,  // QUEEN_MOBILITY_BONUS
-    1,   // KING_EXPOSURE_PENALTY
-    97   // KING_CORNER_DISTANCE_BONUS
+    89, 0, 91, 22, 140, 63, 112, 50, 14, 0, 39, 4, 117
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, //Rank 2
-    0, //Rank 3
-    54, //Rank 4
-    248, //Rank 5
-    621, //Rank 6
-    1003 //Rank 7
+    0, 0, 0, 0, 249, 723
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, //Rank 2
-    0, //Rank 3
-    54, //Rank 4
-    248, //Rank 5
-    621, //Rank 6
-    1003 //Rank 7
+    0, 0, 35, 187, 340, 579
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, //Rank 2
-    0, //Rank 3
-    54, //Rank 4
-    248, //Rank 5
-    621, //Rank 6
-    1003 //Rank 7
+    0, 0, 53, 175, 454, 1038
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, //Rank 2
-    0, //Rank 3
-    54, //Rank 4
-    248, //Rank 5
-    621, //Rank 6
-    1003 //Rank 7
+    0, 0, 0, 0, 280, 206
 };
 
 int king_ring_penalty_mg[14] = {
-    0, 20, 0, 50,
-    43, 44, 160, 120,
-    112, 187, 176, 295,
-    450, 694
+    0, 70, 0, 147, 104, 521, 451, 589, 642, 995, 904, 1109, 1565, 1995
 };
 
 /* Macros redirect the existing engine code to array*/
