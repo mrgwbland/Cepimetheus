@@ -13,6 +13,7 @@ SRC := \
     src/main.c \
     src/uci.c \
     src/eval.c \
+    src/eval_helpers.c \
     src/search.c \
     src/think.c \
     src/movegen.c \
@@ -23,6 +24,7 @@ SRC := \
 # Source files needed exclusively for evaluation tuning (excludes search/UCI loops)
 TUNING_SRC := \
     src/eval.c \
+    src/eval_helpers.c \
     src/movegen.c \
     src/move.c \
     src/board.c \
