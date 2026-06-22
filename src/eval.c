@@ -5,45 +5,45 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    2970, /* Knight */
-    3070, /* Bishop */
+    2955, /* Knight */
+    3090, /* Bishop */
     3180, /* Rook */
-    9920, /* Queen */
+    9880, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
     88, // TEMPO_BONUS
-    386, // PAWN_BLOCKING_PENALTY
+    387, // PAWN_BLOCKING_PENALTY
     10, // KNIGHT_PAWN_COUNT_PENALTY
-    38, // PAWN_SHIELD_PENALTY
-    133, // DOUBLED_PAWN_PENALTY
+    36, // PAWN_SHIELD_PENALTY
+    134, // DOUBLED_PAWN_PENALTY
     74, // ISOLATED_PAWN_PENALTY
-    75, // KNIGHT_MOBILITY_BONUS
-    78, // BISHOP_MOBILITY_BONUS
-    97, // ROOK_CONTROL_BONUS
-    191, // ROOK_OPEN_FILE_BONUS
-    2705, // ENDGAME_ROOK_BONUS
-    25, // QUEEN_MOBILITY_BONUS
-    4, // KING_EXPOSURE_PENALTY
-    88, // KING_CORNER_DISTANCE_BONUS
-    1245 // PAWNS_VS_ONE_PIECE_BONUS 
+    76, // KNIGHT_MOBILITY_BONUS
+    75, // BISHOP_MOBILITY_BONUS
+    98, // ROOK_CONTROL_BONUS
+    188, // ROOK_OPEN_FILE_BONUS
+    2690, // ENDGAME_ROOK_BONUS
+    26, // QUEEN_MOBILITY_BONUS
+    5, // KING_EXPOSURE_PENALTY
+    91, // KING_CORNER_DISTANCE_BONUS
+    1230 // PAWNS_VS_ONE_PIECE_BONUS 
 };
 
 int passed_pawn_rank_bonus[6] = {
     0, //Rank 2
     0, //Rank 3
-    67, //Rank 4
-    238, //Rank 5
-    637, //Rank 6
-    988 //Rank 7
+    61, //Rank 4
+    233, //Rank 5
+    633, //Rank 6
+    983 //Rank 7
 };
 
 int king_ring_penalty[14] = {
-    771, 771, 755, 826,
-    790, 751, 919, 844,
-    825, 921, 924, 1029,
-    1202, 1520
+    0, 7, 0, 64,
+    27, 0, 156, 84,
+    65, 161, 164, 270,
+    442, 759
 }; // Mildly overfitted, but much better after addition of x ray attacks, could benefit from some sort of smoothing
 
 /* Macros redirect the existing engine code to array*/
@@ -513,8 +513,6 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     if (black_king_ring_attackers >= 14)
         black_king_ring_attackers = 13;
 
-    // Generally, King Safety is solely an MG consideration.
-    // Mapped strictly to preserve your prior unscaled mathematics.
     white_score.mg -= king_ring_penalty[white_king_ring_attackers];
     white_score.eg -= king_ring_penalty[white_king_ring_attackers];
     black_score.mg -= king_ring_penalty[black_king_ring_attackers];
