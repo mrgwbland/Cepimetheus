@@ -114,38 +114,24 @@ static bool search_should_stop(SearchControl *control)
 /* Estimate move score for move ordering. This is intentionally cheap. */
 static int estimate_move_score(Board *board, Move move, const SearchContext *context, int ply)
 {
-
-    /* Killer moves: prefer quiet moves that previously caused beta cutoffs. */
-    if (context != NULL && ply >= 0 && ply < MAX_PLY_DEPTH)
-    {
-        /* First killer (most recent) slightly preferred. */
-        if (context->killer_moves[ply][0] != MOVE_NONE && context->killer_moves[ply][0] == move)
-        {
-            return 5000;
-        }
-
-        if (context->killer_moves[ply][1] != MOVE_NONE && context->killer_moves[ply][1] == move)
-        {
-            return 4000;
-        }
-    }
-
     int flags = move_flags(move);
 
-    /* Castling. */
-    if ((flags & MOVE_FLAG_CASTLE) != 0)
+    /* 1. Promotions */
+    if (move_promotion(move) != MOVE_PROMO_NONE)
     {
-        return 100;
+        static const int promo_bonus[5] = {0, 300, 320, 500, 950};
+        int promo = move_promotion(move);
+        if (promo >= 0 && promo <= 4)
+        {
+            return 2000000 + promo_bonus[promo];
+        }
     }
 
-    int score = 0;
-
-    /* Captures - MVV/LVA (Most Valuable Victim / Least Valuable Aggressor). */
+    /* 2. Captures - MVV/LVA */
     if (move_iscapture(move))
     {
         int attacker_piece = board_piece_at(board, move_from(move));
         int attacker_value = piece_values[board_piece_type(attacker_piece)];
-
         int victim_piece = board_piece_at(board, move_to(move));
         int victim_value;
 
@@ -158,27 +144,38 @@ static int estimate_move_score(Board *board, Move move, const SearchContext *con
             victim_value = piece_values[board_piece_type(victim_piece)];
         }
 
-        score += 10000 + victim_value * 10 - attacker_value;
+        return 1000000 + victim_value * 10 - attacker_value;
     }
 
-    /* Promotions. */
-    if (move_promotion(move) != MOVE_PROMO_NONE)
+    /* 3. Quiet Moves (Killers, History) */
+    if (context != NULL && ply >= 0 && ply < MAX_PLY_DEPTH)
     {
-        static const int promo_bonus[5] = {0, 300, 320, 500, 950};
-        int promo = move_promotion(move);
-        if (promo >= 0 && promo <= 4)
+        /* First killer */
+        if (context->killer_moves[ply][0] != MOVE_NONE && context->killer_moves[ply][0] == move)
         {
-            score += 20000 + promo_bonus[promo];
+            return 90000;
+        }
+
+        /* Second killer */
+        if (context->killer_moves[ply][1] != MOVE_NONE && context->killer_moves[ply][1] == move)
+        {
+            return 80000;
         }
     }
 
-    /* Quiet history: order quiet non-promotion moves by historical success. */
-    if (score == 0 && context != NULL)
+    /* Castling */
+    if ((flags & MOVE_FLAG_CASTLE) != 0)
     {
-        score += context->quiet_history[board->side][move_from(move)][move_to(move)];
+        return 100;
     }
 
-    return score;
+    /* History */
+    if (context != NULL)
+    {
+        return context->quiet_history[board->side][move_from(move)][move_to(move)];
+    }
+
+    return 0;
 }
 
 /* Compare function for sort - sort in descending order of score. */
