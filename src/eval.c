@@ -5,45 +5,45 @@
 
 int piece_values[6] = {
     1000, /* Pawn */
-    2955, /* Knight */
-    3090, /* Bishop */
-    3180, /* Rook */
-    9880, /* Queen */
+    2945, /* Knight */
+    3040, /* Bishop */
+    3155, /* Rook */
+    9870, /* Queen */
     0    /* King */
 };
 
 int eval_parameters[15] = {
-    88, // TEMPO_BONUS
-    387, // PAWN_BLOCKING_PENALTY
+    83, // TEMPO_BONUS
+    396, // PAWN_BLOCKING_PENALTY
     10, // KNIGHT_PAWN_COUNT_PENALTY
-    36, // PAWN_SHIELD_PENALTY
-    134, // DOUBLED_PAWN_PENALTY
-    74, // ISOLATED_PAWN_PENALTY
-    76, // KNIGHT_MOBILITY_BONUS
-    75, // BISHOP_MOBILITY_BONUS
-    98, // ROOK_CONTROL_BONUS
-    188, // ROOK_OPEN_FILE_BONUS
+    40, // PAWN_SHIELD_PENALTY
+    132, // DOUBLED_PAWN_PENALTY
+    78, // ISOLATED_PAWN_PENALTY
+    74, // KNIGHT_MOBILITY_BONUS
+    78, // BISHOP_MOBILITY_BONUS
+    100, // ROOK_CONTROL_BONUS
+    190, // ROOK_OPEN_FILE_BONUS
     2690, // ENDGAME_ROOK_BONUS
-    26, // QUEEN_MOBILITY_BONUS
-    5, // KING_EXPOSURE_PENALTY
-    91, // KING_CORNER_DISTANCE_BONUS
-    1230 // PAWNS_VS_ONE_PIECE_BONUS 
+    24, // QUEEN_MOBILITY_BONUS
+    1, // KING_EXPOSURE_PENALTY
+    97, // KING_CORNER_DISTANCE_BONUS
+    1225 // PAWNS_VS_ONE_PIECE_BONUS 
 };
 
 int passed_pawn_rank_bonus[6] = {
     0, //Rank 2
     0, //Rank 3
-    61, //Rank 4
-    233, //Rank 5
-    633, //Rank 6
-    983 //Rank 7
+    54, //Rank 4
+    248, //Rank 5
+    621, //Rank 6
+    1003 //Rank 7
 };
 
 int king_ring_penalty[14] = {
-    0, 7, 0, 64,
-    27, 0, 156, 84,
-    65, 161, 164, 270,
-    442, 759
+    0, 20, 0, 50,
+    43, 44, 160, 120,
+    112, 187, 176, 295,
+    450, 694
 }; // Mildly overfitted, but much better after addition of x ray attacks, could benefit from some sort of smoothing
 
 /* Macros redirect the existing engine code to array*/
@@ -541,48 +541,47 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
 }
 
 /* ==============================================================================
- * PYTHON BRIDGE INTERFACE (DO NOT REMOVE)
+ * PYTHON BRIDGE INTERFACE
  * ============================================================================== */
 int evaluate_position_with_weights(const char *fen, int *weights)
 {
-    // 1. Overwrite global evaluation weights in RAM
-    for (int i = 0; i < 6; ++i)
-    {
-        piece_values[i] = weights[i];
+    // 1. Overwrite global evaluation weights in RAM using a unified offset
+    // This perfectly mirrors the order of TUNING_CONFIG in the Python tuner.
+    int offset = 0;
+    
+    for (int i = 0; i < 6; ++i) {
+        piece_values[i] = weights[offset++];
     }
-    for (int i = 0; i < 15; ++i)
-    {
-        eval_parameters[i] = weights[6 + i];
-    }
-
-    for (int i = 0; i < 6; ++i)
-    {
-        passed_pawn_rank_bonus[i] = weights[6 + 15 + i];
+    
+    for (int i = 0; i < 15; ++i) {
+        eval_parameters[i] = weights[offset++];
     }
 
-    for (int i = 0; i < 14; ++i)
-    {
-        king_ring_penalty[i] = weights[6 + 15 + 6 + i];
+    for (int i = 0; i < 6; ++i) {
+        passed_pawn_rank_bonus[i] = weights[offset++];
     }
+
+    for (int i = 0; i < 14; ++i) {
+        king_ring_penalty[i] = weights[offset++];
+    }
+
     // 2. Initialize the board architecture and parse FEN
     Board board;
-    board_init(&board); // Crucial: sets up bitboard tables and clears fields
+    board_init(&board); 
 
     if (!board_set_fen(&board, fen))
     {
-        return 0; // Guard against corrupted input strings
+        return 0;
     }
 
-    // 3. Generate a pseudo-legal move-list so the engine can accurately check for terminal states
+    // 3. Generate a pseudo-legal move-list
     MoveList list;
     movegen_generate_pseudo_legal(&board, &list);
 
     // 4. Calculate relative score from your internal function
     int relative_score = evaluate_position(&board, NULL, 0, &list, false);
 
-    // 5. Convert perspective: Your engine evaluates relative to side-to-move.
-    // Stockfish datasets use White-Centric absolute scoring.
-    // If it's Black's turn, we invert the evaluation score to match Stockfish.
+    // 5. Convert perspective (White-centric)
     int final_score = relative_score;
     if (board.side == BLACK)
     {
