@@ -13,8 +13,8 @@
 #define MAX_PLY_DEPTH 256
 #define HISTORY_BONUS_CAP 400
 #define HISTORY_GRAVITY 512
-#define HISTORY_SCALE 32
-#define MAX_QUIET_TRACKED 64
+#define HISTORY_SCALE 16
+#define MAX_QUIET_TRACKED 256
 
 typedef struct
 {
@@ -54,7 +54,7 @@ struct SearchContext
 {
     TranspositionTable table;
     Move killer_moves[MAX_PLY_DEPTH][2];
-    int16_t quiet_history[2][64][64];
+    int16_t hh_table[2][64][64];
 };
 
 static inline int history_bonus(int depth)
@@ -172,7 +172,7 @@ static int estimate_move_score(Board *board, Move move, const SearchContext *con
     /* History */
     if (context != NULL)
     {
-        return context->quiet_history[board->side][move_from(move)][move_to(move)];
+        return context->hh_table[board->side][move_from(move)][move_to(move)];
     }
 
     return 0;
@@ -844,7 +844,7 @@ static SearchResult negamax(Board *board,
                 int side = board->side;
 
                 /* Bonus for the cutoff move. */
-                update_history_entry(&context->quiet_history[side][move_from(move)][move_to(move)], bonus);
+                update_history_entry(&context->hh_table[side][move_from(move)][move_to(move)], bonus);
 
                 /* Malus for all quiet moves searched before the cutoff. */
                 for (int q = 0; q < quiet_searched_count; ++q)
@@ -852,7 +852,7 @@ static SearchResult negamax(Board *board,
                     Move qm = quiet_searched[q];
                     if (qm != move)
                     {
-                        update_history_entry(&context->quiet_history[side][move_from(qm)][move_to(qm)], -bonus);
+                        update_history_entry(&context->hh_table[side][move_from(qm)][move_to(qm)], -bonus);
                     }
                 }
             }
