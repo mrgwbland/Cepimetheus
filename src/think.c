@@ -158,9 +158,15 @@ static bool compute_clock_budget(const Board *board,
     int soft_ms = (total_ms / 30) - overhead_ms;
     int hard_ms = (total_ms / 5) - overhead_ms;
 
-    if (hard_ms < soft_ms)
+    int limit_ms = base_ms - overhead_ms;
+    if (hard_ms > limit_ms)
     {
-        hard_ms = soft_ms;
+        hard_ms = limit_ms;
+    }
+
+    if (soft_ms > hard_ms)
+    {
+        soft_ms = hard_ms;
     }
 
     *soft_budget_ms = clamp_time_budget(soft_ms);
