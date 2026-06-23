@@ -345,6 +345,16 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     int phase = get_endgame_weight(board); // 0 (MG) to 1000 (EG)
     int final_score = ((1000 - phase) * mg_total + phase * eg_total) / 1000;
 
+    // Cap evaluation to avoid overlap with mate scores
+    if (final_score > 30000)
+    {
+        final_score = 30000;
+    }
+    else if (final_score < -30000)
+    {
+        final_score = -30000;
+    }
+
     return board->side == WHITE ? final_score : -final_score;
 }
 

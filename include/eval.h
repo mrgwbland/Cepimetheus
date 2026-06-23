@@ -10,7 +10,7 @@ typedef enum {
 	EVAL_TERMINAL_CHECKMATE,
 } EvalTerminalState;
 
-enum { MATE_SCORE = 100000 };
+enum { MATE_SCORE = 32000 };
 
 int get_endgame_weight(const Board *board);
 EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move);

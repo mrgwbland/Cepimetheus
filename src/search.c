@@ -255,11 +255,38 @@ static const TranspositionEntry *transposition_table_lookup(const TranspositionT
     return entry;
 }
 
+static inline int score_to_tt(int score, int ply)
+{
+    if (score > MATE_SCORE - MAX_PLY_DEPTH)
+    {
+        return score + ply;
+    }
+    if (score < -MATE_SCORE + MAX_PLY_DEPTH)
+    {
+        return score - ply;
+    }
+    return score;
+}
+
+static inline int score_from_tt(int score, int ply)
+{
+    if (score > MATE_SCORE - MAX_PLY_DEPTH)
+    {
+        return score - ply;
+    }
+    if (score < -MATE_SCORE + MAX_PLY_DEPTH)
+    {
+        return score + ply;
+    }
+    return score;
+}
+
 static bool transposition_table_probe(const TranspositionTable *table,
                                       U64 hash,
                                       int depth,
                                       int alpha,
                                       int beta,
+                                      int ply,
                                       int *score)
 {
     const TranspositionEntry *entry = transposition_table_lookup(table, hash);
@@ -268,24 +295,26 @@ static bool transposition_table_probe(const TranspositionTable *table,
         return false;
     }
 
+    int entry_score = score_from_tt(entry->score, ply);
+
     switch (entry->score_type)
     {
     case TT_SCORE_EXACT:
-        *score = entry->score;
+        *score = entry_score;
         return true;
 
     case TT_SCORE_LOWER:
-        if (entry->score >= beta)
+        if (entry_score >= beta)
         {
-            *score = entry->score;
+            *score = entry_score;
             return true;
         }
         break;
 
     case TT_SCORE_UPPER:
-        if (entry->score <= alpha)
+        if (entry_score <= alpha)
         {
-            *score = entry->score;
+            *score = entry_score;
             return true;
         }
         break;
@@ -357,17 +386,20 @@ static void transposition_table_store(TranspositionTable *table,
                                       int depth,
                                       int score,
                                       TranspositionScoreType score_type,
-                                      Move best_move)
+                                      Move best_move,
+                                      int ply)
 {
     if (table == NULL || table->entries == NULL || table->size == 0 || best_move == MOVE_NONE)
     {
         return;
     }
 
+    int tt_score = score_to_tt(score, ply);
+
     TranspositionEntry *entry = &table->entries[transposition_table_index(table, hash)];
     if (entry->hash == hash)
     {
-        if (!transposition_entry_should_replace_same_hash(entry, depth, score, score_type))
+        if (!transposition_entry_should_replace_same_hash(entry, depth, tt_score, score_type))
         {
             return;
         }
@@ -384,7 +416,7 @@ static void transposition_table_store(TranspositionTable *table,
 
     entry->hash = hash;
     entry->depth = depth;
-    entry->score = score;
+    entry->score = tt_score;
     entry->score_type = score_type;
     entry->best_move = best_move;
 }
@@ -567,7 +599,7 @@ static int quiescence(Board *board,
     int tt_score = 0;
     if (context != NULL)
     {
-        if (transposition_table_probe(&context->table, board_position_key(board), 0, alpha, beta, &tt_score))
+        if (transposition_table_probe(&context->table, board_position_key(board), 0, alpha, beta, ply, &tt_score))
         {
             return tt_score;
         }
@@ -697,7 +729,7 @@ static int quiescence(Board *board,
     if (best_move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board_position_key(board), 0, alpha, score_type, best_move);
+        transposition_table_store(&context->table, board_position_key(board), 0, alpha, score_type, best_move, ply);
     }
 
     return alpha;
@@ -742,16 +774,72 @@ static SearchResult negamax(Board *board,
     int tt_score = 0;
     if (context != NULL)
     {
-        if (transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, &tt_score))
+        if (transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, ply, &tt_score))
         {
             result.score = tt_score;
+
+            int pv_depth = 0;
+            Undo undos[MAX_PV_MOVES];
+            U64 pv_hashes[MAX_PV_MOVES];
+            while (pv_depth < depth && result.pv_length < MAX_PV_MOVES)
+            {
+                U64 hash = board_position_key(board);
+                
+                // Avoid infinite loops if there is a cycle in the TT
+                bool cycle = false;
+                for (int h = 0; h < pv_depth; ++h)
+                {
+                    if (pv_hashes[h] == hash)
+                    {
+                        cycle = true;
+                        break;
+                    }
+                }
+                if (cycle)
+                {
+                    break;
+                }
+                
+                pv_hashes[pv_depth] = hash;
+                const TranspositionEntry *entry = transposition_table_lookup(&context->table, hash);
+                if (entry == NULL || entry->best_move == MOVE_NONE)
+                {
+                    break;
+                }
+                
+                MoveList list;
+                movegen_generate_pseudo_legal(board, &list);
+                if (find_move_index(&list, entry->best_move) < 0)
+                {
+                    break;
+                }
+                
+                if (!board_make_move(board, entry->best_move, &undos[pv_depth]))
+                {
+                    break;
+                }
+                
+                result.pv[result.pv_length++] = entry->best_move;
+                pv_depth++;
+            }
+            // Now unmake all the moves we made
+            for (int j = pv_depth - 1; j >= 0; --j)
+            {
+                board_unmake_move(board, &undos[j]);
+            }
+            
+            if (result.pv_length > 0)
+            {
+                result.move = result.pv[0];
+            }
+
             return result;
         }
     }
 
     /* Null-move pruning */
     if (depth >= 3 &&// NMP not done near leaves as tree is already small
-        beta < 10000 &&// Not done in mating sequences
+        beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
         !board_is_in_check(board, board->side) && // In check passing is illegal
         has_sufficient_nmp_material(board)) //Not done in endgames to avoid zugzwang issues
     {
@@ -904,7 +992,7 @@ static SearchResult negamax(Board *board,
     if (result.move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, result.move);
+        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, result.move, ply);
     }
 
     return result;
@@ -1068,7 +1156,7 @@ SearchResult search_root(Board *board,
     if (result.move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, result.move);
+        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, result.move, 0);
     }
 
     return result;
