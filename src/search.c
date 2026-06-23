@@ -88,6 +88,30 @@ static long long current_time_ms(void)
     return (long long)now.tv_sec * 1000LL + (long long)now.tv_usec / 1000LL;
 }
 
+static bool has_sufficient_nmp_material(const Board *board)
+{
+    int side = board->side;
+    int start = (side == WHITE) ? WHITE_KNIGHT : BLACK_KNIGHT;
+    int end = (side == WHITE) ? WHITE_KING : BLACK_KING;
+    int piece_count = 0;
+
+    for (int i = start; i < end; ++i)
+    {
+        U64 bb = board->pieces[i];
+        while (bb)
+        {
+            bitboard_pop_lsb(&bb);
+            piece_count++;
+            if (piece_count >= 3)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 static bool search_should_stop(SearchControl *control)
 {
     if (control == NULL)
@@ -725,11 +749,11 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    /* Null-move pruning, avoided in endgames to avoid zugzwang issues. */
-    if (depth >= 3 &&
-        beta < 10000 &&
-        !board_is_in_check(board, board->side) &&
-        get_endgame_weight(board) < 600)
+    /* Null-move pruning */
+    if (depth >= 3 &&// NMP not done near leaves as tree is already small
+        beta < 10000 &&// Not done in mating sequences
+        !board_is_in_check(board, board->side) && // In check passing is illegal
+        has_sufficient_nmp_material(board)) //Not done in endgames to avoid zugzwang issues
     {
         const int reduction = 2;
         Undo undo;
