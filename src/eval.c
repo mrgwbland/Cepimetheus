@@ -12,12 +12,12 @@ int piece_values_eg[6] = {
     1000, 3740, 3505, 5845, 8990, 0
 };
 
-int eval_parameters_mg[13] = {
-    98, 332, 0, 25, 137, 48, 59, 81, 72, 160, 13, 5, 76
+int eval_parameters_mg[14] = {
+    98, 332, 0, 25, 137, 48, 59, 81, 72, 160, 13, 5, 76, 11
 };
 
-int eval_parameters_eg[13] = {
-    89, 0, 91, 22, 140, 63, 112, 50, 14, 0, 39, 4, 117
+int eval_parameters_eg[14] = {
+    89, 0, 91, 22, 140, 63, 112, 50, 14, 0, 39, 4, 117, 0
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
@@ -34,10 +34,6 @@ int phalanx_pawn_rank_bonus_mg[6] = {
 
 int phalanx_pawn_rank_bonus_eg[6] = {
     0, 0, 0, 0, 280, 206
-};
-
-int king_ring_penalty_mg[14] = {
-    0, 70, 0, 147, 104, 521, 451, 589, 642, 995, 904, 1109, 1565, 1995
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -67,6 +63,8 @@ int king_ring_penalty_mg[14] = {
 #define KING_EXPOSURE_PENALTY_EG eval_parameters_eg[11]
 #define KING_CORNER_DISTANCE_BONUS_MG eval_parameters_mg[12]
 #define KING_CORNER_DISTANCE_BONUS_EG eval_parameters_eg[12]
+#define KING_RING_PENALTY_MG eval_parameters_mg[13]
+#define KING_RING_PENALTY_EG 0
 
 typedef struct
 {
@@ -317,14 +315,9 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     int white_king_ring_attackers = count_king_ring_attackers(board, WHITE, all_pieces);
     int black_king_ring_attackers = count_king_ring_attackers(board, BLACK, all_pieces);
 
-    if (white_king_ring_attackers >= 14)
-        white_king_ring_attackers = 13;
-    if (black_king_ring_attackers >= 14)
-        black_king_ring_attackers = 13;
-    
     // King ring penalty is essentially 0 for endgames
-    white_score.mg -= king_ring_penalty_mg[white_king_ring_attackers];
-    black_score.mg -= king_ring_penalty_mg[black_king_ring_attackers];
+    white_score.mg -= KING_RING_PENALTY_MG * (white_king_ring_attackers * white_king_ring_attackers); // Quadratic penalty
+    black_score.mg -= KING_RING_PENALTY_MG * (black_king_ring_attackers * black_king_ring_attackers);
 
     int mg_total = white_score.mg - black_score.mg;
     int eg_total = white_score.eg - black_score.eg;
@@ -373,10 +366,10 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         piece_values_eg[i] = weights[offset++];
     }
     
-    for (int i = 0; i < 13; ++i) {
+    for (int i = 0; i < 14; ++i) {
         eval_parameters_mg[i] = weights[offset++];
     }
-    for (int i = 0; i < 13; ++i) {
+    for (int i = 0; i < 14; ++i) {
         eval_parameters_eg[i] = weights[offset++];
     }
 
@@ -392,10 +385,6 @@ int evaluate_position_with_weights(const char *fen, int *weights)
     }
     for (int i = 0; i < 6; ++i) {
         phalanx_pawn_rank_bonus_eg[i] = weights[offset++];
-    }
-
-    for (int i = 0; i < 14; ++i) {
-        king_ring_penalty_mg[i] = weights[offset++];
     }
 
     // 2. Initialise the board architecture and parse FEN
