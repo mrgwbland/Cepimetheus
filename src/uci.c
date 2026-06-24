@@ -247,7 +247,7 @@ void uci_loop(void) {
     push_current_position(&board, &history);
 
     SearchOptions options = {0};
-    options.overhead_ms = 100;
+    options.overhead_ms = 10;
     options.multipv = 1;
     options.hash_power = 22; // 64 MiB hash
     options.lichess_draw_rules = false;
@@ -266,7 +266,7 @@ void uci_loop(void) {
             printf("id name Cepimetheus\n");           
             printf("id version 9.0.0\n");
             printf("id author  George Bland\n"); 
-            printf("option name overhead type spin default 100 min 0 max 10000\n");
+            printf("option name overhead type spin default 10 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
             printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
             printf("option name lichess_draw_rules type check default false\n");
