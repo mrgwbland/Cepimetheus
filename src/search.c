@@ -211,28 +211,7 @@ static int estimate_move_score(Board *board, Move move, const SearchContext *con
     return 0;
 }
 
-/* Compare function for sort - sort in descending order of score. */
-static int compare_scored_moves(const void *a, const void *b)
-{
-    const ScoredMove *move_a = (const ScoredMove *)a;
-    const ScoredMove *move_b = (const ScoredMove *)b;
-    return move_b->score - move_a->score;
-}
 
-static void insertion_sort_scored_moves(ScoredMove *moves, int count)
-{
-    for (int i = 1; i < count; ++i)
-    {
-        ScoredMove key = moves[i];
-        int j = i - 1;
-        while (j >= 0 && compare_scored_moves(&moves[j], &key) > 0)
-        {
-            moves[j + 1] = moves[j];
-            --j;
-        }
-        moves[j + 1] = key;
-    }
-}
 
 static size_t transposition_table_index(const TranspositionTable *table, U64 hash)
 {
@@ -457,89 +436,225 @@ static bool move_is_excluded(Move move, const Move *excluded_moves, int excluded
     return false;
 }
 
-static int build_ordered_moves(Board *board,
-                               const MoveList *list,
-                               const SearchContext *context,
-                               int ply,
-                               const Move *excluded_moves,
-                               int excluded_move_count,
-                               Move ordered_moves[MAX_ORDERED_MOVES])
+enum {
+    STAGE_TT,
+    STAGE_GENERATE_NOISY,
+    STAGE_PLAY_NOISY,
+    STAGE_KILLER_1,
+    STAGE_KILLER_2,
+    STAGE_GENERATE_QUIET,
+    STAGE_PLAY_QUIET,
+    STAGE_DONE
+};
+
+typedef struct {
+    MoveList all_moves;
+    bool used[MAX_ORDERED_MOVES];
+    Move moves[MAX_ORDERED_MOVES];
+    int scores[MAX_ORDERED_MOVES];
+    int count;
+    int current_idx;
+    int stage;
+    Move tt_move;
+    Move killer1;
+    Move killer2;
+    const Move *excluded_moves;
+    int excluded_move_count;
+    bool in_qsearch;
+    bool in_check;
+    Board *board;
+    const SearchContext *context;
+    int ply;
+} MovePicker;
+
+static void movepicker_init(MovePicker *mp,
+                            Board *board,
+                            const SearchContext *context,
+                            int ply,
+                            Move tt_move,
+                            const Move *excluded_moves,
+                            int excluded_move_count,
+                            bool in_qsearch)
 {
-    if (board == NULL || list == NULL || ordered_moves == NULL || list->count <= 0)
+    mp->board = board;
+    mp->context = context;
+    mp->ply = ply;
+    mp->tt_move = tt_move;
+    
+    mp->killer1 = MOVE_NONE;
+    mp->killer2 = MOVE_NONE;
+    if (context != NULL && ply >= 0 && ply < MAX_PLY_DEPTH)
     {
-        return 0;
+        mp->killer1 = context->killer_moves[ply][0];
+        mp->killer2 = context->killer_moves[ply][1];
     }
+    
+    mp->excluded_moves = excluded_moves;
+    mp->excluded_move_count = excluded_move_count;
+    mp->in_qsearch = in_qsearch;
+    mp->in_check = board_is_in_check(board, board->side);
+    
+    mp->stage = STAGE_TT;
+    mp->count = 0;
+    mp->current_idx = 0;
+    memset(mp->used, 0, sizeof(mp->used));
+    
+    movegen_generate_pseudo_legal(board, &mp->all_moves);
+}
 
-    U64 hash = board_position_key(board);
-    const TranspositionEntry *entry = NULL;
-    if (context != NULL)
+static Move movepicker_next_move(MovePicker *mp)
+{
+    while (mp->stage != STAGE_DONE)
     {
-        entry = transposition_table_lookup(&context->table, hash);
-    }
-
-    if (entry == NULL)
-    {
-        ScoredMove scored_moves[MAX_ORDERED_MOVES];
-        int scored_count = 0;
-        for (int i = 0; i < list->count && i < MAX_ORDERED_MOVES; ++i)
+        switch (mp->stage)
         {
-            if (move_is_excluded(list->moves[i], excluded_moves, excluded_move_count))
-            {
-                continue;
-            }
-            scored_moves[scored_count].move = list->moves[i];
-            scored_moves[scored_count].score = estimate_move_score(board, list->moves[i], context, ply);
-            ++scored_count;
-        }
+            case STAGE_TT:
+                mp->stage = STAGE_GENERATE_NOISY;
+                if (mp->tt_move != MOVE_NONE &&
+                    !move_is_excluded(mp->tt_move, mp->excluded_moves, mp->excluded_move_count))
+                {
+                    int idx = find_move_index(&mp->all_moves, mp->tt_move);
+                    if (idx >= 0)
+                    {
+                        mp->used[idx] = true;
+                        return mp->tt_move;
+                    }
+                }
+                break;
 
-        insertion_sort_scored_moves(scored_moves, scored_count);
-        for (int i = 0; i < scored_count; ++i)
-        {
-            ordered_moves[i] = scored_moves[i].move;
-        }
+            case STAGE_GENERATE_NOISY:
+                mp->count = 0;
+                mp->current_idx = 0;
+                for (int i = 0; i < mp->all_moves.count && mp->count < MAX_ORDERED_MOVES; ++i)
+                {
+                    Move m = mp->all_moves.moves[i];
+                    if (mp->used[i]) continue;
+                    if (move_is_excluded(m, mp->excluded_moves, mp->excluded_move_count)) continue;
+                    
+                    if (move_iscapture(m) || move_promotion(m) != MOVE_PROMO_NONE)
+                    {
+                        mp->moves[mp->count] = m;
+                        mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                        mp->used[i] = true;
+                        mp->count++;
+                    }
+                }
+                
+                mp->stage = STAGE_PLAY_NOISY;
+                break;
 
-        return scored_count;
+            case STAGE_PLAY_NOISY:
+                if (mp->current_idx < mp->count)
+                {
+                    int best_idx = mp->current_idx;
+                    for (int i = mp->current_idx + 1; i < mp->count; ++i)
+                    {
+                        if (mp->scores[i] > mp->scores[best_idx])
+                        {
+                            best_idx = i;
+                        }
+                    }
+                    Move best_move = mp->moves[best_idx];
+                    int best_score = mp->scores[best_idx];
+                    
+                    mp->moves[best_idx] = mp->moves[mp->current_idx];
+                    mp->scores[best_idx] = mp->scores[mp->current_idx];
+                    mp->moves[mp->current_idx] = best_move;
+                    mp->scores[mp->current_idx] = best_score;
+                    
+                    mp->current_idx++;
+                    return best_move;
+                }
+                
+                if (mp->in_qsearch && !mp->in_check)
+                {
+                    mp->stage = STAGE_DONE;
+                }
+                else
+                {
+                    mp->stage = STAGE_KILLER_1;
+                }
+                break;
+
+            case STAGE_KILLER_1:
+                mp->stage = STAGE_KILLER_2;
+                if (mp->killer1 != MOVE_NONE && mp->killer1 != mp->tt_move &&
+                    !move_is_excluded(mp->killer1, mp->excluded_moves, mp->excluded_move_count))
+                {
+                    int idx = find_move_index(&mp->all_moves, mp->killer1);
+                    if (idx >= 0 && !mp->used[idx])
+                    {
+                        if (!move_iscapture(mp->killer1) && move_promotion(mp->killer1) == MOVE_PROMO_NONE)
+                        {
+                            mp->used[idx] = true;
+                            return mp->killer1;
+                        }
+                    }
+                }
+                break;
+
+            case STAGE_KILLER_2:
+                mp->stage = STAGE_GENERATE_QUIET;
+                if (mp->killer2 != MOVE_NONE && mp->killer2 != mp->tt_move && mp->killer2 != mp->killer1 &&
+                    !move_is_excluded(mp->killer2, mp->excluded_moves, mp->excluded_move_count))
+                {
+                    int idx = find_move_index(&mp->all_moves, mp->killer2);
+                    if (idx >= 0 && !mp->used[idx])
+                    {
+                        if (!move_iscapture(mp->killer2) && move_promotion(mp->killer2) == MOVE_PROMO_NONE)
+                        {
+                            mp->used[idx] = true;
+                            return mp->killer2;
+                        }
+                    }
+                }
+                break;
+
+            case STAGE_GENERATE_QUIET:
+                mp->count = 0;
+                mp->current_idx = 0;
+                for (int i = 0; i < mp->all_moves.count && mp->count < MAX_ORDERED_MOVES; ++i)
+                {
+                    Move m = mp->all_moves.moves[i];
+                    if (mp->used[i]) continue;
+                    if (move_is_excluded(m, mp->excluded_moves, mp->excluded_move_count)) continue;
+                    
+                    mp->moves[mp->count] = m;
+                    mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                    mp->used[i] = true;
+                    mp->count++;
+                }
+                
+                mp->stage = STAGE_PLAY_QUIET;
+                break;
+
+            case STAGE_PLAY_QUIET:
+                if (mp->current_idx < mp->count)
+                {
+                    int best_idx = mp->current_idx;
+                    for (int i = mp->current_idx + 1; i < mp->count; ++i)
+                    {
+                        if (mp->scores[i] > mp->scores[best_idx])
+                        {
+                            best_idx = i;
+                        }
+                    }
+                    Move best_move = mp->moves[best_idx];
+                    int best_score = mp->scores[best_idx];
+                    
+                    mp->moves[best_idx] = mp->moves[mp->current_idx];
+                    mp->scores[best_idx] = mp->scores[mp->current_idx];
+                    mp->moves[mp->current_idx] = best_move;
+                    mp->scores[mp->current_idx] = best_score;
+                    
+                    mp->current_idx++;
+                    return best_move;
+                }
+                mp->stage = STAGE_DONE;
+                break;
+        }
     }
-
-    bool used[MAX_ORDERED_MOVES] = {false};
-    int ordered_count = 0;
-
-    if (!move_is_excluded(entry->best_move, excluded_moves, excluded_move_count))
-    {
-        int index = find_move_index(list, entry->best_move);
-        if (index >= 0)
-        {
-            ordered_moves[ordered_count++] = entry->best_move;
-            used[index] = true;
-        }
-    }
-
-    ScoredMove fallback_moves[MAX_ORDERED_MOVES];
-    int fallback_count = 0;
-    for (int i = 0; i < list->count && fallback_count < MAX_ORDERED_MOVES; ++i)
-    {
-        if (used[i])
-        {
-            continue;
-        }
-
-        if (move_is_excluded(list->moves[i], excluded_moves, excluded_move_count))
-        {
-            continue;
-        }
-
-        fallback_moves[fallback_count].move = list->moves[i];
-        fallback_moves[fallback_count].score = estimate_move_score(board, list->moves[i], context, ply);
-        ++fallback_count;
-    }
-
-    insertion_sort_scored_moves(fallback_moves, fallback_count);
-    for (int i = 0; i < fallback_count && ordered_count < MAX_ORDERED_MOVES; ++i)
-    {
-        ordered_moves[ordered_count++] = fallback_moves[i].move;
-    }
-
-    return ordered_count;
+    return MOVE_NONE;
 }
 
 /* Returns true if any pseudo-legal move is legal in the current position. */
@@ -631,48 +746,19 @@ static int quiescence(Board *board,
         }
     }
 
-    MoveList list;
-    movegen_generate_pseudo_legal(board, &list);
-
-    /* Streamlined scoring and sorting directly from list.moves */
-    Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = 0;
-
-    ScoredMove scored_moves[MAX_ORDERED_MOVES];
-    int scored_count = 0;
-
-    for (int i = 0; i < list.count && scored_count < MAX_ORDERED_MOVES; ++i)
-    {
-        Move move = list.moves[i];
-        if (in_check || move_iscapture(move))
-        {
-            scored_moves[scored_count].move = move;
-            // Pass NULL as context to disable killer move sorting in qsearch
-            scored_moves[scored_count].score = estimate_move_score(board, move, NULL, ply);
-            scored_count++;
-        }
-    }
-
-    if (scored_count > 0)
-    {
-        insertion_sort_scored_moves(scored_moves, scored_count);
-        for (int i = 0; i < scored_count; ++i)
-        {
-            ordered_moves[i] = scored_moves[i].move;
-        }
-        ordered_count = scored_count;
-    }
+    MovePicker picker;
+    // Pass NULL as context to disable killer move sorting in qsearch
+    movepicker_init(&picker, board, NULL, ply, MOVE_NONE, NULL, 0, true);
 
     bool has_legal_move = false;
+    Move move;
 
-    for (int i = 0; i < ordered_count; ++i)
+    while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
         if (search_should_stop(control))
         {
             break;
         }
-
-        Move move = ordered_moves[i];
 
         Undo undo;
 
@@ -714,7 +800,7 @@ static int quiescence(Board *board,
 
     if (!has_legal_move)
     {
-        if (!in_check && has_any_legal_move(board, &list))
+        if (!in_check && has_any_legal_move(board, &picker.all_moves))
         {
             return alpha;
         }
@@ -882,24 +968,31 @@ static SearchResult negamax(Board *board,
         return result;
     }
 
-    MoveList list;
-    movegen_generate_pseudo_legal(board, &list);
+    Move tt_move = MOVE_NONE;
+    if (context != NULL)
+    {
+        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board_position_key(board));
+        if (entry != NULL)
+        {
+            tt_move = entry->best_move;
+        }
+    }
 
-    Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = build_ordered_moves(board, &list, context, ply, NULL, 0, ordered_moves);
+    MovePicker picker;
+    movepicker_init(&picker, board, context, ply, tt_move, NULL, 0, false);
 
     bool has_legal_move = false;
     Move quiet_searched[MAX_QUIET_TRACKED];
     int quiet_searched_count = 0;
 
-    for (int i = 0; i < ordered_count; ++i)
+    Move move;
+    while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
         if (search_should_stop(control))
         {
             break;
         }
 
-        Move move = ordered_moves[i];
         Undo undo;
 
         if (!board_make_move(board, move, &undo))
@@ -1053,57 +1146,66 @@ SearchResult search_root(Board *board,
     stats->hashfull = 0;
     /* `context` holds the transposition table and killer moves. */
 
-    MoveList list;
-    movegen_generate_pseudo_legal(board, &list);
+    Move tt_move = MOVE_NONE;
+    if (context != NULL)
+    {
+        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board_position_key(board));
+        if (entry != NULL)
+        {
+            tt_move = entry->best_move;
+        }
+    }
+
+    MovePicker picker;
+    movepicker_init(&picker, board, context, 0, tt_move, excluded_moves, excluded_move_count, false);
 
     if (board_is_draw(board, history, lichess_draw_rules))
     {
         result.score = 0;
-        for (int i = 0; i < list.count; ++i)
+        for (int i = 0; i < picker.all_moves.count; ++i)
         {
-            if (move_is_excluded(list.moves[i], excluded_moves, excluded_move_count))
+            if (move_is_excluded(picker.all_moves.moves[i], excluded_moves, excluded_move_count))
             {
                 continue;
             }
-            result.move = list.moves[i];
-            result.pv[0] = list.moves[i];
+            result.move = picker.all_moves.moves[i];
+            result.pv[0] = picker.all_moves.moves[i];
             result.pv_length = 1;
             break;
         }
         return result;
     }
 
-    EvalTerminalState terminal_state = eval_terminal_state(board, list.count);
+    EvalTerminalState terminal_state = eval_terminal_state(board, picker.all_moves.count);
     if (terminal_state != EVAL_TERMINAL_NONE)
     {
         result.score = eval_terminal_score(terminal_state, 0);
         return result;
     }
 
-    if (list.count == 1) // Despite this technically being pseudo-legal, because this is root, if there's only one move, it's the only legal move (if no moves then it's mate or stalemate).
+    if (picker.all_moves.count == 1) // Despite this technically being pseudo-legal, because this is root, if there's only one move, it's the only legal move (if no moves then it's mate or stalemate).
     {
-        if (!move_is_excluded(list.moves[0], excluded_moves, excluded_move_count))
+        if (!move_is_excluded(picker.all_moves.moves[0], excluded_moves, excluded_move_count))
         {
-            result.move = list.moves[0];
-            result.pv[0] = list.moves[0];
+            result.move = picker.all_moves.moves[0];
+            result.pv[0] = picker.all_moves.moves[0];
             result.pv_length = 1;
             result.forced_root_move = (control != NULL && control->allow_forced_root_move);
         }
         return result;
     }
 
-    Move ordered_moves[MAX_ORDERED_MOVES];
-    int ordered_count = build_ordered_moves(board, &list, context, 0, excluded_moves, excluded_move_count, ordered_moves);
-
-    for (int i = 0; i < ordered_count; ++i)
+    Move move;
+    int move_index = 0;
+    while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
         if (search_should_stop(control))
         {
             break;
         }
 
-        Move move = ordered_moves[i];
         Undo undo;
+        int curr_index = move_index++;
 
         if (!board_make_move(board, move, &undo))
         {
@@ -1126,7 +1228,7 @@ SearchResult search_root(Board *board,
 
         if (on_move_info != NULL)
         {
-            on_move_info(depth, i + 1, move, score, user_data);
+            on_move_info(depth, curr_index + 1, move, score, user_data);
         }
 
         if (score > result.score || result.move == MOVE_NONE)
