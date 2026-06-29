@@ -2,9 +2,11 @@
 #define SEARCH_H
 
 #include "board.h"
+#include "tt.h"
 #include <stddef.h>
 
 #define MAX_PV_MOVES 128
+#define MAX_QUIET_TRACKED 256
 
 typedef struct {
     int score;
@@ -29,6 +31,13 @@ typedef struct {
 } SearchControl;
 
 typedef struct SearchContext SearchContext;
+
+struct SearchContext
+{
+    TranspositionTable table;
+    Move killer_moves[MAX_PLY_DEPTH][2];
+    int16_t hh_table[2][64][64];
+};
 
 typedef void (*SearchMoveInfoCallback)(int depth,
                                        int move_number,

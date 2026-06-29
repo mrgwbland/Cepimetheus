@@ -15,6 +15,8 @@ SRC := \
     src/eval.c \
     src/eval_helpers.c \
     src/search.c \
+    src/tt.c \
+    src/movepicker.c \
     src/think.c \
     src/movegen.c \
     src/move.c \
