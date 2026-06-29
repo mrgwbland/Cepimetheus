@@ -133,6 +133,7 @@ void movepicker_init(MovePicker *mp,
                      Board *board,
                      const SearchContext *context,
                      int ply,
+                     Move previous_move,
                      Move tt_move,
                      const Move *excluded_moves,
                      int excluded_move_count,
@@ -149,6 +150,16 @@ void movepicker_init(MovePicker *mp,
     {
         mp->killer1 = context->killer_moves[ply][0];
         mp->killer2 = context->killer_moves[ply][1];
+    }
+    
+    mp->counter1 = MOVE_NONE;
+    mp->counter2 = MOVE_NONE;
+    if (context != NULL && previous_move != MOVE_NONE)
+    {
+        int prev_from = move_from(previous_move);
+        int prev_to = move_to(previous_move);
+        mp->counter1 = context->counter_moves[prev_from][prev_to][0];
+        mp->counter2 = context->counter_moves[prev_from][prev_to][1];
     }
     
     mp->excluded_moves = excluded_moves;
@@ -256,7 +267,7 @@ Move movepicker_next_move(MovePicker *mp)
                 break;
 
             case STAGE_KILLER_2:
-                mp->stage = STAGE_GENERATE_QUIET;
+                mp->stage = STAGE_COUNTER_1;
                 if (mp->killer2 != MOVE_NONE && mp->killer2 != mp->tt_move && mp->killer2 != mp->killer1 &&
                     !move_is_excluded(mp->killer2, mp->excluded_moves, mp->excluded_move_count))
                 {
@@ -267,6 +278,43 @@ Move movepicker_next_move(MovePicker *mp)
                         {
                             mp->used[idx] = true;
                             return mp->killer2;
+                        }
+                    }
+                }
+                break;
+
+            case STAGE_COUNTER_1:
+                mp->stage = STAGE_COUNTER_2;
+                if (mp->counter1 != MOVE_NONE && mp->counter1 != mp->tt_move &&
+                    mp->counter1 != mp->killer1 && mp->counter1 != mp->killer2 &&
+                    !move_is_excluded(mp->counter1, mp->excluded_moves, mp->excluded_move_count))
+                {
+                    int idx = find_move_index(&mp->all_moves, mp->counter1);
+                    if (idx >= 0 && !mp->used[idx])
+                    {
+                        if (!move_iscapture(mp->counter1) && move_promotion(mp->counter1) == MOVE_PROMO_NONE)
+                        {
+                            mp->used[idx] = true;
+                            return mp->counter1;
+                        }
+                    }
+                }
+                break;
+
+            case STAGE_COUNTER_2:
+                mp->stage = STAGE_GENERATE_QUIET;
+                if (mp->counter2 != MOVE_NONE && mp->counter2 != mp->tt_move &&
+                    mp->counter2 != mp->killer1 && mp->counter2 != mp->killer2 &&
+                    mp->counter2 != mp->counter1 &&
+                    !move_is_excluded(mp->counter2, mp->excluded_moves, mp->excluded_move_count))
+                {
+                    int idx = find_move_index(&mp->all_moves, mp->counter2);
+                    if (idx >= 0 && !mp->used[idx])
+                    {
+                        if (!move_iscapture(mp->counter2) && move_promotion(mp->counter2) == MOVE_PROMO_NONE)
+                        {
+                            mp->used[idx] = true;
+                            return mp->counter2;
                         }
                     }
                 }

@@ -176,7 +176,7 @@ static int quiescence(Board *board,
 
     MovePicker picker;
     // Pass NULL as context to disable killer move sorting in qsearch
-    movepicker_init(&picker, board, NULL, ply, MOVE_NONE, NULL, 0, true);
+    movepicker_init(&picker, board, NULL, ply, MOVE_NONE, MOVE_NONE, NULL, 0, true);
 
     bool has_legal_move = false;
     Move move;
@@ -257,6 +257,7 @@ static SearchResult negamax(Board *board,
                             RepetitionHistory *history,
                             SearchStats *stats,
                             int ply,
+                            Move previous_move,
                             SearchContext *context,
                             SearchControl *control,
                             bool lichess_draw_rules)
@@ -386,6 +387,7 @@ static SearchResult negamax(Board *board,
                                           history,
                                           stats,
                                           ply + 1,
+                                          MOVE_NONE,
                                           context,
                                           control,
                                           lichess_draw_rules);
@@ -417,7 +419,7 @@ static SearchResult negamax(Board *board,
     }
 
     MovePicker picker;
-    movepicker_init(&picker, board, context, ply, tt_move, NULL, 0, false);
+    movepicker_init(&picker, board, context, ply, previous_move, tt_move, NULL, 0, false);
 
     bool has_legal_move = false;
     Move quiet_searched[MAX_QUIET_TRACKED];
@@ -459,19 +461,19 @@ static SearchResult negamax(Board *board,
         if (legal_moves_searched == 0)
         {
             // First move is searched with the full window
-            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
         }
         else
         {
             // Subsequent moves use a null window
-            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
             int score = -child.score;
 
             // If the null-window search fails high, we must re-search with the full window.
             // Bypassing the re-search is safe if score >= beta, as it will trigger a cutoff anyway.
             if (score > alpha && pv_node && score < beta)
             {
-                child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
             }
         }
         int score = -child.score;
@@ -509,6 +511,17 @@ static SearchResult negamax(Board *board,
                     {
                         context->killer_moves[ply][1] = context->killer_moves[ply][0];
                         context->killer_moves[ply][0] = move;
+                    }
+                }
+
+                if (previous_move != MOVE_NONE)
+                {
+                    int prev_from = move_from(previous_move);
+                    int prev_to = move_to(previous_move);
+                    if (context->counter_moves[prev_from][prev_to][0] != move)
+                    {
+                        context->counter_moves[prev_from][prev_to][1] = context->counter_moves[prev_from][prev_to][0];
+                        context->counter_moves[prev_from][prev_to][0] = move;
                     }
                 }
 
@@ -555,6 +568,20 @@ SearchContext *search_context_create(size_t hash_power)
     if (context == NULL)
     {
         return NULL;
+    }
+
+    for (int p = 0; p < MAX_PLY_DEPTH; ++p)
+    {
+        context->killer_moves[p][0] = MOVE_NONE;
+        context->killer_moves[p][1] = MOVE_NONE;
+    }
+    for (int f = 0; f < 64; ++f)
+    {
+        for (int t = 0; t < 64; ++t)
+        {
+            context->counter_moves[f][t][0] = MOVE_NONE;
+            context->counter_moves[f][t][1] = MOVE_NONE;
+        }
     }
 
     if (!transposition_table_init(&context->table, hash_power))
@@ -608,7 +635,7 @@ SearchResult search_root(Board *board,
     }
 
     MovePicker picker;
-    movepicker_init(&picker, board, context, 0, tt_move, excluded_moves, excluded_move_count, false);
+    movepicker_init(&picker, board, context, 0, MOVE_NONE, tt_move, excluded_moves, excluded_move_count, false);
 
     if (board_is_draw(board, history, lichess_draw_rules))
     {
@@ -675,12 +702,12 @@ SearchResult search_root(Board *board,
         if (legal_moves_searched == 0)
         {
             // First move is searched with the full window
-            child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, context, control, lichess_draw_rules);
+            child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
         }
         else
         {
             // Subsequent moves use a null window
-            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, context, control, lichess_draw_rules);
+            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
             int score = -child.score;
 
             // If the null-window search fails high, re-search with the full window.
@@ -688,7 +715,7 @@ SearchResult search_root(Board *board,
             // widen the bounds and re-search the position from scratch.
             if (score > alpha && score < beta)
             {
-                child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
             }
         }
         int score = -child.score;

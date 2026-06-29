@@ -36,6 +36,7 @@ struct SearchContext
 {
     TranspositionTable table;
     Move killer_moves[MAX_PLY_DEPTH][2];
+    Move counter_moves[64][64][2];
     int16_t hh_table[2][64][64];
 };
 

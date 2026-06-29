@@ -14,6 +14,8 @@ enum {
     STAGE_PLAY_NOISY,
     STAGE_KILLER_1,
     STAGE_KILLER_2,
+    STAGE_COUNTER_1,
+    STAGE_COUNTER_2,
     STAGE_GENERATE_QUIET,
     STAGE_PLAY_QUIET,
     STAGE_DONE
@@ -30,6 +32,8 @@ typedef struct {
     Move tt_move;
     Move killer1;
     Move killer2;
+    Move counter1;
+    Move counter2;
     const Move *excluded_moves;
     int excluded_move_count;
     bool in_qsearch;
@@ -43,6 +47,7 @@ void movepicker_init(MovePicker *mp,
                      Board *board,
                      const SearchContext *context,
                      int ply,
+                     Move previous_move,
                      Move tt_move,
                      const Move *excluded_moves,
                      int excluded_move_count,
