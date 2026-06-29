@@ -179,7 +179,8 @@ Move think(Board *board,
            const SearchOptions *options,
            const RepetitionHistory *history,
            volatile bool *stop_signal,
-           unsigned long long *out_nodes)
+           unsigned long long *out_nodes,
+           SearchResult *out_result)
 {
     if (board == NULL)
     {
@@ -456,6 +457,11 @@ Move think(Board *board,
     if (out_nodes != NULL)
     {
         *out_nodes = stats.nodes;
+    }
+
+    if (out_result != NULL)
+    {
+        *out_result = best_result;
     }
 
     if (best_result.move == MOVE_NONE)

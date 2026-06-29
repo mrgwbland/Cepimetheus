@@ -2,6 +2,7 @@
 #define THINK_H
 
 #include "movegen.h"
+#include "search.h"
 #include <stddef.h>
 
 
@@ -30,7 +31,8 @@ Move think(Board *board,
            const SearchOptions *options,
            const RepetitionHistory *history,
            volatile bool *stop_signal,
-           unsigned long long *out_nodes);
+           unsigned long long *out_nodes,
+           SearchResult *out_result);
 
 void get_score_string(int score, char *buffer, size_t size);
 long long current_time_ms(void);

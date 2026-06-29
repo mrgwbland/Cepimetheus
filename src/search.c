@@ -265,6 +265,9 @@ static SearchResult negamax(Board *board,
     const int alpha_orig = alpha;
     const int beta_orig = beta;
 
+    // Determine PV node implicitly by checking if the search window width is greater than 1.
+    const bool pv_node = (beta - alpha) > 1;
+
     if (search_should_stop(control))
     {
         MoveList eval_list;
@@ -288,7 +291,14 @@ static SearchResult negamax(Board *board,
     int tt_score = 0;
     if (context != NULL)
     {
-        if (transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, ply, &tt_score))
+        // On non-PV nodes, allow all TT cutoffs (EXACT, LOWER, UPPER).
+        // On PV nodes, only allow EXACT cutoffs — bound scores from null-window
+        // searches would return imprecise values and corrupt the PV.
+        bool tt_cutoff = pv_node
+            ? transposition_table_probe_exact(&context->table, board_position_key(board), depth, ply, &tt_score)
+            : transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, ply, &tt_score);
+
+        if (tt_cutoff)
         {
             result.score = tt_score;
 
@@ -412,6 +422,7 @@ static SearchResult negamax(Board *board,
     bool has_legal_move = false;
     Move quiet_searched[MAX_QUIET_TRACKED];
     int quiet_searched_count = 0;
+    int legal_moves_searched = 0;
 
     Move move;
     while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
@@ -444,8 +455,27 @@ static SearchResult negamax(Board *board,
             continue;
         }
 
-        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+        SearchResult child;
+        if (legal_moves_searched == 0)
+        {
+            // First move is searched with the full window
+            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+        }
+        else
+        {
+            // Subsequent moves use a null window
+            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+            int score = -child.score;
+
+            // If the null-window search fails high, we must re-search with the full window.
+            // Bypassing the re-search is safe if score >= beta, as it will trigger a cutoff anyway.
+            if (score > alpha && pv_node && score < beta)
+            {
+                child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, context, control, lichess_draw_rules);
+            }
+        }
         int score = -child.score;
+        legal_moves_searched++;
 
         --history->count;
 
@@ -618,6 +648,7 @@ SearchResult search_root(Board *board,
 
     Move move;
     int move_index = 0;
+    int legal_moves_searched = 0;
     while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
         if (search_should_stop(control))
@@ -640,8 +671,28 @@ SearchResult search_root(Board *board,
             continue;
         }
 
-        SearchResult child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, context, control, lichess_draw_rules);
+        SearchResult child;
+        if (legal_moves_searched == 0)
+        {
+            // First move is searched with the full window
+            child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, context, control, lichess_draw_rules);
+        }
+        else
+        {
+            // Subsequent moves use a null window
+            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, context, control, lichess_draw_rules);
+            int score = -child.score;
+
+            // If the null-window search fails high, re-search with the full window.
+            // If score >= beta, skip the re-search: the aspiration window loop will
+            // widen the bounds and re-search the position from scratch.
+            if (score > alpha && score < beta)
+            {
+                child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, context, control, lichess_draw_rules);
+            }
+        }
         int score = -child.score;
+        legal_moves_searched++;
 
         --history->count;
 

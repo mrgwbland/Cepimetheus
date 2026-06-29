@@ -117,6 +117,27 @@ bool transposition_table_probe(const TranspositionTable *table,
     return false;
 }
 
+bool transposition_table_probe_exact(const TranspositionTable *table,
+                                     U64 hash,
+                                     int depth,
+                                     int ply,
+                                     int *score)
+{
+    const TranspositionEntry *entry = transposition_table_lookup(table, hash);
+    if (entry == NULL || entry->depth < depth || score == NULL)
+    {
+        return false;
+    }
+
+    if (entry->score_type == TT_SCORE_EXACT)
+    {
+        *score = score_from_tt(entry->score, ply);
+        return true;
+    }
+
+    return false;
+}
+
 TranspositionScoreType transposition_score_type(int score, int alpha, int beta)
 {
     if (score <= alpha)
