@@ -249,6 +249,78 @@ static bool search_thread_start(SearchThreadState *state,
     return true;
 }
 
+static unsigned long long perft_helper(Board *board, int depth) {
+    if (depth == 0) {
+        return 1ULL;
+    }
+
+    MoveList list;
+    movegen_generate_pseudo_legal(board, &list);
+
+    unsigned long long nodes = 0;
+    for (int i = 0; i < list.count; ++i) {
+        Undo undo;
+        if (board_make_move(board, list.moves[i], &undo)) {
+            nodes += perft_helper(board, depth - 1);
+            board_unmake_move(board, &undo);
+        }
+    }
+    return nodes;
+}
+
+static void run_perft(Board *board, int depth) {
+    printf("\nRunning performance test to depth %d\n\n", depth);
+    fflush(stdout);
+
+    if (depth < 0) {
+        printf("Total nodes: 0\n");
+        printf("Total time: 0ms\n");
+        printf("Overall NPS: 0\n\n");
+        fflush(stdout);
+        return;
+    }
+
+    if (depth == 0) {
+        printf("Total nodes: 1\n");
+        printf("Total time: 0ms\n");
+        printf("Overall NPS: 0\n\n");
+        fflush(stdout);
+        return;
+    }
+
+    long long start_time = current_time_ms();
+
+    MoveList list;
+    movegen_generate_pseudo_legal(board, &list);
+
+    unsigned long long total_nodes = 0;
+    for (int i = 0; i < list.count; ++i) {
+        Undo undo;
+        if (board_make_move(board, list.moves[i], &undo)) {
+            unsigned long long nodes = perft_helper(board, depth - 1);
+            total_nodes += nodes;
+            board_unmake_move(board, &undo);
+
+            char move_str[6];
+            move_to_string(list.moves[i], move_str);
+            printf("%s : %llu\n", move_str, nodes);
+            fflush(stdout);
+        }
+    }
+
+    long long total_time = current_time_ms() - start_time;
+    if (total_time < 0) {
+        total_time = 0;
+    }
+
+    unsigned long long overall_nps = (total_nodes * 1000ULL) / (total_time > 0 ? total_time : 1);
+
+    printf("\nTotal nodes: %llu\n", total_nodes);
+    printf("Total time: %lldms\n", total_time);
+    printf("Overall NPS: %llu\n\n", overall_nps);
+    fflush(stdout);
+}
+
 void uci_loop(void) {
     init_eval();
     Board board;
@@ -533,8 +605,18 @@ void uci_loop(void) {
         }
 
         if (strncmp(line, "go", 2) == 0 && (line[2] == '\0' || line[2] == ' ' || line[2] == '\t' || line[2] == '\r' || line[2] == '\n')) {
-            if (search_thread.thread_valid) {
-                search_thread_stop_and_join(&search_thread);
+            search_thread_stop_and_join(&search_thread);
+
+            char *perft_token = strstr(line, "perft");
+            if (perft_token != NULL) {
+                perft_token += 5;
+                while (*perft_token == ' ' || *perft_token == '\t') {
+                    perft_token++;
+                }
+                int depth = atoi(perft_token);
+                Board temp_board = board;
+                run_perft(&temp_board, depth);
+                continue;
             }
 
             SearchLimits limits;
