@@ -1,4 +1,5 @@
 #include "uci.h"
+#include "eval.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -249,6 +250,7 @@ static bool search_thread_start(SearchThreadState *state,
 }
 
 void uci_loop(void) {
+    init_eval();
     Board board;
     board_init(&board);
     RepetitionHistory history;

@@ -80,6 +80,34 @@ static inline Score make_score(int mg, int eg)
 
 
 
+static int king_corner_pst[64];
+static bool eval_initialized = false;
+
+void init_eval(void)
+{
+    for (int sq = 0; sq < 64; ++sq)
+    {
+        int file = file_of(sq);
+        int rank = rank_of(sq);
+
+        int distance_a1 = file + rank;
+        int distance_h1 = (7 - file) + rank;
+        int distance_a8 = file + (7 - rank);
+        int distance_h8 = (7 - file) + (7 - rank);
+
+        int corner_distance = distance_a1;
+        if (distance_h1 < corner_distance)
+            corner_distance = distance_h1;
+        if (distance_a8 < corner_distance)
+            corner_distance = distance_a8;
+        if (distance_h8 < corner_distance)
+            corner_distance = distance_h8;
+
+        king_corner_pst[sq] = corner_distance;
+    }
+    eval_initialized = true;
+}
+
 // Evaluats MG and EG logic distinctly, without passing phase weight
 static Score evaluate_piece(int piece,
                             int square,
@@ -224,23 +252,9 @@ static Score evaluate_piece(int piece,
         s.mg -= PAWN_SHIELD_PENALTY_MG * attacks_pawns;
         s.eg -= PAWN_SHIELD_PENALTY_EG * attacks_pawns;
 
-        /* Calculate Manhattan distance to closest corner. */
-        int distance_a1 = file + rank;
-        int distance_h1 = (7 - file) + rank;
-        int distance_a8 = file + (7 - rank);
-        int distance_h8 = (7 - file) + (7 - rank);
-
-        int corner_distance = distance_a1;
-        if (distance_h1 < corner_distance)
-            corner_distance = distance_h1;
-        if (distance_a8 < corner_distance)
-            corner_distance = distance_a8;
-        if (distance_h8 < corner_distance)
-            corner_distance = distance_h8;
-
-        /* In endgames favour activity; in middlegames favour safety. */
-        s.mg -= corner_distance * KING_CORNER_DISTANCE_BONUS_MG;
-        s.eg += corner_distance * KING_CORNER_DISTANCE_BONUS_EG; // Mallus becomes a bonus
+        /* Use precalculated King corner distance PST */
+        s.mg -= king_corner_pst[square] * KING_CORNER_DISTANCE_BONUS_MG;
+        s.eg += king_corner_pst[square] * KING_CORNER_DISTANCE_BONUS_EG;
         break;
     }
     default:
@@ -252,6 +266,11 @@ static Score evaluate_piece(int piece,
 
 int evaluate_position(Board *board, const RepetitionHistory *history, int ply, const MoveList *list, bool lichess_draw_rules)
 {
+    if (!eval_initialized)
+    {
+        init_eval();
+    }
+
     if (board == NULL || list == NULL)
         return 0;
     if (board_is_draw(board, history, lichess_draw_rules))
@@ -386,6 +405,8 @@ int evaluate_position_with_weights(const char *fen, int *weights)
     for (int i = 0; i < 6; ++i) {
         phalanx_pawn_rank_bonus_eg[i] = weights[offset++];
     }
+
+    eval_initialized = false;
 
     // 2. Initialise the board architecture and parse FEN
     Board board;
