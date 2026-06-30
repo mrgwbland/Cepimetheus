@@ -306,10 +306,19 @@ static SearchResult negamax(Board *board,
             int pv_depth = 0;
             Undo undos[MAX_PV_MOVES];
             U64 pv_hashes[MAX_PV_MOVES];
+            /* Build a temporary history that includes the current path so that
+             * board_is_draw() can detect threefold repetitions inside the PV. */
+            RepetitionHistory pv_history = *history;
             while (pv_depth < depth && result.pv_length < MAX_PV_MOVES)
             {
                 U64 hash = board_position_key(board);
-                
+
+                /* Stop if the current position is already a draw. */
+                if (board_is_draw(board, &pv_history, lichess_draw_rules))
+                {
+                    break;
+                }
+
                 // Avoid infinite loops if there is a cycle in the TT
                 bool cycle = false;
                 for (int h = 0; h < pv_depth; ++h)
@@ -324,26 +333,36 @@ static SearchResult negamax(Board *board,
                 {
                     break;
                 }
-                
+
                 pv_hashes[pv_depth] = hash;
                 const TranspositionEntry *entry = transposition_table_lookup(&context->table, hash);
                 if (entry == NULL || entry->best_move == MOVE_NONE)
                 {
                     break;
                 }
-                
+
                 MoveList list;
                 movegen_generate_pseudo_legal(board, &list);
                 if (find_move_index(&list, entry->best_move) < 0)
                 {
                     break;
                 }
-                
+
                 if (!board_make_move(board, entry->best_move, &undos[pv_depth]))
                 {
                     break;
                 }
-                
+
+                /* Record the new position in the temporary history so that
+                 * subsequent iterations can detect draws through it. */
+                U64 new_hash = board_position_key(board);
+                if (!repetition_history_push(&pv_history, new_hash))
+                {
+                    /* History full — roll back this move and stop. */
+                    board_unmake_move(board, &undos[pv_depth]);
+                    break;
+                }
+
                 result.pv[result.pv_length++] = entry->best_move;
                 pv_depth++;
             }
@@ -352,7 +371,7 @@ static SearchResult negamax(Board *board,
             {
                 board_unmake_move(board, &undos[j]);
             }
-            
+
             if (result.pv_length > 0)
             {
                 result.move = result.pv[0];
