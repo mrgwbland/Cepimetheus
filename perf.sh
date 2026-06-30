@@ -2,7 +2,7 @@
 
 # --- Cepimetheus Slow-Feed Profiler ---
 
-ENGINE_BIN="./Cepimetheus"
+ENGINE_BIN="./release/Cepimetheus"
 
 # 1. Check if engine exists
 if [ ! -f "$ENGINE_BIN" ]; then

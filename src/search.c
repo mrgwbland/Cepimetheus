@@ -44,13 +44,13 @@ static bool has_sufficient_nmp_material(const Board *board)
     return false;
 }
 
-static bool search_should_stop(SearchControl *control)
+static bool search_should_stop(SearchControl *control, long long nodes)
 {
     if (control == NULL)
     {
         return false;
     }
-
+    
     if (control->external_stop != NULL && *control->external_stop)
     {
         control->stop = true;
@@ -66,11 +66,13 @@ static bool search_should_stop(SearchControl *control)
     {
         return false;
     }
-
-    if (current_time_ms() >= control->hard_stop_time_ms)
+    if ((nodes & 1023) == 0)
     {
-        control->stop = true;
-        return true;
+        if (current_time_ms() >= control->hard_stop_time_ms)
+        {
+            control->stop = true;
+            return true;
+        }
     }
 
     return false;
@@ -183,7 +185,7 @@ static int quiescence(Board *board,
 
     while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
-        if (search_should_stop(control))
+        if (search_should_stop(control, stats->nodes))
         {
             break;
         }
@@ -269,7 +271,7 @@ static SearchResult negamax(Board *board,
     // Determine PV node implicitly by checking if the search window width is greater than 1.
     const bool pv_node = (beta - alpha) > 1;
 
-    if (search_should_stop(control))
+    if (search_should_stop(control, stats->nodes))
     {
         MoveList eval_list;
         movegen_generate_pseudo_legal(board, &eval_list);
@@ -293,8 +295,8 @@ static SearchResult negamax(Board *board,
     if (context != NULL)
     {
         // On non-PV nodes, allow all TT cutoffs (EXACT, LOWER, UPPER).
-        // On PV nodes, only allow EXACT cutoffs — bound scores from null-window
-        // searches would return imprecise values and corrupt the PV.
+        // On PV nodes, only allow EXACT cutoffs — bound scores from null-window searches would return imprecise values and corrupt the PV.
+        // Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed
         bool tt_cutoff = pv_node
             ? transposition_table_probe_exact(&context->table, board_position_key(board), depth, ply, &tt_score)
             : transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, ply, &tt_score);
@@ -448,7 +450,7 @@ static SearchResult negamax(Board *board,
     Move move;
     while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
-        if (search_should_stop(control))
+        if (search_should_stop(control, stats->nodes))
         {
             break;
         }
@@ -697,7 +699,7 @@ SearchResult search_root(Board *board,
     int legal_moves_searched = 0;
     while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
-        if (search_should_stop(control))
+        if (search_should_stop(control, stats->nodes))
         {
             break;
         }
