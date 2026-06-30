@@ -41,6 +41,7 @@ enum {
 };
 
 typedef struct Board {
+    int squares[64];
     U64 pieces[PIECE_NB];
     U64 occupancy[3];
     int side;

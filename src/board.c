@@ -217,6 +217,9 @@ bool board_is_draw(const Board *board, const RepetitionHistory *history, bool li
 
 void board_clear(Board *board) {
     memset(board, 0, sizeof(*board));
+    for (int i = 0; i < 64; ++i) {
+        board->squares[i] = -1;
+    }
     board->ep_square = -1;
     board->fullmove_number = 1;
     board->king_square[WHITE] = -1;
@@ -249,13 +252,7 @@ int board_piece_type(int piece) {
 }
 
 int board_piece_at(const Board *board, int square) {
-    U64 mask = 1ULL << square;
-    for (int piece = 0; piece < PIECE_NB; ++piece) {
-        if (board->pieces[piece] & mask) {
-            return piece;
-        }
-    }
-    return -1;
+    return board->squares[square];
 }
 
 int board_parse_square(const char *text) {
@@ -303,6 +300,7 @@ static bool board_parse_fen_piece_placement(Board *board, const char *placement)
         }
         int square = rank * 8 + file;
         board->pieces[piece] |= 1ULL << square;
+        board->squares[square] = piece;
         if (piece == WHITE_KING) {
             board->king_square[WHITE] = square;
         } else if (piece == BLACK_KING) {
@@ -447,10 +445,12 @@ bool board_is_in_check(const Board *board, int side) {
 
 static void remove_piece_at(Board *board, int piece, int square) {
     board->pieces[piece] &= ~(1ULL << square);
+    board->squares[square] = -1;
 }
 
 static void add_piece_at(Board *board, int piece, int square) {
     board->pieces[piece] |= 1ULL << square;
+    board->squares[square] = piece;
 }
 
 static int piece_for_side_at_type(int side, int type) {
