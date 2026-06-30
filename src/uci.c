@@ -13,7 +13,7 @@ static void push_current_position(Board *board, RepetitionHistory *history) {
     }
 
     repetition_history_init(history);
-    repetition_history_push(history, board_position_key(board));
+    repetition_history_push(history, board->hash);
 }
 
 static void apply_uci_move(Board *board, RepetitionHistory *history, const char *move_text) {
@@ -27,7 +27,7 @@ static void apply_uci_move(Board *board, RepetitionHistory *history, const char 
     }
 
     if (history != NULL) {
-        repetition_history_push(history, board_position_key(board));
+        repetition_history_push(history, board->hash);
     }
 }
 
@@ -480,7 +480,7 @@ void uci_loop(void) {
 
                 RepetitionHistory bench_history;
                 repetition_history_init(&bench_history);
-                repetition_history_push(&bench_history, board_position_key(&bench_board));
+                repetition_history_push(&bench_history, bench_board.hash);
 
                 SearchLimits limits = {0};
                 limits.depth = target_depth;

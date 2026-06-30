@@ -199,7 +199,7 @@ static int quiescence(Board *board,
 
         has_legal_move = true;
 
-        U64 key = board_position_key(board);
+        U64 key = board->hash;
         if (!repetition_history_push(history, key))
         {
             board_unmake_move(board, &undo);
@@ -245,7 +245,7 @@ static int quiescence(Board *board,
     if (best_move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha, beta);
-        transposition_table_store(&context->table, board_position_key(board), 0, alpha, score_type, best_move, ply);
+        transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, ply);
     }
 
     return alpha;
@@ -298,8 +298,8 @@ static SearchResult negamax(Board *board,
         // On PV nodes, only allow EXACT cutoffs — bound scores from null-window searches would return imprecise values and corrupt the PV.
         // Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed
         bool tt_cutoff = pv_node
-            ? transposition_table_probe_exact(&context->table, board_position_key(board), depth, ply, &tt_score)
-            : transposition_table_probe(&context->table, board_position_key(board), depth, alpha, beta, ply, &tt_score);
+            ? transposition_table_probe_exact(&context->table, board->hash, depth, ply, &tt_score)
+            : transposition_table_probe(&context->table, board->hash, depth, alpha, beta, ply, &tt_score);
 
         if (tt_cutoff)
         {
@@ -313,7 +313,7 @@ static SearchResult negamax(Board *board,
             RepetitionHistory pv_history = *history;
             while (pv_depth < depth && result.pv_length < MAX_PV_MOVES)
             {
-                U64 hash = board_position_key(board);
+                U64 hash = board->hash;
 
                 /* Stop if the current position is already a draw. */
                 if (board_is_draw(board, &pv_history, lichess_draw_rules))
@@ -357,7 +357,7 @@ static SearchResult negamax(Board *board,
 
                 /* Record the new position in the temporary history so that
                  * subsequent iterations can detect draws through it. */
-                U64 new_hash = board_position_key(board);
+                U64 new_hash = board->hash;
                 if (!repetition_history_push(&pv_history, new_hash))
                 {
                     /* History full — roll back this move and stop. */
@@ -391,15 +391,7 @@ static SearchResult negamax(Board *board,
     {
         const int reduction = 2;
         Undo undo;
-        undo.snapshot = *board;
-
-        if (board->side == BLACK)
-        {
-            ++board->fullmove_number;
-        }
-        board->side ^= 1;
-        board->ep_square = -1;
-        ++board->halfmove_clock;
+        board_make_null_move(board, &undo);
 
         SearchResult null_child = negamax(board,
                                           depth - 1 - reduction,
@@ -432,7 +424,7 @@ static SearchResult negamax(Board *board,
     Move tt_move = MOVE_NONE;
     if (context != NULL)
     {
-        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board_position_key(board));
+        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board->hash);
         if (entry != NULL)
         {
             tt_move = entry->best_move;
@@ -471,7 +463,7 @@ static SearchResult negamax(Board *board,
             quiet_searched[quiet_searched_count++] = move;
         }
 
-        U64 key = board_position_key(board);
+        U64 key = board->hash;
         if (!repetition_history_push(history, key))
         {
             board_unmake_move(board, &undo);
@@ -577,7 +569,7 @@ static SearchResult negamax(Board *board,
     if (result.move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, result.move, ply);
+        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, ply);
     }
 
     return result;
@@ -648,7 +640,7 @@ SearchResult search_root(Board *board,
     Move tt_move = MOVE_NONE;
     if (context != NULL)
     {
-        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board_position_key(board));
+        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board->hash);
         if (entry != NULL)
         {
             tt_move = entry->best_move;
@@ -712,7 +704,7 @@ SearchResult search_root(Board *board,
             continue;
         }
 
-        U64 key = board_position_key(board);
+        U64 key = board->hash;
         if (!repetition_history_push(history, key))
         {
             board_unmake_move(board, &undo);
@@ -778,7 +770,7 @@ SearchResult search_root(Board *board,
     if (result.move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board_position_key(board), depth, result.score, score_type, result.move, 0);
+        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, 0);
     }
 
     return result;

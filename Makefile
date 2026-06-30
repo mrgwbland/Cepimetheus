@@ -21,7 +21,8 @@ SRC := \
     src/movegen.c \
     src/move.c \
     src/board.c \
-    src/bitboard.c
+    src/bitboard.c \
+    src/zobrist.c
 
 # Source files needed exclusively for evaluation tuning (excludes search/UCI loops)
 TUNING_SRC := \
@@ -30,7 +31,8 @@ TUNING_SRC := \
     src/movegen.c \
     src/move.c \
     src/board.c \
-    src/bitboard.c
+    src/bitboard.c \
+    src/zobrist.c
 
 OBJ := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SRC))
 

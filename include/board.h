@@ -49,10 +49,16 @@ typedef struct Board {
     int halfmove_clock;
     int fullmove_number;
     int king_square[2];
+    U64 hash;
 } Board;
 
 typedef struct Undo {
-    Board snapshot;
+    U64 hash;
+    int castling_rights;
+    int ep_square;
+    int halfmove_clock;
+    int captured_piece;
+    Move move;
 } Undo;
 
 typedef struct RepetitionHistory {
@@ -69,6 +75,7 @@ bool repetition_history_push(RepetitionHistory *history, U64 key);
 U64 board_position_key(const Board *board);
 bool board_is_draw(const Board *board, const RepetitionHistory *history, bool lichess_draw_rules);
 bool board_make_move(Board *board, Move move, Undo *undo);
+void board_make_null_move(Board *board, Undo *undo);
 void board_unmake_move(Board *board, const Undo *undo);
 bool board_is_square_attacked(const Board *board, int square, int attacker_side);
 bool board_is_in_check(const Board *board, int side);

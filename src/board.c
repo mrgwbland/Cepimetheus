@@ -1,5 +1,7 @@
 #include "board.h"
 #include "movegen.h"
+#include "../include/zobrist.h"
+#include <assert.h>
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -75,20 +77,6 @@ static void board_sync_kings(Board *board) {
     board->king_square[BLACK] = black_king ? bitboard_pop_lsb(&black_king) : -1;
 }
 
-static U64 mix_u64(U64 value) {
-    value ^= value >> 33;
-    value *= 0xff51afd7ed558ccdULL;
-    value ^= value >> 33;
-    value *= 0xc4ceb9fe1a85ec53ULL;
-    value ^= value >> 33;
-    return value;
-}
-
-static U64 hash_combine(U64 hash, U64 value) {
-    hash ^= mix_u64(value + 0x9e3779b97f4a7c15ULL);
-    hash *= 1099511628211ULL;
-    return hash;
-}
 
 void repetition_history_init(RepetitionHistory *history) {
     if (history != NULL) {
@@ -184,18 +172,7 @@ U64 board_position_key(const Board *board) {
     if (board == NULL) {
         return 0ULL;
     }
-
-    U64 key = 1469598103934665603ULL;
-
-    for (int piece = 0; piece < PIECE_NB; ++piece) {
-        key = hash_combine(key, board->pieces[piece] ^ ((U64)piece << 56));
-    }
-
-    key = hash_combine(key, (U64)board->side);
-    key = hash_combine(key, (U64)board->castling_rights);
-    key = hash_combine(key, board_has_en_passant_capture(board) ? (U64)(board->ep_square + 1) : 0ULL);
-
-    return key;
+    return board->hash;
 }
 
 // Checks for 50-move rule, threefold repetition, and Lichess 300-move rule if enabled; stalemate should be checked when legal moves are already generated
@@ -248,6 +225,7 @@ void board_clear(Board *board) {
 
 void board_init(Board *board) {
     bitboard_init_tables();
+    zobrist_init();
     board_clear(board);
     board_set_startpos(board);
 }
@@ -410,6 +388,7 @@ bool board_set_fen(Board *board, const char *fen) {
 
     board_sync_occupancy(board);
     board_sync_kings(board);
+    board->hash = zobrist_hash_full(board);
     return board->king_square[WHITE] >= 0 && board->king_square[BLACK] >= 0;
 }
 
@@ -464,11 +443,7 @@ bool board_is_in_check(const Board *board, int side) {
     return board_is_square_attacked(board, king_square, side ^ 1);
 }
 
-void board_unmake_move(Board *board, const Undo *undo) {
-    if (board != NULL && undo != NULL) {
-        *board = undo->snapshot;
-    }
-}
+
 
 static void remove_piece_at(Board *board, int piece, int square) {
     board->pieces[piece] &= ~(1ULL << square);
@@ -506,12 +481,109 @@ static void clear_castling_rights_for_square(Board *board, int square, int piece
     }
 }
 
+uint64_t zobrist_hash_full(const Board *board) {
+    if (board == NULL) {
+        return 0ULL;
+    }
+
+    uint64_t hash = 0ULL;
+
+    for (int piece = 0; piece < PIECE_NB; ++piece) {
+        U64 bb = board->pieces[piece];
+        while (bb) {
+            int sq = bitboard_pop_lsb(&bb);
+            hash ^= ZOBRIST_PIECES[piece][sq];
+        }
+    }
+
+    if (board->side == BLACK) {
+        hash ^= ZOBRIST_SIDE_KEY;
+    }
+
+    hash ^= ZOBRIST_CASTLE_KEYS[board->castling_rights];
+
+    if (board_has_en_passant_capture(board)) {
+        hash ^= ZOBRIST_EP_KEYS[file_of(board->ep_square)];
+    }
+
+    return hash;
+}
+
+void board_unmake_move(Board *board, const Undo *undo) {
+    if (board == NULL || undo == NULL) {
+        return;
+    }
+
+    if (undo->move == MOVE_NONE) {
+        int original_side = board->side ^ 1;
+        if (original_side == BLACK) {
+            --board->fullmove_number;
+        }
+        board->side = original_side;
+        board->castling_rights = undo->castling_rights;
+        board->ep_square = undo->ep_square;
+        board->halfmove_clock = undo->halfmove_clock;
+        board->hash = undo->hash;
+        return;
+    }
+
+    Move move = undo->move;
+    int from = move_from(move);
+    int to = move_to(move);
+    int promotion = move_promotion(move);
+    int flags = move_flags(move);
+    
+    int original_side = board->side ^ 1;
+    int moved_piece = board_piece_at(board, to);
+
+    int original_piece = moved_piece;
+    if (board_piece_type(moved_piece) != 0 && promotion != MOVE_PROMO_NONE) {
+        original_piece = piece_for_side_at_type(original_side, 0); // Pawn
+    }
+
+    remove_piece_at(board, moved_piece, to);
+    add_piece_at(board, original_piece, from);
+
+    if (undo->captured_piece >= 0) {
+        int captured_square = to;
+        if (flags & MOVE_FLAG_EN_PASSANT) {
+            captured_square = original_side == WHITE ? to - 8 : to + 8;
+        }
+        add_piece_at(board, undo->captured_piece, captured_square);
+    }
+
+    if (flags & MOVE_FLAG_CASTLE) {
+        int rook_from = rook_from_castle_square(original_side, to);
+        int rook_to = rook_to_castle_square(original_side, to);
+        int rook_piece = piece_for_side_at_type(original_side, 3);
+        remove_piece_at(board, rook_piece, rook_to);
+        add_piece_at(board, rook_piece, rook_from);
+    }
+
+    if (original_side == BLACK) {
+        --board->fullmove_number;
+    }
+
+    board->side = original_side;
+    board->castling_rights = undo->castling_rights;
+    board->ep_square = undo->ep_square;
+    board->halfmove_clock = undo->halfmove_clock;
+    board->hash = undo->hash;
+
+    board_sync_occupancy(board);
+    board_sync_kings(board);
+}
+
 bool board_make_move(Board *board, Move move, Undo *undo) {
     if (board == NULL || undo == NULL) {
         return false;
     }
 
-    undo->snapshot = *board;
+    undo->hash = board->hash;
+    undo->castling_rights = board->castling_rights;
+    undo->ep_square = board->ep_square;
+    undo->halfmove_clock = board->halfmove_clock;
+    undo->move = move;
 
     int from = move_from(move);
     int to = move_to(move);
@@ -529,19 +601,35 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     int piece_to_move = mover_piece;
     int captured_square = to;
 
-    remove_piece_at(board, mover_piece, from);
+    // XOR out old EP key if any
+    if (board_has_en_passant_capture(board)) {
+        board->hash ^= ZOBRIST_EP_KEYS[file_of(board->ep_square)];
+    }
 
+    // XOR out old castling rights
+    board->hash ^= ZOBRIST_CASTLE_KEYS[board->castling_rights];
+
+    // XOR out mover from source square
+    board->hash ^= ZOBRIST_PIECES[mover_piece][from];
+
+    int captured_piece = -1;
     if (flags & MOVE_FLAG_EN_PASSANT) {
         captured_square = side == WHITE ? to - 8 : to + 8;
-        int captured_piece = piece_for_side_at_type(side ^ 1, 0);
+        captured_piece = piece_for_side_at_type(side ^ 1, 0); // opponent pawn
         if (to != board->ep_square || target_piece >= 0 || captured_square < 0 || captured_square >= 64 ||
             board_piece_at(board, captured_square) != captured_piece) {
             return false;
         }
         remove_piece_at(board, captured_piece, captured_square);
+        board->hash ^= ZOBRIST_PIECES[captured_piece][captured_square];
     } else if (target_piece >= 0) {
+        captured_piece = target_piece;
         remove_piece_at(board, target_piece, to);
+        board->hash ^= ZOBRIST_PIECES[target_piece][to];
     }
+    undo->captured_piece = captured_piece;
+
+    remove_piece_at(board, mover_piece, from);
 
     if (flags & MOVE_FLAG_CASTLE) {
         int rook_from = rook_from_castle_square(side, to);
@@ -549,6 +637,8 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
         int rook_piece = piece_for_side_at_type(side, 3);
         remove_piece_at(board, rook_piece, rook_from);
         add_piece_at(board, rook_piece, rook_to);
+        board->hash ^= ZOBRIST_PIECES[rook_piece][rook_from];
+        board->hash ^= ZOBRIST_PIECES[rook_piece][rook_to];
     }
 
     if (piece_type == 0 && promotion != MOVE_PROMO_NONE) {
@@ -559,6 +649,7 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     }
 
     add_piece_at(board, piece_to_move, to);
+    board->hash ^= ZOBRIST_PIECES[piece_to_move][to];
 
     if (piece_type == 5) {
         board->king_square[side] = to;
@@ -588,10 +679,47 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     board_sync_occupancy(board);
     board_sync_kings(board);
 
+    // XOR in new castling rights
+    board->hash ^= ZOBRIST_CASTLE_KEYS[board->castling_rights];
+
+    // XOR in side key (since side changes)
+    board->hash ^= ZOBRIST_SIDE_KEY;
+
+    // XOR in new EP key if any
+    if (board_has_en_passant_capture(board)) {
+        board->hash ^= ZOBRIST_EP_KEYS[file_of(board->ep_square)];
+    }
+
     if (board_is_in_check(board, side)) {
         board_unmake_move(board, undo);
-        return false; // Illegal move that leaves own king in check
+        return false;
     }
 
     return true;
+}
+
+void board_make_null_move(Board *board, Undo *undo) {
+    if (board == NULL || undo == NULL) {
+        return;
+    }
+
+    undo->hash = board->hash;
+    undo->castling_rights = board->castling_rights;
+    undo->ep_square = board->ep_square;
+    undo->halfmove_clock = board->halfmove_clock;
+    undo->captured_piece = -1;
+    undo->move = MOVE_NONE;
+
+    if (board_has_en_passant_capture(board)) {
+        board->hash ^= ZOBRIST_EP_KEYS[file_of(board->ep_square)];
+    }
+
+    if (board->side == BLACK) {
+        ++board->fullmove_number;
+    }
+    board->side ^= 1;
+    board->ep_square = -1;
+    ++board->halfmove_clock;
+
+    board->hash ^= ZOBRIST_SIDE_KEY;
 }
