@@ -257,6 +257,22 @@ static unsigned long long perft_helper(Board *board, int depth) {
     MoveList list;
     movegen_generate_pseudo_legal(board, &list);
 
+    if (list.count == 0) {
+        return 0ULL;
+    }
+
+    if (depth == 1) {
+        unsigned long long nodes = 0;
+        for (int i = 0; i < list.count; ++i) {
+            Undo undo;
+            if (board_make_move(board, list.moves[i], &undo)) {
+                nodes++;
+                board_unmake_move(board, &undo);
+            }
+        }
+        return nodes;
+    }
+
     unsigned long long nodes = 0;
     for (int i = 0; i < list.count; ++i) {
         Undo undo;
