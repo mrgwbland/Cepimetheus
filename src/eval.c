@@ -3,6 +3,7 @@
 #include "movegen.h"
 #include <stddef.h>
 #include <stdbool.h>
+#include <string.h>
 
 int piece_values_mg[6] = {
     1000, 2525, 2740, 3315, 10920, 0
@@ -80,6 +81,38 @@ static inline Score make_score(int mg, int eg)
 
 
 
+typedef struct
+{
+    U64 key;
+    int mg;
+    int eg;
+} PawnEntry;
+
+#define PAWN_TABLE_SIZE 32768
+static PawnEntry pawn_table[PAWN_TABLE_SIZE];
+
+static inline U64 pawn_mix_u64(U64 value) {
+    value ^= value >> 33;
+    value *= 0xff51afd7ed558ccdULL;
+    value ^= value >> 33;
+    value *= 0xc4ceb9fe1a85ec53ULL;
+    value ^= value >> 33;
+    return value;
+}
+
+static inline U64 pawn_hash_combine(U64 hash, U64 value) {
+    hash ^= pawn_mix_u64(value + 0x9e3779b97f4a7c15ULL);
+    hash *= 1099511628211ULL;
+    return hash;
+}
+
+static inline U64 board_pawn_key(U64 white_pawns, U64 black_pawns) {
+    U64 key = 1469598103934665603ULL;
+    key = pawn_hash_combine(key, white_pawns);
+    key = pawn_hash_combine(key, black_pawns);
+    return key;
+}
+
 static int king_corner_pst[64];
 static bool eval_initialized = false;
 
@@ -105,6 +138,7 @@ void init_eval(void)
 
         king_corner_pst[sq] = corner_distance;
     }
+    memset(pawn_table, 0, sizeof(pawn_table));
     eval_initialized = true;
 }
 
@@ -264,6 +298,39 @@ static Score evaluate_piece(int piece,
 }
 
 
+static Score evaluate_pawn_structure(U64 white_pawns,
+                                     U64 black_pawns,
+                                     U64 white_passed_pawns,
+                                     U64 black_passed_pawns,
+                                     const int white_pawns_per_file[8],
+                                     const int black_pawns_per_file[8])
+{
+    Score s = make_score(0, 0);
+
+    // Evaluate White Pawns
+    U64 wp = white_pawns;
+    while (wp)
+    {
+        int square = bitboard_pop_lsb(&wp);
+        Score val = evaluate_piece(WHITE_PAWN, square, white_passed_pawns, white_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0);
+        s.mg += val.mg;
+        s.eg += val.eg;
+    }
+
+    // Evaluate Black Pawns
+    U64 bp = black_pawns;
+    while (bp)
+    {
+        int square = bitboard_pop_lsb(&bp);
+        Score val = evaluate_piece(BLACK_PAWN, square, black_passed_pawns, black_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0);
+        s.mg -= val.mg;
+        s.eg -= val.eg;
+    }
+
+    return s;
+}
+
+
 int evaluate_position(Board *board, const RepetitionHistory *history, int ply, const MoveList *list, bool lichess_draw_rules)
 {
     if (!eval_initialized)
@@ -306,8 +373,28 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     int knight_open_position_penalty_mg = KNIGHT_PAWN_COUNT_PENALTY_MG * (16 - __builtin_popcountll(all_pawns));
     int knight_open_position_penalty_eg = KNIGHT_PAWN_COUNT_PENALTY_EG * (16 - __builtin_popcountll(all_pawns));
 
+    // Probe pawn structure cache
+    U64 pawn_key = board_pawn_key(white_pawns, black_pawns);
+    int pawn_idx = (int)(pawn_key % PAWN_TABLE_SIZE);
+    Score pawn_score;
+    if (pawn_table[pawn_idx].key == pawn_key)
+    {
+        pawn_score.mg = pawn_table[pawn_idx].mg;
+        pawn_score.eg = pawn_table[pawn_idx].eg;
+    }
+    else
+    {
+        pawn_score = evaluate_pawn_structure(white_pawns, black_pawns, white_passed_pawns, black_passed_pawns, white_pawns_per_file, black_pawns_per_file);
+        pawn_table[pawn_idx].key = pawn_key;
+        pawn_table[pawn_idx].mg = pawn_score.mg;
+        pawn_table[pawn_idx].eg = pawn_score.eg;
+    }
+
     for (int piece = 0; piece < PIECE_NB; ++piece)
     {
+        if (piece == WHITE_PAWN || piece == BLACK_PAWN)
+            continue;
+
         U64 bb = board->pieces[piece];
         while (bb)
         {
@@ -338,8 +425,8 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
     white_score.mg -= KING_RING_PENALTY_MG * (white_king_ring_attackers * white_king_ring_attackers); // Quadratic penalty
     black_score.mg -= KING_RING_PENALTY_MG * (black_king_ring_attackers * black_king_ring_attackers);
 
-    int mg_total = white_score.mg - black_score.mg;
-    int eg_total = white_score.eg - black_score.eg;
+    int mg_total = white_score.mg - black_score.mg + pawn_score.mg;
+    int eg_total = white_score.eg - black_score.eg + pawn_score.eg;
 
     /* Unless the position is zugzwang, having a move is often better. Zugzwang more likely in endgames */
     if (board->side == WHITE)
