@@ -7,8 +7,6 @@
 extern const U64 file_masks[8];
 
 // Helper functions for evaluation module
-int count_attackers_on_square(const Board *board, int square, int attacker_side, U64 all_pieces);
-int count_king_ring_attackers(const Board *board, int king_side, U64 all_pieces);
 void count_pawns_per_file(U64 pawns, int pawns_per_file[8]);
 U64 mark_passed_pawns(const Board *board, int side);
 
