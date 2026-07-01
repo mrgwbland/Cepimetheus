@@ -402,23 +402,15 @@ static Score evaluate_pawn_structure(const Board *board,
 }
 
 
-int evaluate_position(Board *board, const RepetitionHistory *history, int ply, const MoveList *list, bool lichess_draw_rules)
+int evaluate_position(Board *board)
 {
     if (!eval_initialized)
     {
         init_eval();
     }
 
-    if (board == NULL || list == NULL)
+    if (board == NULL)
         return 0;
-    if (board_is_draw(board, history, lichess_draw_rules))
-        return 0;
-
-    EvalTerminalState terminal_state = eval_terminal_state(board, list->count);
-    if (terminal_state != EVAL_TERMINAL_NONE)
-    {
-        return eval_terminal_score(terminal_state, ply);
-    }
 
     Score white_score = make_score(0, 0);
     Score black_score = make_score(0, 0);
@@ -626,7 +618,7 @@ int evaluate_position_with_weights(const char *fen, int *weights)
     movegen_generate_pseudo_legal(&board, &list);
 
     // 4. Calculate relative score from your internal function
-    int relative_score = evaluate_position(&board, NULL, 0, &list, false);
+    int relative_score = evaluate_position(&board);
 
     // 5. Convert perspective (White-centric)
     int final_score = relative_score;

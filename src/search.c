@@ -185,8 +185,7 @@ static int quiescence(Board *board,
 
     if (!in_check)
     {
-        MoveList dummy_list = {.count = 1};
-        stand_pat = evaluate_position(board, history, ply, &dummy_list, lichess_draw_rules);
+        stand_pat = evaluate_position(board);
 
         if (stand_pat >= beta)
         {
@@ -316,7 +315,7 @@ static SearchResult negamax(Board *board,
     {
         MoveList eval_list;
         movegen_generate_pseudo_legal(board, &eval_list);
-        result.score = evaluate_position(board, history, ply, &eval_list, lichess_draw_rules);
+        result.score = evaluate_position(board);
         return result;
     }
 
