@@ -11,18 +11,29 @@ bool transposition_table_init(TranspositionTable *table, size_t hash_power)
     {
         hash_power = MAX_TRANSPOSITION_TABLE_POWER;
     }
-    table->size = (size_t)1 << hash_power;
-    table->entries = calloc(table->size, sizeof(*table->entries));
+    size_t size_power = (hash_power >= 2) ? (hash_power - 2) : 0;
+    table->size = (size_t)1 << size_power;
+
+    int ret = posix_memalign((void **)&table->buckets, 64, table->size * sizeof(TranspositionBucket));
+    if (ret != 0)
+    {
+        table->buckets = NULL;
+        table->size = 0;
+        table->count = 0;
+        return false;
+    }
+
+    memset(table->buckets, 0, table->size * sizeof(TranspositionBucket));
     table->count = 0;
-    return table->entries != NULL;
+    return true;
 }
 
 void transposition_table_destroy(TranspositionTable *table)
 {
     if (table != NULL)
     {
-        free(table->entries);
-        table->entries = NULL;
+        free(table->buckets);
+        table->buckets = NULL;
         table->size = 0;
         table->count = 0;
     }
@@ -35,18 +46,21 @@ static size_t transposition_table_index(const TranspositionTable *table, U64 has
 
 const TranspositionEntry *transposition_table_lookup(const TranspositionTable *table, U64 hash)
 {
-    if (table == NULL || table->entries == NULL || table->size == 0)
+    if (table == NULL || table->buckets == NULL || table->size == 0)
     {
         return NULL;
     }
 
-    const TranspositionEntry *entry = &table->entries[transposition_table_index(table, hash)];
-    if (entry->hash == 0 || entry->hash != hash)
+    const TranspositionBucket *bucket = &table->buckets[transposition_table_index(table, hash)];
+    for (int i = 0; i < 4; i++)
     {
-        return NULL;
+        if (bucket->entries[i].hash == hash)
+        {
+            return &bucket->entries[i];
+        }
     }
 
-    return entry;
+    return NULL;
 }
 
 static inline int score_to_tt(int score, int ply)
@@ -204,29 +218,63 @@ void transposition_table_store(TranspositionTable *table,
                                Move best_move,
                                int ply)
 {
-    if (table == NULL || table->entries == NULL || table->size == 0 || best_move == MOVE_NONE)
+    if (table == NULL || table->buckets == NULL || table->size == 0 || best_move == MOVE_NONE)
     {
         return;
     }
 
     int tt_score = score_to_tt(score, ply);
 
-    TranspositionEntry *entry = &table->entries[transposition_table_index(table, hash)];
-    if (entry->hash == hash)
+    TranspositionBucket *bucket = &table->buckets[transposition_table_index(table, hash)];
+    TranspositionEntry *entry = NULL;
+
+    // 1. Check if hash already exists in this bucket
+    for (int i = 0; i < 4; i++)
+    {
+        if (bucket->entries[i].hash == hash)
+        {
+            entry = &bucket->entries[i];
+            break;
+        }
+    }
+
+    if (entry != NULL)
     {
         if (!transposition_entry_should_replace_same_hash(entry, depth, tt_score, score_type))
         {
             return;
         }
     }
-    else if (entry->hash != 0 && depth <= entry->depth)
+    else
     {
-        return;
-    }
+        // 2. Look for an empty slot
+        for (int i = 0; i < 4; i++)
+        {
+            if (bucket->entries[i].hash == 0)
+            {
+                entry = &bucket->entries[i];
+                table->count++;
+                break;
+            }
+        }
 
-    if (entry->hash == 0)
-    {
-        table->count++;
+        // 3. If no empty slot, find the slot with the smallest depth (least valuable)
+        if (entry == NULL)
+        {
+            entry = &bucket->entries[0];
+            for (int i = 1; i < 4; i++)
+            {
+                if (bucket->entries[i].depth < entry->depth)
+                {
+                    entry = &bucket->entries[i];
+                }
+            }
+            // Evict if the new search depth is strictly greater
+            if (depth <= entry->depth)
+            {
+                return;
+            }
+        }
     }
 
     entry->hash = hash;

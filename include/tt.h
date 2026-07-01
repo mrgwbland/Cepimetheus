@@ -15,16 +15,21 @@ typedef uint8_t TranspositionScoreType;
 
 typedef struct
 {
-    U64 hash;
-    Move best_move;
-    int16_t score;
-    int8_t depth;
-    TranspositionScoreType score_type;
-} TranspositionEntry;
+    U64 hash; // 8 bytes
+    Move best_move; // 4 bytes
+    int16_t score; // 2 bytes
+    int8_t depth; // 1 byte
+    TranspositionScoreType score_type; // 1 byte
+} TranspositionEntry; // 16 bytes
 
 typedef struct
 {
-    TranspositionEntry *entries;
+    TranspositionEntry entries[4];
+} TranspositionBucket; // 64 bytes (aligned to cache lines)
+
+typedef struct
+{
+    TranspositionBucket *buckets;
     size_t size;
     size_t count;
 } TranspositionTable;
