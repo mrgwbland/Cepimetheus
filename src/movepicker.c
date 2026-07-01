@@ -6,15 +6,6 @@
 #define HISTORY_GRAVITY 512
 #define HISTORY_SCALE 16
 
-static const int piece_values[6] = {
-    1000, /* Pawn */
-    3000, /* Knight */
-    3200, /* Bishop */
-    5000, /* Rook */
-    9000, /* Queen */
-    0    /* King */
-};
-
 int history_bonus(int depth)
 {
     int b = depth * depth;

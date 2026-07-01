@@ -135,6 +135,28 @@ static bool has_any_legal_move(Board *board, const MoveList *list)
     return false;
 }
 
+static int get_captured_piece_value(const Board *board, Move move)
+{
+    int flags = move_flags(move);
+    if (flags & MOVE_FLAG_EN_PASSANT)
+    {
+        return 1000; // Pawn value
+    }
+
+    int target_piece = board_piece_at(board, move_to(move));
+    if (target_piece >= 0)
+    {
+        int type = board_piece_type(target_piece);
+        static const int values[6] = { 1000, 2530, 2685, 3265, 11160, 0 };
+        if (type >= 0 && type < 6)
+        {
+            return values[type];
+        }
+    }
+
+    return 0;
+}
+
 static int quiescence(Board *board,
                       int alpha,
                       int beta,
@@ -159,11 +181,12 @@ static int quiescence(Board *board,
 
     bool in_check = board_is_in_check(board, board->side);
     Move best_move = MOVE_NONE;
+    int stand_pat = -32000;
 
     if (!in_check)
     {
         MoveList dummy_list = {.count = 1};
-        int stand_pat = evaluate_position(board, history, ply, &dummy_list, lichess_draw_rules);
+        stand_pat = evaluate_position(board, history, ply, &dummy_list, lichess_draw_rules);
 
         if (stand_pat >= beta)
         {
@@ -188,6 +211,24 @@ static int quiescence(Board *board,
         if (search_should_stop(control, stats->nodes))
         {
             break;
+        }
+
+        // Delta Pruning
+        if (!in_check)
+        {
+            int captured_val = get_captured_piece_value(board, move);
+            int promo = move_promotion(move);
+            int gain = captured_val;
+            if (promo != MOVE_PROMO_NONE)
+            {
+                gain += piece_values[promo] - 1000;
+            }
+
+            const int SAFETY_MARGIN = 5000; //
+            if (stand_pat + gain + SAFETY_MARGIN < alpha)
+            {
+                continue;
+            }
         }
 
         Undo undo;

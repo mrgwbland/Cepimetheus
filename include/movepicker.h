@@ -57,5 +57,12 @@ Move movepicker_next_move(MovePicker *mp);
 int estimate_move_score(Board *board, Move move, const SearchContext *context, int ply);
 void update_history_entry(int16_t *entry, int delta);
 int history_bonus(int depth);
-
+static const int piece_values[6] = {
+    1000, /* Pawn */
+    3000, /* Knight */
+    3200, /* Bishop */
+    5000, /* Rook */
+    9000, /* Queen */
+    0    /* King */
+};
 #endif
