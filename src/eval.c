@@ -544,37 +544,73 @@ int evaluate_position(Board *board, const RepetitionHistory *history, int ply, c
 int evaluate_position_with_weights(const char *fen, int *weights)
 {
     // 1. Overwrite global evaluation weights in RAM using a unified offset
+    bool weights_changed = false;
     int offset = 0;
     
     for (int i = 0; i < 6; ++i) {
-        piece_values_mg[i] = weights[offset++];
+        if (piece_values_mg[i] != weights[offset]) {
+            piece_values_mg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
     for (int i = 0; i < 6; ++i) {
-        piece_values_eg[i] = weights[offset++];
+        if (piece_values_eg[i] != weights[offset]) {
+            piece_values_eg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
     
     for (int i = 0; i < 14; ++i) {
-        eval_parameters_mg[i] = weights[offset++];
+        if (eval_parameters_mg[i] != weights[offset]) {
+            eval_parameters_mg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
     for (int i = 0; i < 14; ++i) {
-        eval_parameters_eg[i] = weights[offset++];
+        if (eval_parameters_eg[i] != weights[offset]) {
+            eval_parameters_eg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
 
     for (int i = 0; i < 6; ++i) {
-        passed_pawn_rank_bonus_mg[i] = weights[offset++];
+        if (passed_pawn_rank_bonus_mg[i] != weights[offset]) {
+            passed_pawn_rank_bonus_mg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
     for (int i = 0; i < 6; ++i) {
-        passed_pawn_rank_bonus_eg[i] = weights[offset++];
+        if (passed_pawn_rank_bonus_eg[i] != weights[offset]) {
+            passed_pawn_rank_bonus_eg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
 
     for (int i = 0; i < 6; ++i) {
-        phalanx_pawn_rank_bonus_mg[i] = weights[offset++];
+        if (phalanx_pawn_rank_bonus_mg[i] != weights[offset]) {
+            phalanx_pawn_rank_bonus_mg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
     for (int i = 0; i < 6; ++i) {
-        phalanx_pawn_rank_bonus_eg[i] = weights[offset++];
+        if (phalanx_pawn_rank_bonus_eg[i] != weights[offset]) {
+            phalanx_pawn_rank_bonus_eg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
 
-    eval_initialized = false;
+    if (weights_changed || !eval_initialized)
+    {
+        init_eval();
+    }
 
     // 2. Initialise the board architecture and parse FEN
     Board board;
