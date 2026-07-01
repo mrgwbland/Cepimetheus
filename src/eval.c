@@ -6,35 +6,35 @@
 #include <string.h>
 
 int piece_values_mg[6] = {
-    1000, 2525, 2740, 3315, 10920, 0
+    1000, 2530, 2685, 3265, 11160, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3740, 3505, 5845, 8990, 0
+    1000, 3790, 3560, 5860, 8730, 0
 };
 
-int eval_parameters_mg[14] = {
-    98, 332, 0, 25, 137, 48, 59, 81, 72, 160, 13, 5, 76, 11
+int eval_parameters_mg[15] = {
+    98, 256, 5, 25, 137, 47, 46, 65, 73, 157, 7, 7, 72, 10, 6
 };
 
-int eval_parameters_eg[14] = {
-    89, 0, 91, 22, 140, 63, 112, 50, 14, 0, 39, 4, 117, 0
+int eval_parameters_eg[15] = {
+    88, 0, 87, 23, 139, 65, 101, 43, 15, 0, 47, 3, 115, 0, 0
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 0, 249, 723
+    0, 0, 0, 0, 252, 730
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 35, 187, 340, 579
+    0, 0, 40, 194, 346, 586
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 0, 53, 175, 454, 1038
+    0, 0, 55, 174, 451, 928
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 0, 280, 206
+    0, 0, 0, 0, 290, 244
 };
 
 /* Macros redirect the existing engine code to array*/
