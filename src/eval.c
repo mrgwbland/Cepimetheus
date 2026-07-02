@@ -6,35 +6,35 @@
 #include <string.h>
 
 int piece_values_mg[6] = {
-    1000, 2530, 2685, 3265, 11160, 0
+    1000, 2525, 2720, 3315, 10960, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3790, 3560, 5860, 8730, 0
+    1000, 3940, 3545, 5820, 8990, 0
 };
 
-int eval_parameters_mg[15] = {
-    98, 256, 5, 25, 137, 47, 46, 65, 73, 157, 7, 7, 72, 10, 6
+int eval_parameters_mg[14] = {
+    99, 335, 0, 25, 137, 49, 60, 84, 73, 158, 12, 6, 81, 31
 };
 
-int eval_parameters_eg[15] = {
-    88, 0, 87, 23, 139, 65, 101, 43, 15, 0, 47, 3, 115, 0, 0
+int eval_parameters_eg[14] = {
+    89, 0, 98, 25, 134, 66, 95, 50, 20, 0, 39, 2, 110, 0
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 0, 252, 730
+    0, 0, 0, 0, 279, 772
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 40, 194, 346, 586
+    0, 0, 48, 207, 348, 587
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 0, 55, 174, 451, 928
+    0, 1, 56, 177, 453, 904
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 0, 290, 244
+    0, 0, 0, 0, 289, 236
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -65,7 +65,7 @@ int phalanx_pawn_rank_bonus_eg[6] = {
 #define KING_CORNER_DISTANCE_BONUS_MG eval_parameters_mg[12]
 #define KING_CORNER_DISTANCE_BONUS_EG eval_parameters_eg[12]
 #define KING_RING_PENALTY_MG eval_parameters_mg[13]
-#define KING_RING_PENALTY_EG 0
+#define KING_RING_PENALTY_EG eval_parameters_eg[13]
 
 typedef struct
 {
@@ -241,7 +241,7 @@ static Score evaluate_piece(const Board *board,
         }
 
         if (king_ring_attackers) {
-            *king_ring_attackers += __builtin_popcountll(attacks & enemy_king_ring);
+            *king_ring_attackers += 3 * __builtin_popcountll(attacks & enemy_king_ring);
         }
         break;
     }
@@ -261,7 +261,7 @@ static Score evaluate_piece(const Board *board,
 
         if (king_ring_attackers) {
             U64 attacks = bitboard_bishop_attacks(square, all_pieces);
-            *king_ring_attackers += __builtin_popcountll(attacks & enemy_king_ring);
+            *king_ring_attackers += 3 * __builtin_popcountll(attacks & enemy_king_ring);
 
             // X-ray attacks
             U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
@@ -270,7 +270,7 @@ static Score evaluate_piece(const Board *board,
             if (frontline_diagonals) {
                 U64 xray_occupancy = all_pieces ^ frontline_diagonals;
                 U64 xray_attacks = bitboard_bishop_attacks(square, xray_occupancy);
-                *king_ring_attackers += __builtin_popcountll(xray_attacks & enemy_king_ring);
+                *king_ring_attackers += 3 * __builtin_popcountll(xray_attacks & enemy_king_ring);
             }
         }
         break;
@@ -292,7 +292,7 @@ static Score evaluate_piece(const Board *board,
         }
 
         if (king_ring_attackers) {
-            *king_ring_attackers += __builtin_popcountll(attacks & enemy_king_ring);
+            *king_ring_attackers += 5 * __builtin_popcountll(attacks & enemy_king_ring);
 
             // X-ray attacks
             U64 own_rooks_queens = board->pieces[side == WHITE ? WHITE_ROOK : BLACK_ROOK] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
@@ -301,7 +301,7 @@ static Score evaluate_piece(const Board *board,
             if (frontline_orthogonals) {
                 U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
                 U64 xray_attacks = bitboard_rook_attacks(square, xray_occupancy);
-                *king_ring_attackers += __builtin_popcountll(xray_attacks & enemy_king_ring);
+                *king_ring_attackers += 5 * __builtin_popcountll(xray_attacks & enemy_king_ring);
             }
         }
         break;
@@ -317,25 +317,25 @@ static Score evaluate_piece(const Board *board,
 
         if (king_ring_attackers) {
             // Diagonal direct & X-ray attacks
-            *king_ring_attackers += __builtin_popcountll(bishop_atk & enemy_king_ring);
+            *king_ring_attackers += 9 * __builtin_popcountll(bishop_atk & enemy_king_ring);
             U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
             U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
             U64 frontline_diagonals = bishop_atk & (own_bishops_queens | enemy_bishops_queens);
             if (frontline_diagonals) {
                 U64 xray_occupancy = all_pieces ^ frontline_diagonals;
                 U64 xray_bishop_attacks = bitboard_bishop_attacks(square, xray_occupancy);
-                *king_ring_attackers += __builtin_popcountll(xray_bishop_attacks & enemy_king_ring);
+                *king_ring_attackers += 9 * __builtin_popcountll(xray_bishop_attacks & enemy_king_ring);
             }
 
             // Orthogonal direct & X-ray attacks
-            *king_ring_attackers += __builtin_popcountll(rook_atk & enemy_king_ring);
+            *king_ring_attackers += 9 * __builtin_popcountll(rook_atk & enemy_king_ring);
             U64 own_rooks_queens = board->pieces[side == WHITE ? WHITE_ROOK : BLACK_ROOK] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
             U64 enemy_rooks_queens = board->pieces[side == WHITE ? BLACK_ROOK : WHITE_ROOK] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
             U64 frontline_orthogonals = rook_atk & (own_rooks_queens | enemy_rooks_queens);
             if (frontline_orthogonals) {
                 U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
                 U64 xray_rook_attacks = bitboard_rook_attacks(square, xray_occupancy);
-                *king_ring_attackers += __builtin_popcountll(xray_rook_attacks & enemy_king_ring);
+                *king_ring_attackers += 9 * __builtin_popcountll(xray_rook_attacks & enemy_king_ring);
             }
         }
         break;
@@ -495,8 +495,8 @@ int evaluate_position(Board *board)
     }
 
     // King ring penalty is essentially 0 for endgames
-    white_score.mg -= KING_RING_PENALTY_MG * (white_king_ring_attackers * white_king_ring_attackers); // Quadratic penalty
-    black_score.mg -= KING_RING_PENALTY_MG * (black_king_ring_attackers * black_king_ring_attackers);
+    white_score.mg -= (KING_RING_PENALTY_MG * (white_king_ring_attackers * white_king_ring_attackers)) >> 6; // Quadratic penalty
+    black_score.mg -= (KING_RING_PENALTY_MG * (black_king_ring_attackers * black_king_ring_attackers)) >> 6; // Bit shift 6 = divide by 64 to scale down for granularity
 
     int mg_total = white_score.mg - black_score.mg + pawn_score.mg;
     int eg_total = white_score.eg - black_score.eg + pawn_score.eg;
