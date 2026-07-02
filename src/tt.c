@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
+
 #define MAX_TRANSPOSITION_TABLE_POWER 30
 
 bool transposition_table_init(TranspositionTable *table, size_t hash_power)
@@ -14,7 +18,13 @@ bool transposition_table_init(TranspositionTable *table, size_t hash_power)
     size_t size_power = (hash_power >= 2) ? (hash_power - 2) : 0;
     table->size = (size_t)1 << size_power;
 
-    int ret = posix_memalign((void **)&table->buckets, 64, table->size * sizeof(TranspositionBucket));
+    size_t bytes = table->size * sizeof(TranspositionBucket);
+#if defined(_WIN32)
+    table->buckets = (TranspositionBucket *)_aligned_malloc(bytes, 64);
+    int ret = (table->buckets == NULL) ? -1 : 0;
+#else
+    int ret = posix_memalign((void **)&table->buckets, 64, bytes);
+#endif
     if (ret != 0)
     {
         table->buckets = NULL;
@@ -23,16 +33,20 @@ bool transposition_table_init(TranspositionTable *table, size_t hash_power)
         return false;
     }
 
-    memset(table->buckets, 0, table->size * sizeof(TranspositionBucket));
+    memset(table->buckets, 0, bytes);
     table->count = 0;
     return true;
 }
 
 void transposition_table_destroy(TranspositionTable *table)
 {
-    if (table != NULL)
+    if (table != NULL && table->buckets != NULL)
     {
+#if defined(_WIN32)
+        _aligned_free(table->buckets);
+#else
         free(table->buckets);
+#endif
         table->buckets = NULL;
         table->size = 0;
         table->count = 0;
