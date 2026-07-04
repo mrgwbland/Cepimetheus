@@ -6,43 +6,43 @@
 #include <string.h>
 
 int piece_values_mg[6] = {
-    1000, 2505, 2725, 3295, 11010, 0
+    1000, 2505, 2730, 3290, 11000, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3905, 3530, 5830, 8940, 0
+    1000, 3885, 3525, 5820, 8910, 0
 };
 
-int eval_parameters_mg[13] = {
-    98, 334, 0, 23, 135, 52, 59, 82, 72, 153, 12, 8, 70
+int eval_parameters_mg[15] = {
+    118, 329, 0, 24, 135, 50, 59, 81, 73, 161, 14, 7, 72, 103, 487
 };
 
-int eval_parameters_eg[13] = {
-    89, 0, 98, 24, 136, 63, 96, 51, 19, 0, 39, 3, 112
+int eval_parameters_eg[15] = {
+    90, 0, 98, 24, 137, 63, 98, 51, 19, 0, 38, 3, 112, 78, 893
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 0, 271, 769
+    0, 0, 0, 0, 254, 780
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 49, 203, 351, 587
+    0, 0, 43, 204, 355, 578
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 0, 55, 183, 447, 946
+    0, 0, 50, 178, 457, 919
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 0, 289, 227
+    0, 0, 0, 0, 289, 217
 };
 
 int piece_attack_weights_mg[5] = {
-    2, 70, 25, 30, 42
+    3, 72, 23, 30, 43
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 5, 0, 17
+    0, 0, 3, 0, 17
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -72,6 +72,10 @@ int piece_attack_weights_eg[5] = {
 #define KING_EXPOSURE_PENALTY_EG eval_parameters_eg[11]
 #define KING_CORNER_DISTANCE_BONUS_MG eval_parameters_mg[12]
 #define KING_CORNER_DISTANCE_BONUS_EG eval_parameters_eg[12]
+#define HANGING_PIECE_STM_PENALTY_MG eval_parameters_mg[13]
+#define HANGING_PIECE_STM_PENALTY_EG eval_parameters_eg[13]
+#define HANGING_PIECE_NSTM_PENALTY_MG eval_parameters_mg[14]
+#define HANGING_PIECE_NSTM_PENALTY_EG eval_parameters_eg[14]
 
 typedef struct
 {
@@ -422,6 +426,133 @@ static Score evaluate_pawn_structure(const Board *board,
 }
 
 
+static void calculate_hanging_piece_penalties(const Board *board, int *white_penalty, int *black_penalty)
+{
+    *white_penalty = 0;
+    *black_penalty = 0;
+
+    U64 wp = board->pieces[WHITE_PAWN];
+    U64 wn = board->pieces[WHITE_KNIGHT];
+    U64 wb = board->pieces[WHITE_BISHOP];
+    U64 wr = board->pieces[WHITE_ROOK];
+    U64 wq = board->pieces[WHITE_QUEEN];
+
+    U64 bp = board->pieces[BLACK_PAWN];
+    U64 bn = board->pieces[BLACK_KNIGHT];
+    U64 bb = board->pieces[BLACK_BISHOP];
+    U64 br = board->pieces[BLACK_ROOK];
+    U64 bq = board->pieces[BLACK_QUEEN];
+
+    U64 occupancy = board->occupancy[BOTH];
+
+    // --- White's hanging pieces (Black is attacker) ---
+    U64 white_targets = wn | wb | wr | wq;
+    U64 black_attackers = bp | bn | bb | br;
+
+    if (white_targets && black_attackers) {
+        int penalty = 0;
+        if (bp) {
+            U64 temp = wn;
+            while (temp) {
+                int sq = bitboard_pop_lsb(&temp);
+                U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
+                penalty += __builtin_popcountll(pawns) * 2;
+            }
+            temp = wb;
+            while (temp) {
+                int sq = bitboard_pop_lsb(&temp);
+                U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
+                penalty += __builtin_popcountll(pawns) * 2;
+            }
+        }
+        if (bp || bn || bb) {
+            U64 temp = wr;
+            while (temp) {
+                int sq = bitboard_pop_lsb(&temp);
+                if (bp) {
+                    U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
+                    penalty += __builtin_popcountll(pawns) * 4;
+                }
+                U64 kb = 0;
+                if (bn) kb |= bitboard_knight_attacks(sq) & bn;
+                if (bb) kb |= bitboard_bishop_attacks(sq, occupancy) & bb;
+                if (kb) penalty += __builtin_popcountll(kb) * 2;
+            }
+        }
+        U64 temp = wq;
+        while (temp) {
+            int sq = bitboard_pop_lsb(&temp);
+            if (bp) {
+                U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
+                penalty += __builtin_popcountll(pawns) * 8;
+            }
+            U64 kb = 0;
+            if (bn) kb |= bitboard_knight_attacks(sq) & bn;
+            if (bb) kb |= bitboard_bishop_attacks(sq, occupancy) & bb;
+            if (kb) penalty += __builtin_popcountll(kb) * 6;
+            if (br) {
+                U64 rooks = bitboard_rook_attacks(sq, occupancy) & br;
+                penalty += __builtin_popcountll(rooks) * 4;
+            }
+        }
+        *white_penalty = penalty;
+    }
+
+    // --- Black's hanging pieces (White is attacker) ---
+    U64 black_targets = bn | bb | br | bq;
+    U64 white_attackers = wp | wn | wb | wr;
+
+    if (black_targets && white_attackers) {
+        int penalty = 0;
+        if (wp) {
+            U64 temp = bn;
+            while (temp) {
+                int sq = bitboard_pop_lsb(&temp);
+                U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
+                penalty += __builtin_popcountll(pawns) * 2;
+            }
+            temp = bb;
+            while (temp) {
+                int sq = bitboard_pop_lsb(&temp);
+                U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
+                penalty += __builtin_popcountll(pawns) * 2;
+            }
+        }
+        if (wp || wn || wb) {
+            U64 temp = br;
+            while (temp) {
+                int sq = bitboard_pop_lsb(&temp);
+                if (wp) {
+                    U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
+                    penalty += __builtin_popcountll(pawns) * 4;
+                }
+                U64 kb = 0;
+                if (wn) kb |= bitboard_knight_attacks(sq) & wn;
+                if (wb) kb |= bitboard_bishop_attacks(sq, occupancy) & wb;
+                if (kb) penalty += __builtin_popcountll(kb) * 2;
+            }
+        }
+        U64 temp = bq;
+        while (temp) {
+            int sq = bitboard_pop_lsb(&temp);
+            if (wp) {
+                U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
+                penalty += __builtin_popcountll(pawns) * 8;
+            }
+            U64 kb = 0;
+            if (wn) kb |= bitboard_knight_attacks(sq) & wn;
+            if (wb) kb |= bitboard_bishop_attacks(sq, occupancy) & wb;
+            if (kb) penalty += __builtin_popcountll(kb) * 6;
+            if (wr) {
+                U64 rooks = bitboard_rook_attacks(sq, occupancy) & wr;
+                penalty += __builtin_popcountll(rooks) * 4;
+            }
+        }
+        *black_penalty = penalty;
+    }
+}
+
+
 int evaluate_position(Board *board)
 {
     if (!eval_initialized)
@@ -536,6 +667,34 @@ int evaluate_position(Board *board)
     int mg_total = white_score.mg - black_score.mg + pawn_score.mg;
     int eg_total = white_score.eg - black_score.eg + pawn_score.eg;
 
+    // Apply Hanging Piece Penalty
+    int white_hanging_penalty_sum = 0;
+    int black_hanging_penalty_sum = 0;
+    calculate_hanging_piece_penalties(board, &white_hanging_penalty_sum, &black_hanging_penalty_sum);
+
+    int white_penalty_mg = 0;
+    int white_penalty_eg = 0;
+    int black_penalty_mg = 0;
+    int black_penalty_eg = 0;
+
+    if (board->side == WHITE)
+    {
+        white_penalty_mg = HANGING_PIECE_STM_PENALTY_MG * white_hanging_penalty_sum;
+        white_penalty_eg = HANGING_PIECE_STM_PENALTY_EG * white_hanging_penalty_sum;
+        black_penalty_mg = HANGING_PIECE_NSTM_PENALTY_MG * black_hanging_penalty_sum;
+        black_penalty_eg = HANGING_PIECE_NSTM_PENALTY_EG * black_hanging_penalty_sum;
+    }
+    else
+    {
+        black_penalty_mg = HANGING_PIECE_STM_PENALTY_MG * black_hanging_penalty_sum;
+        black_penalty_eg = HANGING_PIECE_STM_PENALTY_EG * black_hanging_penalty_sum;
+        white_penalty_mg = HANGING_PIECE_NSTM_PENALTY_MG * white_hanging_penalty_sum;
+        white_penalty_eg = HANGING_PIECE_NSTM_PENALTY_EG * white_hanging_penalty_sum;
+    }
+
+    mg_total = mg_total - white_penalty_mg + black_penalty_mg;
+    eg_total = eg_total - white_penalty_eg + black_penalty_eg;
+
     /* Unless the position is zugzwang, having a move is often better. Zugzwang more likely in endgames */
     if (board->side == WHITE)
     {
@@ -589,14 +748,14 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         offset++;
     }
     
-    for (int i = 0; i < 13; ++i) {
+    for (int i = 0; i < 15; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 13; ++i) {
+    for (int i = 0; i < 15; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
