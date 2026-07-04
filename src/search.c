@@ -223,7 +223,7 @@ static int quiescence(Board *board,
                 gain += piece_values[promo] - 1000;
             }
 
-            const int SAFETY_MARGIN = 5000;
+            const int SAFETY_MARGIN = 3000;//Found optimal to the nearest 1000 in 10s+0.1s
             if (stand_pat + gain + SAFETY_MARGIN < alpha)
             {
                 continue;
