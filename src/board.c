@@ -443,14 +443,36 @@ bool board_is_in_check(const Board *board, int side) {
 
 
 
-static void remove_piece_at(Board *board, int piece, int square) {
-    board->pieces[piece] &= ~(1ULL << square);
+static inline void remove_piece_at(Board *board, int piece, int square) {
+    U64 mask = 1ULL << square;
+    board->pieces[piece] &= ~mask;
     board->squares[square] = -1;
+
+    int side = (piece >= BLACK_PAWN);
+    board->occupancy[side] &= ~mask;
+    board->occupancy[BOTH] &= ~mask;
+
+    if (piece == WHITE_KING) {
+        board->king_square[WHITE] = -1;
+    } else if (piece == BLACK_KING) {
+        board->king_square[BLACK] = -1;
+    }
 }
 
-static void add_piece_at(Board *board, int piece, int square) {
-    board->pieces[piece] |= 1ULL << square;
+static inline void add_piece_at(Board *board, int piece, int square) {
+    U64 mask = 1ULL << square;
+    board->pieces[piece] |= mask;
     board->squares[square] = piece;
+
+    int side = (piece >= BLACK_PAWN);
+    board->occupancy[side] |= mask;
+    board->occupancy[BOTH] |= mask;
+
+    if (piece == WHITE_KING) {
+        board->king_square[WHITE] = square;
+    } else if (piece == BLACK_KING) {
+        board->king_square[BLACK] = square;
+    }
 }
 
 static int piece_for_side_at_type(int side, int type) {
@@ -569,9 +591,6 @@ void board_unmake_move(Board *board, const Undo *undo) {
     board->ep_square = undo->ep_square;
     board->halfmove_clock = undo->halfmove_clock;
     board->hash = undo->hash;
-
-    board_sync_occupancy(board);
-    board_sync_kings(board);
 }
 
 bool board_make_move(Board *board, Move move, Undo *undo) {
@@ -651,10 +670,6 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     add_piece_at(board, piece_to_move, to);
     board->hash ^= ZOBRIST_PIECES[piece_to_move][to];
 
-    if (piece_type == 5) {
-        board->king_square[side] = to;
-    }
-
     clear_castling_rights_for_square(board, from, mover_piece);
     if (target_piece >= 0) {
         clear_castling_rights_for_square(board, captured_square, target_piece);
@@ -676,8 +691,6 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     }
 
     board->side ^= 1;
-    board_sync_occupancy(board);
-    board_sync_kings(board);
 
     // XOR in new castling rights
     board->hash ^= ZOBRIST_CASTLE_KEYS[board->castling_rights];
