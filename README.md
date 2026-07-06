@@ -11,8 +11,8 @@ I will note that the lichess bot pool (especially bullet) seems very underrated,
 A friend of mine could not beat Cepimetheus in bullet after several attempts, he was 2629 at the time whilst the bot was 1850.
 
 ## Rating
-As of June 6th 2026 this engine is rated on the CCRL:
-so far only version 6.4.1 has been tested, it is 1923 (+/- 27) Blitz.
+As of June 6th 2026 this engine is rated on the CCRL: https://computerchess.org.uk/404/cgi/engine_details.cgi?print=Details&each_game=1&eng=Cepimetheus%206.4.1%2064-bit#Cepimetheus_6_4_1_64-bit \
+so far only version 6.4.1 has been tested, it is 1914 (+/- 20) Blitz.
 
 ## Features
 
