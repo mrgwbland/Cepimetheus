@@ -4,41 +4,42 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2505, 2730, 3290, 11000, 0
+    1000, 2370, 2610, 3145, 10400, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3885, 3525, 5820, 8910, 0
+    1000, 3910, 3585, 5900, 9230, 0
 };
 
-int eval_parameters_mg[15] = {
-    118, 329, 0, 24, 135, 50, 59, 81, 73, 161, 14, 7, 72, 103, 487
+int eval_parameters_mg[17] = {
+    113, 308, 0, 25, 142, 6, 62, 78, 67, 173, 15, 7, 88, 96, 433, 101, 0
 };
 
-int eval_parameters_eg[15] = {
-    90, 0, 98, 24, 137, 63, 98, 51, 19, 0, 38, 3, 112, 78, 893
+int eval_parameters_eg[17] = {
+    90, 0, 95, 18, 134, 85, 97, 52, 20, 0, 36, 2, 80, 70, 943, 38, 44
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 0, 254, 780
+    0, 0, 92, 413, 976, 1465
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 43, 204, 355, 578
+    0, 0, 68, 238, 411, 751
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 0, 50, 178, 457, 919
+    0, 9, 67, 191, 431, 1016
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 0, 289, 217
+    0, 0, 0, 0, 342, 153
 };
 
 int piece_attack_weights_mg[5] = {
-    3, 72, 23, 30, 43
+    6, 72, 23, 29, 43
 };
 
 int piece_attack_weights_eg[5] = {
@@ -76,6 +77,15 @@ int piece_attack_weights_eg[5] = {
 #define HANGING_PIECE_STM_PENALTY_EG eval_parameters_eg[13]
 #define HANGING_PIECE_NSTM_PENALTY_MG eval_parameters_mg[14]
 #define HANGING_PIECE_NSTM_PENALTY_EG eval_parameters_eg[14]
+#define PASSED_PAWN_FRIENDLY_KING_PROXIMITY_MG eval_parameters_mg[15]
+#define PASSED_PAWN_FRIENDLY_KING_PROXIMITY_EG eval_parameters_eg[15]
+#define PASSED_PAWN_ENEMY_KING_PROXIMITY_MG eval_parameters_mg[16]
+#define PASSED_PAWN_ENEMY_KING_PROXIMITY_EG eval_parameters_eg[16]
+
+static inline int manhattan_distance(int sq1, int sq2)
+{
+    return abs(file_of(sq1) - file_of(sq2)) + abs(rank_of(sq1) - rank_of(sq2));
+}
 
 typedef struct
 {
@@ -130,13 +140,10 @@ void init_eval(void)
 {
     for (int sq = 0; sq < 64; ++sq)
     {
-        int file = file_of(sq);
-        int rank = rank_of(sq);
-
-        int distance_a1 = file + rank;
-        int distance_h1 = (7 - file) + rank;
-        int distance_a8 = file + (7 - rank);
-        int distance_h8 = (7 - file) + (7 - rank);
+        int distance_a1 = manhattan_distance(sq, 0);
+        int distance_h1 = manhattan_distance(sq, 7);
+        int distance_a8 = manhattan_distance(sq, 56);
+        int distance_h8 = manhattan_distance(sq, 63);
 
         int corner_distance = distance_a1;
         if (distance_h1 < corner_distance)
@@ -189,6 +196,19 @@ static Score evaluate_piece(const Board *board,
             /* Passed pawns are further rewarded for advancement. */
             s.mg += passed_pawn_rank_bonus_mg[pawn_rank - 1];
             s.eg += passed_pawn_rank_bonus_eg[pawn_rank - 1];
+
+            // King proximity adjustments using Manhattan distance
+            int friendly_king = board->king_square[side];
+            int enemy_king = board->king_square[!side];
+
+            int friendly_dist = manhattan_distance(square, friendly_king);
+            int enemy_dist = manhattan_distance(square, enemy_king);
+
+            s.mg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_MG * friendly_dist;
+            s.eg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_EG * friendly_dist;
+
+            s.mg += PASSED_PAWN_ENEMY_KING_PROXIMITY_MG * enemy_dist;
+            s.eg += PASSED_PAWN_ENEMY_KING_PROXIMITY_EG * enemy_dist;
         }
 
         // --- Phalanx / Connected Pawn Bonus ---
@@ -748,14 +768,14 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         offset++;
     }
     
-    for (int i = 0; i < 15; ++i) {
+    for (int i = 0; i < 17; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 15; ++i) {
+    for (int i = 0; i < 17; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
