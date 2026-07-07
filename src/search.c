@@ -147,10 +147,9 @@ static int get_captured_piece_value(const Board *board, Move move)
     if (target_piece >= 0)
     {
         int type = board_piece_type(target_piece);
-        static const int values[6] = { 1000, 2530, 2685, 3265, 11160, 0 };
         if (type >= 0 && type < 6)
         {
-            return values[type];
+            return piece_values[type];
         }
     }
 
