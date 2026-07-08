@@ -74,7 +74,7 @@ void board_clear(Board *board);
 void repetition_history_init(RepetitionHistory *history);
 bool repetition_history_push(RepetitionHistory *history, U64 key);
 U64 board_position_key(const Board *board);
-bool board_is_draw(const Board *board, const RepetitionHistory *history, bool lichess_draw_rules);
+bool board_is_draw(const Board *board, const RepetitionHistory *history, int ply, bool lichess_draw_rules);
 bool board_make_move(Board *board, Move move, Undo *undo);
 void board_make_null_move(Board *board, Undo *undo);
 void board_unmake_move(Board *board, const Undo *undo);

@@ -180,7 +180,7 @@ U64 board_position_key(const Board *board) {
 }
 
 // Checks for 50-move rule, threefold repetition, and Lichess 300-move rule if enabled; stalemate should be checked when legal moves are already generated
-bool board_is_draw(const Board *board, const RepetitionHistory *history, bool lichess_draw_rules) {
+bool board_is_draw(const Board *board, const RepetitionHistory *history, int ply, bool lichess_draw_rules) {
     if (board == NULL) {
         return false;
     }
@@ -204,10 +204,16 @@ bool board_is_draw(const Board *board, const RepetitionHistory *history, bool li
             start = halfmove_limit;
         }
 
+        int root_index = history->count - ply;
+
         // Declare draw on threefold repetition (requires two prior identical positions)
+        // or on twofold repetition if it occurs entirely within the search tree (after the root)
         int matches = 0;
         for (int i = start; i < history_limit; ++i) {
             if (history->keys[i] == current_key) {
+                if (i >= root_index) {
+                    return true;
+                }
                 ++matches;
                 if (matches >= 2) {
                     return true;

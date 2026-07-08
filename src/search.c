@@ -173,7 +173,7 @@ static int quiescence(Board *board,
         stats->seldepth = ply;
     }
 
-    if (board_is_draw(board, history, lichess_draw_rules))
+    if (board_is_draw(board, history, ply, lichess_draw_rules))
     {
         return 0;
     }
@@ -324,7 +324,7 @@ static SearchResult negamax(Board *board,
         stats->seldepth = ply;
     }
 
-    if (board_is_draw(board, history, lichess_draw_rules))
+    if (board_is_draw(board, history, ply, lichess_draw_rules))
     {
         result.score = 0;
         return result;
@@ -340,7 +340,25 @@ static SearchResult negamax(Board *board,
             ? transposition_table_probe_exact(&context->table, board->hash, depth, ply, &tt_score)
             : transposition_table_probe(&context->table, board->hash, depth, alpha, beta, ply, &tt_score);
 
-        if (tt_cutoff)
+        bool is_repeated = false;
+        if (history != NULL && history->count > 1)
+        {
+            U64 current_key = board->hash;
+            int start = 0;
+            int history_limit = history->count - 1;
+            int halfmove_limit = history->count - 1 - board->halfmove_clock;
+            if (halfmove_limit > start) {
+                start = halfmove_limit;
+            }
+            for (int i = start; i < history_limit; ++i) {
+                if (history->keys[i] == current_key) {
+                    is_repeated = true;
+                    break;
+                }
+            }
+        }
+
+        if (tt_cutoff && !is_repeated)
         {
             result.score = tt_score;
 
@@ -355,7 +373,7 @@ static SearchResult negamax(Board *board,
                 U64 hash = board->hash;
 
                 /* Stop if the current position is already a draw. */
-                if (board_is_draw(board, &pv_history, lichess_draw_rules))
+                if (board_is_draw(board, &pv_history, ply + pv_depth, lichess_draw_rules))
                 {
                     break;
                 }
@@ -689,7 +707,7 @@ SearchResult search_root(Board *board,
     MovePicker picker;
     movepicker_init(&picker, board, context, 0, MOVE_NONE, tt_move, excluded_moves, excluded_move_count, false);
 
-    if (board_is_draw(board, history, lichess_draw_rules))
+    if (board_is_draw(board, history, 0, lichess_draw_rules))
     {
         result.score = 0;
         for (int i = 0; i < picker.all_moves.count; ++i)
