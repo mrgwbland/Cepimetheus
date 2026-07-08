@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+static int piece_for_side_at_type(int side, int type) {
+    return side == WHITE ? type : type + 6;
+}
+
 static int file_of(int square) {
     return square & 7;
 }
@@ -390,7 +394,7 @@ bool board_set_fen(Board *board, const char *fen) {
     return board->king_square[WHITE] >= 0 && board->king_square[BLACK] >= 0;
 }
 
-bool board_is_square_attacked(const Board *board, int square, int attacker_side) {
+bool board_is_square_attacked_with_occupancy(const Board *board, int square, int attacker_side, U64 occupancy) {
     if (square < 0 || square >= 64) {
         return false;
     }
@@ -423,14 +427,18 @@ bool board_is_square_attacked(const Board *board, int square, int attacker_side)
 
     U64 bishops = attacker_side == WHITE ? (board->pieces[WHITE_BISHOP] | board->pieces[WHITE_QUEEN]) : (board->pieces[BLACK_BISHOP] | board->pieces[BLACK_QUEEN]);
     U64 rooks = attacker_side == WHITE ? (board->pieces[WHITE_ROOK] | board->pieces[WHITE_QUEEN]) : (board->pieces[BLACK_ROOK] | board->pieces[BLACK_QUEEN]);
-    if (bitboard_bishop_attacks(square, board->occupancy[BOTH]) & bishops) {
+    if (bitboard_bishop_attacks(square, occupancy) & bishops) {
         return true;
     }
-    if (bitboard_rook_attacks(square, board->occupancy[BOTH]) & rooks) {
+    if (bitboard_rook_attacks(square, occupancy) & rooks) {
         return true;
     }
 
     return false;
+}
+
+bool board_is_square_attacked(const Board *board, int square, int attacker_side) {
+    return board_is_square_attacked_with_occupancy(board, square, attacker_side, board->occupancy[BOTH]);
 }
 
 bool board_is_in_check(const Board *board, int side) {
@@ -441,7 +449,151 @@ bool board_is_in_check(const Board *board, int side) {
     return board_is_square_attacked(board, king_square, side ^ 1);
 }
 
+U64 board_checkers(const Board *board, int side) {
+    int king_sq = board->king_square[side];
+    if (king_sq < 0) return 0ULL;
 
+    int enemy = side ^ 1;
+    U64 occupied = board->occupancy[BOTH];
+    U64 checkers = 0ULL;
+
+    // Check pawns
+    U64 pawns = board->pieces[piece_for_side_at_type(enemy, 0)]; // Pawn
+    checkers |= bitboard_pawn_attacks(side, king_sq) & pawns;
+
+    // Check knights
+    U64 knights = board->pieces[piece_for_side_at_type(enemy, 1)]; // Knight
+    checkers |= bitboard_knight_attacks(king_sq) & knights;
+
+    // Check bishops/queens
+    U64 bishops = board->pieces[piece_for_side_at_type(enemy, 2)] |
+                  board->pieces[piece_for_side_at_type(enemy, 4)]; // Bishop / Queen
+    checkers |= bitboard_bishop_attacks(king_sq, occupied) & bishops;
+
+    // Check rooks/queens
+    U64 rooks = board->pieces[piece_for_side_at_type(enemy, 3)] |
+                board->pieces[piece_for_side_at_type(enemy, 4)]; // Rook / Queen
+    checkers |= bitboard_rook_attacks(king_sq, occupied) & rooks;
+
+    return checkers;
+}
+
+U64 board_pinned_mask(const Board *board, int side) {
+    int king_sq = board->king_square[side];
+    if (king_sq < 0) return 0ULL;
+
+    int enemy = side ^ 1;
+    U64 us = board->occupancy[side];
+    U64 occupied = board->occupancy[BOTH];
+
+    U64 enemy_queens = board->pieces[piece_for_side_at_type(enemy, 4)];
+    U64 enemy_rooks = board->pieces[piece_for_side_at_type(enemy, 3)] | enemy_queens;
+    U64 enemy_bishops = board->pieces[piece_for_side_at_type(enemy, 2)] | enemy_queens;
+
+    // attackers aligned with king square on empty board
+    U64 attackers = (bitboard_rook_attacks(king_sq, 0ULL) & enemy_rooks)
+                  | (bitboard_bishop_attacks(king_sq, 0ULL) & enemy_bishops);
+
+    U64 pinned = 0ULL;
+    while (attackers) {
+        int attacker_sq = bitboard_pop_lsb(&attackers);
+        U64 between = bitboard_in_between_mask(king_sq, attacker_sq) & occupied;
+        
+        // If there is exactly one blocker between king and attacker
+        if (between && !(between & (between - 1))) {
+            // Check if that blocker belongs to us
+            if (between & us) {
+                pinned |= between;
+            }
+        }
+    }
+
+    return pinned;
+}
+
+bool board_is_move_legal(const Board *board, Move move, U64 pinned_mask, U64 checkers) {
+    if (board == NULL) {
+        return false;
+    }
+
+    int from = move_from(move);
+    int to = move_to(move);
+    int side = board->side;
+    int king_sq = board->king_square[side];
+    int mover_piece = board_piece_at(board, from);
+    if (mover_piece < 0) {
+        return false;
+    }
+    int piece_type = board_piece_type(mover_piece);
+    int flags = move_flags(move);
+
+    // 1. King moves
+    if (piece_type == 5) { // KING
+        if (flags & MOVE_FLAG_CASTLE) {
+            if (checkers != 0) return false;
+            int enemy = side ^ 1;
+            int step = to > from ? 1 : -1;
+            U64 occupied = board->occupancy[BOTH];
+            for (int sq = from + step; sq != to + step; sq += step) {
+                if (board_is_square_attacked_with_occupancy(board, sq, enemy, occupied)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        U64 occ_after = board->occupancy[BOTH] ^ (1ULL << from);
+        return !board_is_square_attacked_with_occupancy(board, to, side ^ 1, occ_after);
+    }
+
+    // 2. En Passant moves (discover check risk and check evasion verification)
+    if (flags & MOVE_FLAG_EN_PASSANT) {
+        int captured_sq = side == WHITE ? to - 8 : to + 8;
+        if (checkers != 0) {
+            if (checkers & (checkers - 1)) {
+                return false; // double check, EP cannot resolve it
+            }
+            int checker_sq = __builtin_ctzll(checkers);
+            if (checker_sq != captured_sq && !((1ULL << to) & bitboard_in_between_mask(king_sq, checker_sq))) {
+                return false;
+            }
+        }
+
+        U64 occ_after = (board->occupancy[BOTH] ^ (1ULL << from) ^ (1ULL << captured_sq)) | (1ULL << to);
+        
+        U64 bishop_attacks = bitboard_bishop_attacks(king_sq, occ_after);
+        U64 rook_attacks = bitboard_rook_attacks(king_sq, occ_after);
+        
+        int enemy = side ^ 1;
+        U64 enemy_bishops = board->pieces[piece_for_side_at_type(enemy, 2)] | board->pieces[piece_for_side_at_type(enemy, 4)];
+        U64 enemy_rooks = board->pieces[piece_for_side_at_type(enemy, 3)] | board->pieces[piece_for_side_at_type(enemy, 4)];
+        
+        if ((bishop_attacks & enemy_bishops) || (rook_attacks & enemy_rooks)) {
+            return false;
+        }
+        return true;
+    }
+
+    // 3. In Check handling (non-king pieces)
+    if (checkers != 0) {
+        if (pinned_mask & (1ULL << from)) {
+            return false; // A pinned piece can never block/capture a check on a different ray
+        }
+        if (checkers & (checkers - 1)) {
+            return false; // double check, only king move is legal
+        }
+        int checker_sq = __builtin_ctzll(checkers);
+        U64 target_mask = checkers | bitboard_in_between_mask(king_sq, checker_sq);
+        return (target_mask & (1ULL << to)) != 0;
+    }
+
+    // 4. Pinned pieces
+    if (pinned_mask & (1ULL << from)) {
+        return (bitboard_line_mask(king_sq, from) & (1ULL << to)) != 0;
+    }
+
+    return true;
+}
 
 static inline void remove_piece_at(Board *board, int piece, int square) {
     U64 mask = 1ULL << square;
@@ -475,9 +627,6 @@ static inline void add_piece_at(Board *board, int piece, int square) {
     }
 }
 
-static int piece_for_side_at_type(int side, int type) {
-    return side == WHITE ? type : type + 6;
-}
 
 static void clear_castling_rights_for_square(Board *board, int square, int piece) {
     if (piece == WHITE_KING) {
@@ -598,6 +747,12 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
         return false;
     }
 
+    U64 checkers = board_checkers(board, board->side);
+    U64 pinned = board_pinned_mask(board, board->side);
+    if (!board_is_move_legal(board, move, pinned, checkers)) {
+        return false;
+    }
+
     undo->hash = board->hash;
     undo->castling_rights = board->castling_rights;
     undo->ep_square = board->ep_square;
@@ -701,11 +856,6 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     // XOR in new EP key if any
     if (board_has_en_passant_capture(board)) {
         board->hash ^= ZOBRIST_EP_KEYS[file_of(board->ep_square)];
-    }
-
-    if (board_is_in_check(board, side)) {
-        board_unmake_move(board, undo);
-        return false;
     }
 
     return true;

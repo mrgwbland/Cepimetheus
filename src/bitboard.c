@@ -6,6 +6,8 @@ static U64 knight_table[64];
 static U64 king_table[64];
 static U64 pawn_table[2][64];
 static U64 passed_pawn_masks[2][64];
+static U64 line_masks[64][64];
+static U64 in_between_masks[64][64];
 
 // 102,400 is the exact number of rook blocker permutations across all 64 squares
 U64 rook_table[102400];
@@ -229,6 +231,56 @@ static void build_tables(void) {
             bishop_table_index += permutations;
         }
     }
+
+    for (int s1 = 0; s1 < 64; ++s1) {
+        for (int s2 = 0; s2 < 64; ++s2) {
+            line_masks[s1][s2] = 0ULL;
+            in_between_masks[s1][s2] = 0ULL;
+            if (s1 == s2) {
+                continue;
+            }
+            int f1 = file_of(s1), r1 = rank_of(s1);
+            int f2 = file_of(s2), r2 = rank_of(s2);
+            int df = f2 - f1;
+            int dr = r2 - r1;
+            if (f1 == f2) {
+                U64 mask = 0;
+                for (int r = 0; r < 8; ++r) mask |= 1ULL << (r * 8 + f1);
+                line_masks[s1][s2] = mask;
+            } else if (r1 == r2) {
+                U64 mask = 0;
+                for (int f = 0; f < 8; ++f) mask |= 1ULL << (r1 * 8 + f);
+                line_masks[s1][s2] = mask;
+            } else if (dr == df) {
+                U64 mask = 0;
+                for (int d = -7; d <= 7; ++d) {
+                    if (on_board(f1 + d, r1 + d)) {
+                        mask |= 1ULL << ((r1 + d) * 8 + (f1 + d));
+                    }
+                }
+                line_masks[s1][s2] = mask;
+            } else if (dr == -df) {
+                U64 mask = 0;
+                for (int d = -7; d <= 7; ++d) {
+                    if (on_board(f1 + d, r1 - d)) {
+                        mask |= 1ULL << ((r1 - d) * 8 + (f1 + d));
+                    }
+                }
+                line_masks[s1][s2] = mask;
+            }
+
+            if (line_masks[s1][s2] != 0ULL) {
+                int step_f = (df > 0) - (df < 0);
+                int step_r = (dr > 0) - (dr < 0);
+                int step = step_r * 8 + step_f;
+                U64 in_between = 0ULL;
+                for (int sq = s1 + step; sq != s2; sq += step) {
+                    in_between |= 1ULL << sq;
+                }
+                in_between_masks[s1][s2] = in_between;
+            }
+        }
+    }
 }
 
 void bitboard_init_tables(void) {
@@ -285,4 +337,14 @@ U64 bitboard_queen_attacks(int square, U64 occupancy) {
 U64 bitboard_passed_pawn_mask(int side, int square) {
     bitboard_init_tables();
     return passed_pawn_masks[side][square];
+}
+
+U64 bitboard_line_mask(int sq1, int sq2) {
+    bitboard_init_tables();
+    return line_masks[sq1][sq2];
+}
+
+U64 bitboard_in_between_mask(int sq1, int sq2) {
+    bitboard_init_tables();
+    return in_between_masks[sq1][sq2];
 }
