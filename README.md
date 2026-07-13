@@ -11,8 +11,23 @@ I will note that the lichess bot pool (especially bullet) seems very underrated,
 A friend of mine could not beat Cepimetheus in bullet after several attempts, he was 2629 at the time whilst the bot was 1850.
 
 ## Rating
-As of June 6th 2026 this engine is rated on the CCRL: https://computerchess.org.uk/404/cgi/engine_details.cgi?print=Details&each_game=1&eng=Cepimetheus%206.4.1%2064-bit#Cepimetheus_6_4_1_64-bit \
-so far only version 6.4.1 has been tested, it is 1914 (+/- 20) Blitz.
+
+Cepimetheus is undergoing continuous development, with noticeable strength gains with each major release. The engine is officially tracked on the CCRL Blitz ratings list [here](https://computerchess.org.uk/404/cgi/compare_engines.cgi?family=Cepimetheus).
+I have also made an effort to estimate the ratings of other major versions to better show per version improvement and let users know how strong a certain version is.
+Estimated ratings are calculated with Ordo on game pools played at the exact CCRL blitz time control framework of 120s + 1s increment, my testing cpu is very similar single thread performance to the CCRL baseline 4770K. 
+
+| Version | CCRL Blitz Rating | Estimated Rating |
+| :--- | :---: | :---: |
+| **Cepimetheus 11.0.0** | N/A | **2259.3** |
+| **Cepimetheus 10.0.0** | **2173** | **2173.0** |
+| **Cepimetheus 9.0.0** | N/A | **2111.0** |
+| **Cepimetheus 8.0.0** | N/A | **2054.2** |
+| **Cepimetheus 7.2.0** | N/A | **1971.6** |
+| **Cepimetheus 6.4.1** | **1914** | **1914.0** |
+| **Cepimetheus 5.1.0** | N/A | **1634.5** |
+| **Cepimetheus 4.3.1** | N/A | **1591.3** |
+
+> **Note on Accuracy:** All estimated ratings are subject to change as I play more games or add additional CCRL anchor engines to my testing to further calibrate the results.
 
 ## Features
 
