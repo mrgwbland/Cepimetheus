@@ -441,7 +441,7 @@ static SearchResult negamax(Board *board,
     }
 
     /* Null-move pruning */
-    if (depth >= 3 &&// NMP not done near leaves as tree is already small
+    if (depth >= 3 &&// NMP not done near leaves as tree is already small, and NMP has overhead
         beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
         !board_is_in_check(board, board->side) && // In check passing is illegal
         has_sufficient_nmp_material(board)) //Not done in endgames to avoid zugzwang issues

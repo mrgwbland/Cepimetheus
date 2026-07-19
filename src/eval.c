@@ -7,43 +7,43 @@
 #include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2375, 2615, 3180, 10370, 0
+    1000, 2370, 2495, 3255, 10800, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3895, 3580, 5890, 9210, 0
+    1000, 3945, 3345, 5855, 8890, 0
 };
 
-int eval_parameters_mg[17] = {
-    123, 327, 0, 27, 139, 14, 65, 82, 67, 196, 15, 6, 111, 98, 424, 97, 0
+int eval_parameters_mg[18] = {
+    123, 326, 0, 28, 138, 14, 65, 81, 67, 199, 15, 6, 111, 98, 423, 97, 0, 19
 };
 
-int eval_parameters_eg[17] = {
-    87, 0, 93, 21, 121, 82, 94, 52, 21, 0, 43, 0, 97, 74, 951, 40, 41
+int eval_parameters_eg[18] = {
+    85, 0, 100, 21, 125, 88, 101, 58, 21, 0, 44, 0, 92, 67, 959, 40, 41, 1087
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 68, 400, 914, 1493
+    0, 0, 80, 412, 930, 1502
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 106, 303, 547, 975
+    0, 0, 108, 300, 546, 959
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 17, 82, 203, 533, 1160
+    0, 17, 82, 200, 527, 1218
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 0, 298, 195
+    0, 0, 0, 9, 293, 238
 };
 
 int piece_attack_weights_mg[5] = {
-    11, 76, 25, 31, 45
+    11, 75, 27, 31, 45
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 1, 2, 1, 17
+    0, 1, 2, 1, 13
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -81,6 +81,8 @@ int piece_attack_weights_eg[5] = {
 #define PASSED_PAWN_FRIENDLY_KING_PROXIMITY_EG eval_parameters_eg[15]
 #define PASSED_PAWN_ENEMY_KING_PROXIMITY_MG eval_parameters_mg[16]
 #define PASSED_PAWN_ENEMY_KING_PROXIMITY_EG eval_parameters_eg[16]
+#define BISHOP_PAIR_BONUS_MG eval_parameters_mg[17]
+#define BISHOP_PAIR_BONUS_EG eval_parameters_eg[17]
 
 static inline int manhattan_distance(int sq1, int sq2)
 {
@@ -715,6 +717,17 @@ int evaluate_position(Board *board)
     mg_total = mg_total - white_penalty_mg + black_penalty_mg;
     eg_total = eg_total - white_penalty_eg + black_penalty_eg;
 
+    // Bishop Pair Bonus
+    U64 white_bishops = board->pieces[WHITE_BISHOP];
+    int has_white_bishop_pair = (white_bishops & (white_bishops - 1)) != 0;
+    mg_total += has_white_bishop_pair * BISHOP_PAIR_BONUS_MG;
+    eg_total += has_white_bishop_pair * BISHOP_PAIR_BONUS_EG;
+
+    U64 black_bishops = board->pieces[BLACK_BISHOP];
+    int has_black_bishop_pair = (black_bishops & (black_bishops - 1)) != 0;
+    mg_total -= has_black_bishop_pair * BISHOP_PAIR_BONUS_MG;
+    eg_total -= has_black_bishop_pair * BISHOP_PAIR_BONUS_EG;
+
     /* Unless the position is zugzwang, having a move is often better. Zugzwang more likely in endgames */
     if (board->side == WHITE)
     {
@@ -768,14 +781,14 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         offset++;
     }
     
-    for (int i = 0; i < 17; ++i) {
+    for (int i = 0; i < 18; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 17; ++i) {
+    for (int i = 0; i < 18; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
