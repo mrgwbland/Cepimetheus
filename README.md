@@ -18,14 +18,15 @@ Estimated ratings are calculated with Ordo on game pools played at the exact CCR
 
 | Version | CCRL Blitz Rating | Estimated Rating | Error
 | :--- | :---: | :---: | :---: |
-| **Cepimetheus 11.0.0** | N/A | **2237.5** | +/-14.6
+| **Cepimetheus 12.0.0** | N/A | **2342.7** | +/-18.3
+| **Cepimetheus 11.0.0** | N/A | **2238.3** | +/-15.5
 | **Cepimetheus 10.0.0** | **2173** | **2173.0** | (anchor)
-| **Cepimetheus 9.0.0** | N/A | **2121.9** | +/-22.8
-| **Cepimetheus 8.0.0** | N/A | **2065.5** | +/-34.2
-| **Cepimetheus 7.2.0** | N/A | **1996.7** | +/-27.0
+| **Cepimetheus 9.0.0** | N/A | **2121.2** | +/-46.5
+| **Cepimetheus 8.0.0** | N/A | **2064.8** | +/-47.1
+| **Cepimetheus 7.2.0** | N/A | **1996.4** | +/-27.0
 | **Cepimetheus 6.4.1** | **1914** | **1914.0** | (anchor)
-| **Cepimetheus 5.1.0** | N/A | **1716.3** | +/-26.0
-| **Cepimetheus 4.3.1** | N/A | **1620.6** | +/-19.7
+| **Cepimetheus 5.1.0** | N/A | **1715.5** | +/-27.4
+| **Cepimetheus 4.3.1** | N/A | **1620.0** | +/-36.4
 
 > **Note on Accuracy:** All estimated ratings are subject to change as I play more games or add additional CCRL anchor engines to my testing to further calibrate the results.
 
