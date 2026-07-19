@@ -536,7 +536,26 @@ static SearchResult negamax(Board *board,
         else
         {
             // Subsequent moves use a null window
-            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+            // Late Move Reductions (LMR)
+            int r = 0;
+            if (depth >= 3 && legal_moves_searched >= 5 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            {
+                r = 1;
+            }
+
+            if (r > 0)
+            {
+                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+                int score = -child.score;
+                if (score > alpha)
+                {
+                    child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+                }
+            }
+            else
+            {
+                child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+            }
             int score = -child.score;
 
             // If the null-window search fails high, we must re-search with the full window.
@@ -777,7 +796,26 @@ SearchResult search_root(Board *board,
         else
         {
             // Subsequent moves use a null window
-            child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+            // Late Move Reductions (LMR)
+            int r = 0;
+            if (depth >= 3 && legal_moves_searched >= 5 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            {
+                r = 1;
+            }
+
+            if (r > 0)
+            {
+                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+                int score = -child.score;
+                if (score > alpha)
+                {
+                    child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+                }
+            }
+            else
+            {
+                child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+            }
             int score = -child.score;
 
             // If the null-window search fails high, re-search with the full window.
