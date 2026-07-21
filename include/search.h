@@ -46,6 +46,8 @@ typedef void (*SearchMoveInfoCallback)(int depth,
                                        int score,
                                        void *user_data);
 
+void init_lmr(void);
+
 SearchContext *search_context_create(size_t hash_power);
 void search_context_destroy(SearchContext *context);
 

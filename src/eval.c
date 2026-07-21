@@ -136,7 +136,7 @@ static inline U64 board_pawn_key(U64 white_pawns, U64 black_pawns) {
 }
 
 static int king_corner_pst[64];
-static bool eval_initialized = false;
+static bool eval_initialised = false;
 
 void init_eval(void)
 {
@@ -158,7 +158,7 @@ void init_eval(void)
         king_corner_pst[sq] = corner_distance;
     }
     memset(pawn_table, 0, sizeof(pawn_table));
-    eval_initialized = true;
+    eval_initialised = true;
 }
 
 // Evaluats MG and EG logic distinctly, without passing phase weight
@@ -577,7 +577,7 @@ static void calculate_hanging_piece_penalties(const Board *board, int *white_pen
 
 int evaluate_position(Board *board)
 {
-    if (!eval_initialized)
+    if (!eval_initialised)
     {
         init_eval();
     }
@@ -841,7 +841,7 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         offset++;
     }
 
-    if (weights_changed || !eval_initialized)
+    if (weights_changed || !eval_initialised)
     {
         init_eval();
     }

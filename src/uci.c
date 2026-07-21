@@ -339,6 +339,7 @@ static void run_perft(Board *board, int depth) {
 
 void uci_loop(void) {
     init_eval();
+    init_lmr();
     Board board;
     board_init(&board);
     RepetitionHistory history;

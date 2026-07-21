@@ -5,9 +5,39 @@
 #include "movepicker.h"
 
 #include <limits.h>
+#include <math.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+
+static int LMR[64][256];
+static bool lmr_initialised = false;
+
+void init_lmr(void)
+{
+    if (lmr_initialised)
+    {
+        return;
+    }
+
+    for (int depth = 0; depth < 64; ++depth)
+    {
+        for (int moves = 0; moves < 256; ++moves)
+        {
+            if (depth == 0 || moves == 0)
+            {
+                LMR[depth][moves] = 0;
+            }
+            else
+            {
+                int r = (int)(((log(depth) * log(moves)) / 2) -0.25); //Tune at some point
+                LMR[depth][moves] = r > 0 ? r : 0;
+            }
+        }
+    }
+    lmr_initialised = true;
+}
 
 static long long current_time_ms(void)
 {
@@ -472,7 +502,7 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    if (depth == 0)
+    if (depth <= 0)
     {
         result.score = quiescence(board, alpha, beta, history, stats, ply, 0, context, control, lichess_draw_rules);
         return result;
@@ -538,9 +568,11 @@ static SearchResult negamax(Board *board,
             // Subsequent moves use a null window
             // Late Move Reductions (LMR)
             int r = 0;
-            if (depth >= 3 && legal_moves_searched >= 5 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            if (depth >= 3 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
             {
-                r = 1;
+                int d = depth > 63 ? 63 : depth;
+                int m = legal_moves_searched > 255 ? 255 : legal_moves_searched;
+                r = LMR[d][m];
             }
 
             if (r > 0)
@@ -707,6 +739,7 @@ SearchResult search_root(Board *board,
                          const Move *excluded_moves,
                          int excluded_move_count)
 {
+    init_lmr();
     SearchResult result = {0, MOVE_NONE, {0}, 0, false};
     const int alpha_orig = alpha;
     const int beta_orig = beta;
@@ -798,9 +831,11 @@ SearchResult search_root(Board *board,
             // Subsequent moves use a null window
             // Late Move Reductions (LMR)
             int r = 0;
-            if (depth >= 3 && legal_moves_searched >= 5 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            if (depth >= 3 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
             {
-                r = 1;
+                int d = depth > 63 ? 63 : depth;
+                int m = legal_moves_searched > 255 ? 255 : legal_moves_searched;
+                r = LMR[d][m];
             }
 
             if (r > 0)
