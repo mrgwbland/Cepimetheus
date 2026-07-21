@@ -11,6 +11,8 @@
 #include <string.h>
 #include <sys/time.h>
 
+#define FUTILITY_MARGIN 1500
+
 static int LMR[64][256];
 static bool lmr_initialised = false;
 
@@ -508,6 +510,17 @@ static SearchResult negamax(Board *board,
         return result;
     }
 
+    bool in_check = board_is_in_check(board, board->side);
+    bool futility_prune = false;
+    if (depth == 1 && !in_check && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH)
+    {
+        int static_eval = evaluate_position(board);
+        if (static_eval + FUTILITY_MARGIN < alpha)
+        {
+            futility_prune = true;
+        }
+    }
+
     Move tt_move = MOVE_NONE;
     if (context != NULL)
     {
@@ -532,6 +545,15 @@ static SearchResult negamax(Board *board,
         if (search_should_stop(control, stats->nodes))
         {
             break;
+        }
+
+        if (futility_prune)
+        {
+            bool is_quiet = !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE;
+            if (is_quiet && !move_ischeck(board, move))
+            {
+                continue;
+            }
         }
 
         Undo undo;
@@ -667,11 +689,20 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    EvalTerminalState terminal_state = eval_terminal_state(board, has_legal_move);
-    if (terminal_state != EVAL_TERMINAL_NONE)
+    if (!has_legal_move)
     {
-        result.score = eval_terminal_score(terminal_state, ply);
-        return result;
+        if (!in_check && has_any_legal_move(board, &picker.all_moves))
+        {
+            result.score = alpha;
+            return result;
+        }
+
+        EvalTerminalState terminal_state = eval_terminal_state(board, false);
+        if (terminal_state != EVAL_TERMINAL_NONE)
+        {
+            result.score = eval_terminal_score(terminal_state, ply);
+            return result;
+        }
     }
 
     if (result.move != MOVE_NONE && context != NULL)
