@@ -927,7 +927,7 @@ SearchResult search_root(Board *board,
         }
     }
     // hashfull of 0 means empty TT, 1000 means full TT
-    stats->hashfull = (int)((context->table.count * 1000) / context->table.size);
+    stats->hashfull = (int)((context->table.count * 1000) / (context->table.size * 4));
     if (result.move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
