@@ -12,6 +12,8 @@
 #include <sys/time.h>
 
 #define FUTILITY_MARGIN 1500
+#define RFP_MARGIN 850
+#define RFP_MAX_DEPTH 8
 
 static int LMR[64][256];
 static bool lmr_initialised = false;
@@ -511,10 +513,21 @@ static SearchResult negamax(Board *board,
     }
 
     bool in_check = board_is_in_check(board, board->side);
+    int static_eval = evaluate_position(board);
+
+    // Reverse Futility Pruning: At realtively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node.
+    if (!pv_node && !in_check && depth <= RFP_MAX_DEPTH
+        && abs(static_eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
+        && static_eval - RFP_MARGIN * depth > beta)
+    {
+        result.score = static_eval;
+        return result;
+    }
+
+    // Futility Pruning: At depth 1, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves
     bool futility_prune = false;
     if (depth == 1 && !in_check && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH)
     {
-        int static_eval = evaluate_position(board);
         if (static_eval + FUTILITY_MARGIN < alpha)
         {
             futility_prune = true;
