@@ -506,13 +506,18 @@ static SearchResult negamax(Board *board,
         }
     }
 
+    bool in_check = board_is_in_check(board, board->side);
+    if (in_check)
+    {
+        depth++;
+    }
+
     if (depth <= 0)
     {
         result.score = quiescence(board, alpha, beta, history, stats, ply, 0, context, control, lichess_draw_rules);
         return result;
     }
 
-    bool in_check = board_is_in_check(board, board->side);
     int static_eval = evaluate_position(board);
 
     // Reverse Futility Pruning: At realtively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node.
