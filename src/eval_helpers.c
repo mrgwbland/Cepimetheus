@@ -47,6 +47,19 @@ U64 mark_passed_pawns(const Board *board, int side)
     return passed_pawns;
 }
 
+static uint64_t phase_reciprocal = 0;
+
+void update_endgame_weight_reciprocal(void)
+{
+    int initial_piece_value = 4 * piece_values_mg[WHITE_KNIGHT] + 4 * piece_values_mg[WHITE_BISHOP] + 4 * piece_values_mg[WHITE_ROOK] + 2 * piece_values_mg[WHITE_QUEEN];
+    if (initial_piece_value <= 0)
+    {
+        phase_reciprocal = 0;
+        return;
+    }
+    phase_reciprocal = ((1024ULL << 32) + (initial_piece_value / 2)) / initial_piece_value;
+}
+
 // I'm not counting pawns to determine endgame because you can have many pawns left in an endgame
 int get_endgame_weight(const Board *board)
 {
@@ -54,7 +67,6 @@ int get_endgame_weight(const Board *board)
         return 0;
 
     int total_piece_value = 0;
-    int initial_piece_value = 4 * piece_values_mg[WHITE_KNIGHT] + 4 * piece_values_mg[WHITE_BISHOP] + 4 * piece_values_mg[WHITE_ROOK] + 2 * piece_values_mg[WHITE_QUEEN];
 
     for (int i = WHITE_KNIGHT; i < WHITE_KING; i++)
     {
@@ -65,14 +77,19 @@ int get_endgame_weight(const Board *board)
         total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values_mg[i - 6];
     }
 
-    int raw_weight = 1000 - (int)(((long long)(total_piece_value + 1) * 1000) / (initial_piece_value + 1));
+    if (phase_reciprocal == 0)
+    {
+        update_endgame_weight_reciprocal();
+    }
+
+    int raw_weight = 1024 - (int)(((uint64_t)total_piece_value * phase_reciprocal + (1ULL << 31)) >> 32);
 
     if (raw_weight < 0)
         return 0;
-    if (raw_weight > 1000)
-        return 1000;
+    if (raw_weight > 1024)
+        return 1024;
 
-    return raw_weight; // 0 = Pure MG, 1000 = Pure EG
+    return raw_weight; // 0 = Pure MG, 1024 = Pure EG
 }
 
 EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move)

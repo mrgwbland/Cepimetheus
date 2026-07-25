@@ -8,35 +8,35 @@
 #include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2325, 2485, 3160, 10690, 0
+    1000, 2320, 2480, 3160, 10680, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 4190, 3495, 6220, 9510, 0
+    1000, 4180, 3490, 6215, 9500, 0
 };
 
 int eval_parameters_mg[21] = {
-    123, 322, 0, 23, 148, 0, 63, 79, 64, 193, 14, 9, 125, 95, 404, 95, 0, 5, 348, 142, 0
+    123, 322, 0, 23, 149, 0, 63, 79, 64, 192, 14, 9, 125, 95, 404, 94, 0, 2, 349, 145, 0
 };
 
 int eval_parameters_eg[21] = {
-    90, 0, 114, 27, 96, 97, 100, 59, 27, 0, 45, 0, 120, 61, 1008, 41, 41, 1142, 85, 0, 83
+    90, 0, 113, 27, 95, 97, 100, 59, 27, 0, 45, 0, 121, 61, 1007, 41, 41, 1146, 84, 0, 83
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 16, 335, 810, 1183
+    0, 0, 15, 336, 805, 1178
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 212, 417, 720, 1307
+    0, 0, 209, 417, 719, 1307
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 12, 86, 217, 552, 712
+    0, 12, 86, 217, 559, 725
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 27, 282, 508
+    0, 0, 0, 26, 282, 498
 };
 
 int piece_attack_weights_mg[5] = {
@@ -165,6 +165,7 @@ void init_eval(void)
     }
     memset(pawn_table, 0, sizeof(pawn_table));
     endgame_init();
+    update_endgame_weight_reciprocal();
     eval_initialised = true;
 }
 
@@ -651,10 +652,10 @@ int evaluate_position(Board *board)
     if (board == NULL)
         return 0;
 
-    int phase = get_endgame_weight(board); // 0 (MG) to 1000 (EG)
+    int phase = get_endgame_weight(board); // 0 (MG) to 1024 (EG)
 
     const EndgameEntry *eg_entry = NULL;
-    if (phase >= 500)
+    if (phase >= 512)
     {
         eg_entry = endgame_probe(board);
         if (eg_entry != NULL && eg_entry->eval_fn != NULL)
@@ -684,9 +685,10 @@ int evaluate_position(Board *board)
 
     U64 all_pieces = board->occupancy[BOTH];
 
-    int knight_open_position_penalty_mg = KNIGHT_PAWN_COUNT_PENALTY_MG * (16 - __builtin_popcountll(all_pawns));
-    int knight_open_position_penalty_eg = KNIGHT_PAWN_COUNT_PENALTY_EG * (16 - __builtin_popcountll(all_pawns));
-
+    int pawns_lost = 16 - __builtin_popcountll(all_pawns);
+    int knight_open_position_penalty_mg = KNIGHT_PAWN_COUNT_PENALTY_MG * pawns_lost;
+    int knight_open_position_penalty_eg = KNIGHT_PAWN_COUNT_PENALTY_EG * pawns_lost;
+    
     // Probe pawn structure cache
     U64 pawn_key = board_pawn_key(white_pawns, black_pawns);
     int pawn_idx = (int)(pawn_key % PAWN_TABLE_SIZE);
@@ -819,7 +821,7 @@ int evaluate_position(Board *board)
     }
 
     int eg_scale = SCALE_NORMAL;
-    if (phase >= 500)
+    if (phase >= 512)
     {
         if (eg_entry != NULL && eg_entry->scale_fn != NULL)
         {
@@ -837,7 +839,7 @@ int evaluate_position(Board *board)
     }
 
     /* Phase Interpolation */
-    int final_score = ((1000 - phase) * mg_total + phase * eg_total) / 1000;
+    int final_score = ((1024 - phase) * mg_total + phase * eg_total) >> 10;
 
     // Cap evaluation to avoid overlap with mate scores
     if (final_score > 30000)
