@@ -414,7 +414,7 @@ static Score evaluate_piece(const Board *board,
 
         U64 file_mask = file_masks[file];
         /* Open file bonus: + points if no pawns on the file. */
-        if (__builtin_popcountll(all_pawns & file_mask) == 0)
+        	if ((all_pawns & file_mask) == 0)
         {
             s.mg += ROOK_OPEN_FILE_BONUS_MG;
             s.eg += ROOK_OPEN_FILE_BONUS_EG;

@@ -12,9 +12,10 @@ A friend of mine could not beat Cepimetheus in bullet after several attempts, he
 
 ## Rating
 
-Cepimetheus is undergoing continuous development, with noticeable strength gains with each major release. The engine is officially tracked on the CCRL Blitz ratings list [here](https://computerchess.org.uk/404/cgi/compare_engines.cgi?family=Cepimetheus).
-I have also made an effort to estimate the ratings of other major versions to better show per version improvement and let users know how strong a certain version is.
-Estimated ratings are calculated with Ordo on game pools played at the exact CCRL blitz time control framework of 120s + 1s increment, my testing cpu is very similar single thread performance to the CCRL baseline 4770K. 
+Cepimetheus is undergoing continuous development, with noticeable strength gains with each major release. The engine is officially tracked on the CCRL Blitz ratings list [here](https://computerchess.org.uk/404/cgi/compare_engines.cgi?family=Cepimetheus).\
+I have also made an effort to estimate the ratings of other major versions to better show per version improvement and let users know how strong a certain version is.\
+Estimated ratings are calculated with Ordo on game pools played at the exact CCRL blitz time control framework of 120s + 1s increment, my testing cpu has very similar single thread performance to the CCRL baseline 4770K.\
+My testing games include several third party "anchor engines", these are engines that are rated on the CCRL list, to improve the accuracy of the data.\
 
 | Version | CCRL Blitz Rating | Estimated Rating | Error
 | :--- | :---: | :---: | :---: |
