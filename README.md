@@ -33,27 +33,44 @@ Estimated ratings are calculated with Ordo on game pools played at the exact CCR
 
 ## Features
 
+### Search
 * Alpha-Beta Negamax Search
 * Quiescence Search
 * PV Search
 * Aspiration Windows
-* Transposition Table
+
+### Transposition Table
+* 4 Value Hash Buckets
 * Incremental Hashing
-* MVV-LVA Move Ordering
+
+### Move Ordering
+* MVV-LVA
 * Killer Move Heuristic
 * Counter Move Heuristic
 * History Heuristic
+
+### Selectivity
 * Check Extensions
 * Late Move Reductions
 * Null Move Pruning
 * Delta Pruning
 * Futility Pruning
 * Reverse Futility Pruning
-* MultiPV Support
+
+### Evaluation
+* No PST Hand Crafted Evaluation
 * Tapered Evaluation
+* Custom Automated Tuning
+
+### Board Representation
 * PEXT Magic Bitboards
 
+### Features
+* MultiPV Support
+* Allocatable Hash Table Size (in megabytes)
+* Move Overhead Adjustment
+
 ## Download
-To use this engine please click on the "releases" section of the github page. Starting from version 7.0.0 I am providing both linux and windows binaries at a variety of instruction set support levels, choose the one that best performs on your machine, for most modern cpus this will be AVX2 although AVX512 is superior if your CPU supports it, POPCNT is more compatible, and the basic 64 bit build is for legacy systems.
-Additionally you can also of course compile it yourself from the source code.
+To use this engine please click on the "releases" section of the github page. Starting from version 7.0.0 I am providing both linux and windows binaries at a variety of instruction set support levels, choose the one that best performs on your machine, for most modern cpus this will be AVX2 although AVX512 is superior if your CPU supports it, POPCNT is more compatible, and the basic 64 bit build is for legacy systems. \
+Additionally you can also of course compile it yourself from the source code. \
 Please note that the older the version of engine you get, not only will it be weaker, but the number of bugs will increase, versions 6.4.1 and later have no major bugs.
