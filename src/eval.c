@@ -12,31 +12,31 @@ int piece_values_mg[6] = {
 };
 
 int piece_values_eg[6] = {
-    1000, 4170, 3490, 6215, 9500, 0
+    1000, 4190, 3495, 6220, 9510, 0
 };
 
 int eval_parameters_mg[21] = {
-    123, 322, 0, 23, 149, 0, 63, 79, 64, 192, 14, 9, 125, 96, 405, 95, 0, 5, 349, 142, 0
+    123, 322, 0, 23, 148, 0, 63, 79, 64, 193, 14, 9, 125, 95, 404, 95, 0, 5, 348, 142, 0
 };
 
 int eval_parameters_eg[21] = {
-    90, 0, 113, 27, 95, 96, 101, 59, 27, 0, 45, 0, 120, 59, 1006, 41, 41, 1135, 84, 0, 83
+    90, 0, 114, 27, 96, 97, 100, 59, 27, 0, 45, 0, 120, 61, 1008, 41, 41, 1142, 85, 0, 83
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 20, 340, 816, 1203
+    0, 0, 16, 335, 810, 1183
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 209, 417, 718, 1297
+    0, 0, 212, 417, 720, 1307
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 12, 86, 217, 558, 705
+    0, 12, 86, 217, 552, 712
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 26, 282, 498
+    0, 0, 0, 27, 282, 508
 };
 
 int piece_attack_weights_mg[5] = {
@@ -46,6 +46,7 @@ int piece_attack_weights_mg[5] = {
 int piece_attack_weights_eg[5] = {
     0, 1, 2, 1, 15
 };
+
 
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS_MG eval_parameters_mg[0]
@@ -107,8 +108,6 @@ static inline Score make_score(int mg, int eg)
     Score s = {mg, eg};
     return s;
 }
-
-
 
 typedef struct
 {
@@ -652,10 +651,16 @@ int evaluate_position(Board *board)
     if (board == NULL)
         return 0;
 
-    const EndgameEntry *eg_entry = endgame_probe(board);
-    if (eg_entry != NULL && eg_entry->eval_fn != NULL)
+    int phase = get_endgame_weight(board); // 0 (MG) to 1000 (EG)
+
+    const EndgameEntry *eg_entry = NULL;
+    if (phase >= 500)
     {
-        return eg_entry->eval_fn(board, eg_entry->strong_side);
+        eg_entry = endgame_probe(board);
+        if (eg_entry != NULL && eg_entry->eval_fn != NULL)
+        {
+            return eg_entry->eval_fn(board, eg_entry->strong_side);
+        }
     }
 
     Score white_score = make_score(0, 0);
@@ -814,13 +819,16 @@ int evaluate_position(Board *board)
     }
 
     int eg_scale = SCALE_NORMAL;
-    if (eg_entry != NULL && eg_entry->scale_fn != NULL)
+    if (phase >= 500)
     {
-        eg_scale = eg_entry->scale_fn(board, eg_entry->strong_side);
-    }
-    else if (is_ocb(board))
-    {
-        eg_scale = OCB_SCALE_EG;
+        if (eg_entry != NULL && eg_entry->scale_fn != NULL)
+        {
+            eg_scale = eg_entry->scale_fn(board, eg_entry->strong_side);
+        }
+        else if (is_ocb(board))
+        {
+            eg_scale = OCB_SCALE_EG;
+        }
     }
 
     if (eg_scale != SCALE_NORMAL)
@@ -829,7 +837,6 @@ int evaluate_position(Board *board)
     }
 
     /* Phase Interpolation */
-    int phase = get_endgame_weight(board); // 0 (MG) to 1000 (EG)
     int final_score = ((1000 - phase) * mg_total + phase * eg_total) / 1000;
 
     // Cap evaluation to avoid overlap with mate scores
@@ -854,79 +861,82 @@ int evaluate_position_with_weights(const char *fen, int *weights)
     bool weights_changed = false;
     int offset = 0;
     
-    for (int i = 0; i < 6; ++i) {
-        if (piece_values_mg[i] != weights[offset]) {
-            piece_values_mg[i] = weights[offset];
-            weights_changed = true;
+    if (weights != NULL)
+    {
+        for (int i = 0; i < 6; ++i) {
+            if (piece_values_mg[i] != weights[offset]) {
+                piece_values_mg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
-    for (int i = 0; i < 6; ++i) {
-        if (piece_values_eg[i] != weights[offset]) {
-            piece_values_eg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 6; ++i) {
+            if (piece_values_eg[i] != weights[offset]) {
+                piece_values_eg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
-    
-    for (int i = 0; i < 21; ++i) {
-        if (eval_parameters_mg[i] != weights[offset]) {
-            eval_parameters_mg[i] = weights[offset];
-            weights_changed = true;
+        
+        for (int i = 0; i < 21; ++i) {
+            if (eval_parameters_mg[i] != weights[offset]) {
+                eval_parameters_mg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
-    for (int i = 0; i < 21; ++i) {
-        if (eval_parameters_eg[i] != weights[offset]) {
-            eval_parameters_eg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 21; ++i) {
+            if (eval_parameters_eg[i] != weights[offset]) {
+                eval_parameters_eg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
 
-    for (int i = 0; i < 6; ++i) {
-        if (passed_pawn_rank_bonus_mg[i] != weights[offset]) {
-            passed_pawn_rank_bonus_mg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 6; ++i) {
+            if (passed_pawn_rank_bonus_mg[i] != weights[offset]) {
+                passed_pawn_rank_bonus_mg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
-    for (int i = 0; i < 6; ++i) {
-        if (passed_pawn_rank_bonus_eg[i] != weights[offset]) {
-            passed_pawn_rank_bonus_eg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 6; ++i) {
+            if (passed_pawn_rank_bonus_eg[i] != weights[offset]) {
+                passed_pawn_rank_bonus_eg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
 
-    for (int i = 0; i < 6; ++i) {
-        if (phalanx_pawn_rank_bonus_mg[i] != weights[offset]) {
-            phalanx_pawn_rank_bonus_mg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 6; ++i) {
+            if (phalanx_pawn_rank_bonus_mg[i] != weights[offset]) {
+                phalanx_pawn_rank_bonus_mg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
-    for (int i = 0; i < 6; ++i) {
-        if (phalanx_pawn_rank_bonus_eg[i] != weights[offset]) {
-            phalanx_pawn_rank_bonus_eg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 6; ++i) {
+            if (phalanx_pawn_rank_bonus_eg[i] != weights[offset]) {
+                phalanx_pawn_rank_bonus_eg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
 
-    for (int i = 0; i < 5; ++i) {
-        if (piece_attack_weights_mg[i] != weights[offset]) {
-            piece_attack_weights_mg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 5; ++i) {
+            if (piece_attack_weights_mg[i] != weights[offset]) {
+                piece_attack_weights_mg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
-    }
-    for (int i = 0; i < 5; ++i) {
-        if (piece_attack_weights_eg[i] != weights[offset]) {
-            piece_attack_weights_eg[i] = weights[offset];
-            weights_changed = true;
+        for (int i = 0; i < 5; ++i) {
+            if (piece_attack_weights_eg[i] != weights[offset]) {
+                piece_attack_weights_eg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
         }
-        offset++;
     }
 
     if (weights_changed || !eval_initialised)
@@ -943,14 +953,47 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         return 0;
     }
 
-    // 3. Generate a pseudo-legal move-list
+    // 3. Check for theoretical material draws or 50-move rule
+    if (board_is_draw(&board, NULL, 0, false))
+    {
+        return 0;
+    }
+
+    // 4. Generate pseudo-legal moves and check for legal moves (checkmate / stalemate detection)
     MoveList list;
     movegen_generate_pseudo_legal(&board, &list);
 
-    // 4. Calculate relative score from your internal function
+    U64 pinned = board_pinned_mask(&board, board.side);
+    U64 checkers = board_checkers(&board, board.side);
+    bool has_legal_move = false;
+
+    for (int i = 0; i < list.count; i++)
+    {
+        if (board_is_move_legal(&board, list.moves[i], pinned, checkers))
+        {
+            has_legal_move = true;
+            break;
+        }
+    }
+
+    if (!has_legal_move)
+    {
+        if (checkers != 0)
+        {
+            // Checkmate: return White-centric mate score
+            return (board.side == WHITE) ? -MATE_SCORE : MATE_SCORE;
+        }
+        else
+        {
+            // Stalemate: draw score
+            return 0;
+        }
+    }
+
+    // 5. Calculate relative score from evaluation function
     int relative_score = evaluate_position(&board);
 
-    // 5. Convert perspective (White-centric)
+    // 6. Convert perspective (White-centric)
     int final_score = relative_score;
     if (board.side == BLACK)
     {
