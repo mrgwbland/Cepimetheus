@@ -14,6 +14,7 @@ SRC := \
     src/uci.c \
     src/eval.c \
     src/eval_helpers.c \
+    src/endgame.c \
     src/search.c \
     src/tt.c \
     src/movepicker.c \
@@ -28,6 +29,7 @@ SRC := \
 TUNING_SRC := \
     src/eval.c \
     src/eval_helpers.c \
+    src/endgame.c \
     src/movegen.c \
     src/move.c \
     src/board.c \

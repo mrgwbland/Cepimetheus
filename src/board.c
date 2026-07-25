@@ -1,4 +1,5 @@
 #include "board.h"
+#include "endgame.h"
 #include "movegen.h"
 #include "../include/zobrist.h"
 #include <assert.h>
@@ -186,6 +187,10 @@ bool board_is_draw(const Board *board, const RepetitionHistory *history, int ply
     }
 
     if (board->halfmove_clock >= 100) {
+        return true;
+    }
+
+    if (is_material_draw(board)) {
         return true;
     }
 

@@ -1,5 +1,6 @@
 #include "eval.h"
 #include "eval_helpers.h"
+#include "endgame.h"
 #include "movegen.h"
 #include <stddef.h>
 #include <stdbool.h>
@@ -7,43 +8,43 @@
 #include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2325, 2485, 3270, 10880, 0
+    1000, 2325, 2485, 3160, 10690, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3995, 3350, 5870, 8860, 0
+    1000, 4170, 3490, 6215, 9500, 0
 };
 
-int eval_parameters_mg[20] = {
-    123, 328, 0, 24, 142, 0, 65, 80, 66, 193, 14, 8, 115, 95, 409, 97, 0, 13, 352, 140
+int eval_parameters_mg[21] = {
+    123, 322, 0, 23, 149, 0, 63, 79, 64, 192, 14, 9, 125, 96, 405, 95, 0, 5, 349, 142, 0
 };
 
-int eval_parameters_eg[20] = {
-    85, 0, 107, 21, 124, 88, 96, 57, 20, 0, 43, 1, 90, 59, 968, 40, 40, 1105, 88, 0
+int eval_parameters_eg[21] = {
+    90, 0, 113, 27, 95, 96, 101, 59, 27, 0, 45, 0, 120, 59, 1006, 41, 41, 1135, 84, 0, 83
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 67, 398, 908, 1504
+    0, 0, 20, 340, 816, 1203
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 114, 301, 547, 948
+    0, 0, 209, 417, 718, 1297
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 10, 83, 217, 551, 1238
+    0, 12, 86, 217, 558, 705
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 11, 288, 250
+    0, 0, 0, 26, 282, 498
 };
 
 int piece_attack_weights_mg[5] = {
-    9, 69, 25, 31, 45
+    13, 69, 25, 31, 45
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 2, 1, 13
+    0, 1, 2, 1, 15
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -87,6 +88,8 @@ int piece_attack_weights_eg[5] = {
 #define KNIGHT_OUTPOST_BONUS_EG eval_parameters_eg[18]
 #define BISHOP_OUTPOST_BONUS_MG eval_parameters_mg[19]
 #define BISHOP_OUTPOST_BONUS_EG eval_parameters_eg[19]
+#define OCB_SCALE_MG eval_parameters_mg[20]
+#define OCB_SCALE_EG eval_parameters_eg[20]
 
 static inline int manhattan_distance(int sq1, int sq2)
 {
@@ -162,6 +165,7 @@ void init_eval(void)
         king_corner_pst[sq] = corner_distance;
     }
     memset(pawn_table, 0, sizeof(pawn_table));
+    endgame_init();
     eval_initialised = true;
 }
 
@@ -648,6 +652,12 @@ int evaluate_position(Board *board)
     if (board == NULL)
         return 0;
 
+    const EndgameEntry *eg_entry = endgame_probe(board);
+    if (eg_entry != NULL && eg_entry->eval_fn != NULL)
+    {
+        return eg_entry->eval_fn(board, eg_entry->strong_side);
+    }
+
     Score white_score = make_score(0, 0);
     Score black_score = make_score(0, 0);
 
@@ -803,6 +813,21 @@ int evaluate_position(Board *board)
         eg_total -= TEMPO_BONUS_EG;
     }
 
+    int eg_scale = SCALE_NORMAL;
+    if (eg_entry != NULL && eg_entry->scale_fn != NULL)
+    {
+        eg_scale = eg_entry->scale_fn(board, eg_entry->strong_side);
+    }
+    else if (is_ocb(board))
+    {
+        eg_scale = OCB_SCALE_EG;
+    }
+
+    if (eg_scale != SCALE_NORMAL)
+    {
+        eg_total = (eg_total * eg_scale) >> 8;
+    }
+
     /* Phase Interpolation */
     int phase = get_endgame_weight(board); // 0 (MG) to 1000 (EG)
     int final_score = ((1000 - phase) * mg_total + phase * eg_total) / 1000;
@@ -844,14 +869,14 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         offset++;
     }
     
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 21; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 21; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
