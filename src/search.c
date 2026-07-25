@@ -832,16 +832,39 @@ SearchResult search_root(Board *board,
         return result;
     }
 
-    if (picker.all_moves.count == 1) // Despite this technically being pseudo-legal, because this is root, if there's only one move, it's the only legal move (if no moves then it's mate or stalemate).
+    // Count legal moves to detect forced moves.
+    // This is only done at the root, so the cost of testing legality is negligible.
+    if (control != NULL && control->allow_forced_root_move)
     {
-        if (!move_is_excluded(picker.all_moves.moves[0], excluded_moves, excluded_move_count))
+        int legal_count = 0;
+        Move only_legal_move = MOVE_NONE;
+        for (int i = 0; i < picker.all_moves.count; ++i)
         {
-            result.move = picker.all_moves.moves[0];
-            result.pv[0] = picker.all_moves.moves[0];
-            result.pv_length = 1;
-            result.forced_root_move = (control != NULL && control->allow_forced_root_move);
+            Move m = picker.all_moves.moves[i];
+            if (move_is_excluded(m, excluded_moves, excluded_move_count))
+            {
+                continue;
+            }
+            Undo undo;
+            if (board_make_move(board, m, &undo))
+            {
+                board_unmake_move(board, &undo);
+                legal_count++;
+                only_legal_move = m;
+                if (legal_count > 1)
+                {
+                    break; // No need to count further
+                }
+            }
         }
-        return result;
+        if (legal_count == 1)
+        {
+            result.move = only_legal_move;
+            result.pv[0] = only_legal_move;
+            result.pv_length = 1;
+            result.forced_root_move = true;
+            return result;
+        }
     }
 
     Move move;

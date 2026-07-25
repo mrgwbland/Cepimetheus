@@ -442,6 +442,11 @@ Move think(Board *board,
             best_result = depth_best_result;
         }
 
+        if (control.allow_forced_root_move && depth_best_result.forced_root_move)
+        {
+            break;
+        }
+
         long long elapsed_ms = current_time_ms() - start_time_ms;
         if (elapsed_ms < 0)
         {
