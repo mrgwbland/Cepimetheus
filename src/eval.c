@@ -142,32 +142,9 @@ static inline U64 board_pawn_key(U64 white_pawns, U64 black_pawns) {
 }
 
 static int king_corner_pst[64];
+static U64 outpost_mask[2][64];
+static bool outpost_eligible[2][64];
 static bool eval_initialised = false;
-
-void init_eval(void)
-{
-    for (int sq = 0; sq < 64; ++sq)
-    {
-        int distance_a1 = manhattan_distance(sq, 0);
-        int distance_h1 = manhattan_distance(sq, 7);
-        int distance_a8 = manhattan_distance(sq, 56);
-        int distance_h8 = manhattan_distance(sq, 63);
-
-        int corner_distance = distance_a1;
-        if (distance_h1 < corner_distance)
-            corner_distance = distance_h1;
-        if (distance_a8 < corner_distance)
-            corner_distance = distance_a8;
-        if (distance_h8 < corner_distance)
-            corner_distance = distance_h8;
-
-        king_corner_pst[sq] = corner_distance;
-    }
-    memset(pawn_table, 0, sizeof(pawn_table));
-    endgame_init();
-    update_endgame_weight_reciprocal();
-    eval_initialised = true;
-}
 
 static const U64 ranks_gt[8] = {
     0xFFFFFFFFFFFFFF00ULL,
@@ -191,29 +168,73 @@ static const U64 ranks_lt[8] = {
     0x00FFFFFFFFFFFFFFULL
 };
 
+void init_eval(void)
+{
+    for (int sq = 0; sq < 64; ++sq)
+    {
+        int distance_a1 = manhattan_distance(sq, 0);
+        int distance_h1 = manhattan_distance(sq, 7);
+        int distance_a8 = manhattan_distance(sq, 56);
+        int distance_h8 = manhattan_distance(sq, 63);
+
+        int corner_distance = distance_a1;
+        if (distance_h1 < corner_distance)
+            corner_distance = distance_h1;
+        if (distance_a8 < corner_distance)
+            corner_distance = distance_a8;
+        if (distance_h8 < corner_distance)
+            corner_distance = distance_h8;
+
+        king_corner_pst[sq] = corner_distance;
+    }
+
+    for (int side = 0; side < 2; ++side)
+    {
+        for (int sq = 0; sq < 64; ++sq)
+        {
+            int rank = rank_of(sq);
+            int file = file_of(sq);
+            int rel_rank = (side == WHITE) ? rank : (7 - rank);
+
+            if (rel_rank >= 3 && rel_rank <= 5)
+            {
+                outpost_eligible[side][sq] = true;
+                U64 adj_files = 0;
+                if (file > 0) adj_files |= file_masks[file - 1];
+                if (file < 7) adj_files |= file_masks[file + 1];
+
+                if (side == WHITE)
+                {
+                    outpost_mask[WHITE][sq] = adj_files & ranks_gt[rank];
+                }
+                else
+                {
+                    outpost_mask[BLACK][sq] = adj_files & ranks_lt[rank];
+                }
+            }
+            else
+            {
+                outpost_eligible[side][sq] = false;
+                outpost_mask[side][sq] = 0ULL;
+            }
+        }
+    }
+
+    memset(pawn_table, 0, sizeof(pawn_table));
+    endgame_init();
+    update_endgame_weight_reciprocal();
+    eval_initialised = true;
+}
+
 static inline bool is_outpost_square(const Board *board, int square, int side)
 {
-    int rank = rank_of(square);
-    int file = file_of(square);
-    int rel_rank = (side == WHITE) ? rank : (7 - rank);
-
-    if (rel_rank < 3 || rel_rank > 5)
+    if (!outpost_eligible[side][square])
     {
         return false;
     }
 
-    U64 adj_files = 0;
-    if (file > 0) adj_files |= file_masks[file - 1];
-    if (file < 7) adj_files |= file_masks[file + 1];
-
-    if (side == WHITE)
-    {
-        return (board->pieces[BLACK_PAWN] & adj_files & ranks_gt[rank]) == 0;
-    }
-    else
-    {
-        return (board->pieces[WHITE_PAWN] & adj_files & ranks_lt[rank]) == 0;
-    }
+    U64 enemy_pawns = (side == WHITE) ? board->pieces[BLACK_PAWN] : board->pieces[WHITE_PAWN];
+    return (enemy_pawns & outpost_mask[side][square]) == 0;
 }
 
 // Evaluats MG and EG logic distinctly, without passing phase weight
@@ -709,25 +730,23 @@ int evaluate_position(Board *board)
     U64 white_king_ring = bitboard_king_attacks(board->king_square[WHITE]);
     U64 black_king_ring = bitboard_king_attacks(board->king_square[BLACK]);
 
+    U64 black_pawn_attacks = __builtin_popcountll((((black_pawns & ~file_masks[0]) >> 9) & white_king_ring)|
+                                                  (((black_pawns & ~file_masks[7]) >> 7) & white_king_ring));
+
+    U64 white_pawn_attacks = __builtin_popcountll((((white_pawns & ~file_masks[0]) << 7) & black_king_ring)|
+                                                  (((white_pawns & ~file_masks[7]) << 9) & black_king_ring));
+
     int white_king_ring_attackers_mg =
-        piece_attack_weights_mg[0] * (
-        __builtin_popcountll(((black_pawns & ~file_masks[0]) >> 9) & white_king_ring) +
-        __builtin_popcountll(((black_pawns & ~file_masks[7]) >> 7) & white_king_ring));
+        piece_attack_weights_mg[0] * black_pawn_attacks;
 
     int white_king_ring_attackers_eg =
-        piece_attack_weights_eg[0] * (
-        __builtin_popcountll(((black_pawns & ~file_masks[0]) >> 9) & white_king_ring) +
-        __builtin_popcountll(((black_pawns & ~file_masks[7]) >> 7) & white_king_ring));
+        piece_attack_weights_eg[0] * black_pawn_attacks;
 
     int black_king_ring_attackers_mg =
-        piece_attack_weights_mg[0] * (
-        __builtin_popcountll(((white_pawns & ~file_masks[0]) << 7) & black_king_ring) +
-        __builtin_popcountll(((white_pawns & ~file_masks[7]) << 9) & black_king_ring));
+        piece_attack_weights_mg[0] * white_pawn_attacks;
 
     int black_king_ring_attackers_eg =
-        piece_attack_weights_eg[0] * (
-        __builtin_popcountll(((white_pawns & ~file_masks[0]) << 7) & black_king_ring) +
-        __builtin_popcountll(((white_pawns & ~file_masks[7]) << 9) & black_king_ring));
+        piece_attack_weights_eg[0] * white_pawn_attacks;
 
     for (int piece = 0; piece < PIECE_NB; ++piece)
     {

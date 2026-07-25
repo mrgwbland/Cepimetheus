@@ -263,7 +263,7 @@ int board_piece_type(int piece) {
     if (piece < 0) {
         return -1;
     }
-    return piece % 6;
+    return piece >= 6 ? piece - 6 : piece;
 }
 
 int board_piece_at(const Board *board, int square) {

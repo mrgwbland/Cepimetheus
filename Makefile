@@ -1,7 +1,7 @@
 CC ?= gcc
 THREAD_FLAGS ?= -pthread
-CFLAGS ?= -Ofast -march=x86-64-v3 -flto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -g -fno-omit-frame-pointer #(last two for profiling)
-RELEASE_FLAGS ?= -Ofast -flto -Iinclude $(THREAD_FLAGS)
+CFLAGS ?= -Ofast -march=x86-64-v3 -flto=auto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -g -fno-omit-frame-pointer #(last two for profiling)
+RELEASE_FLAGS ?= -Ofast -flto=auto -Iinclude $(THREAD_FLAGS)
 WIN_CC ?= x86_64-w64-mingw32-gcc
 WIN32_CC ?= i686-w64-mingw32-gcc
 BUILD_DIR ?= release
