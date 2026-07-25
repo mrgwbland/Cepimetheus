@@ -7,43 +7,43 @@
 #include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2370, 2495, 3255, 10800, 0
+    1000, 2325, 2485, 3270, 10880, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3945, 3345, 5855, 8890, 0
+    1000, 3995, 3350, 5870, 8860, 0
 };
 
-int eval_parameters_mg[18] = {
-    123, 326, 0, 28, 138, 14, 65, 81, 67, 199, 15, 6, 111, 98, 423, 97, 0, 19
+int eval_parameters_mg[20] = {
+    123, 328, 0, 24, 142, 0, 65, 80, 66, 193, 14, 8, 115, 95, 409, 97, 0, 13, 352, 140
 };
 
-int eval_parameters_eg[18] = {
-    85, 0, 100, 21, 125, 88, 101, 58, 21, 0, 44, 0, 92, 67, 959, 40, 41, 1087
+int eval_parameters_eg[20] = {
+    85, 0, 107, 21, 124, 88, 96, 57, 20, 0, 43, 1, 90, 59, 968, 40, 40, 1105, 88, 0
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 80, 412, 930, 1502
+    0, 0, 67, 398, 908, 1504
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 108, 300, 546, 959
+    0, 0, 114, 301, 547, 948
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 17, 82, 200, 527, 1218
+    0, 10, 83, 217, 551, 1238
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 9, 293, 238
+    0, 0, 0, 11, 288, 250
 };
 
 int piece_attack_weights_mg[5] = {
-    11, 75, 27, 31, 45
+    9, 69, 25, 31, 45
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 1, 2, 1, 13
+    0, 0, 2, 1, 13
 };
 
 /* Macros redirect the existing engine code to array*/
@@ -83,6 +83,10 @@ int piece_attack_weights_eg[5] = {
 #define PASSED_PAWN_ENEMY_KING_PROXIMITY_EG eval_parameters_eg[16]
 #define BISHOP_PAIR_BONUS_MG eval_parameters_mg[17]
 #define BISHOP_PAIR_BONUS_EG eval_parameters_eg[17]
+#define KNIGHT_OUTPOST_BONUS_MG eval_parameters_mg[18]
+#define KNIGHT_OUTPOST_BONUS_EG eval_parameters_eg[18]
+#define BISHOP_OUTPOST_BONUS_MG eval_parameters_mg[19]
+#define BISHOP_OUTPOST_BONUS_EG eval_parameters_eg[19]
 
 static inline int manhattan_distance(int sq1, int sq2)
 {
@@ -159,6 +163,53 @@ void init_eval(void)
     }
     memset(pawn_table, 0, sizeof(pawn_table));
     eval_initialised = true;
+}
+
+static const U64 ranks_gt[8] = {
+    0xFFFFFFFFFFFFFF00ULL,
+    0xFFFFFFFFFFFF0000ULL,
+    0xFFFFFFFFFF000000ULL,
+    0xFFFFFFFF00000000ULL,
+    0xFFFFFF0000000000ULL,
+    0xFFFF000000000000ULL,
+    0xFF00000000000000ULL,
+    0x0000000000000000ULL
+};
+
+static const U64 ranks_lt[8] = {
+    0x0000000000000000ULL,
+    0x00000000000000FFULL,
+    0x000000000000FFFFULL,
+    0x0000000000FFFFFFULL,
+    0x00000000FFFFFFFFULL,
+    0x000000FFFFFFFFFFULL,
+    0x0000FFFFFFFFFFFFULL,
+    0x00FFFFFFFFFFFFFFULL
+};
+
+static inline bool is_outpost_square(const Board *board, int square, int side)
+{
+    int rank = rank_of(square);
+    int file = file_of(square);
+    int rel_rank = (side == WHITE) ? rank : (7 - rank);
+
+    if (rel_rank < 3 || rel_rank > 5)
+    {
+        return false;
+    }
+
+    U64 adj_files = 0;
+    if (file > 0) adj_files |= file_masks[file - 1];
+    if (file < 7) adj_files |= file_masks[file + 1];
+
+    if (side == WHITE)
+    {
+        return (board->pieces[BLACK_PAWN] & adj_files & ranks_gt[rank]) == 0;
+    }
+    else
+    {
+        return (board->pieces[WHITE_PAWN] & adj_files & ranks_lt[rank]) == 0;
+    }
 }
 
 // Evaluats MG and EG logic distinctly, without passing phase weight
@@ -273,6 +324,12 @@ static Score evaluate_piece(const Board *board,
             s.eg -= PAWN_BLOCKING_PENALTY_EG;
         }
 
+        if (is_outpost_square(board, square, side))
+        {
+            s.mg += KNIGHT_OUTPOST_BONUS_MG;
+            s.eg += KNIGHT_OUTPOST_BONUS_EG;
+        }
+
         if (king_ring_attackers_mg && king_ring_attackers_eg) {
             int attacks_count = __builtin_popcountll(attacks & enemy_king_ring);
             *king_ring_attackers_mg += piece_attack_weights_mg[type] * attacks_count;
@@ -292,6 +349,12 @@ static Score evaluate_piece(const Board *board,
         {
             s.mg -= PAWN_BLOCKING_PENALTY_MG;
             s.eg -= PAWN_BLOCKING_PENALTY_EG;
+        }
+
+        if (is_outpost_square(board, square, side))
+        {
+            s.mg += BISHOP_OUTPOST_BONUS_MG;
+            s.eg += BISHOP_OUTPOST_BONUS_EG;
         }
 
         if (king_ring_attackers_mg && king_ring_attackers_eg) {
@@ -781,14 +844,14 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         offset++;
     }
     
-    for (int i = 0; i < 18; ++i) {
+    for (int i = 0; i < 20; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 18; ++i) {
+    for (int i = 0; i < 20; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
