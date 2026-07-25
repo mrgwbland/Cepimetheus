@@ -114,6 +114,8 @@ typedef struct
     U64 key;
     int mg;
     int eg;
+    U64 white_passed_pawns;
+    U64 black_passed_pawns;
 } PawnEntry;
 
 #define PAWN_TABLE_SIZE 32768
@@ -692,17 +694,9 @@ int evaluate_position(Board *board)
     U64 black_pawns = board->pieces[BLACK_PAWN];
     U64 all_pawns = white_pawns | black_pawns;
 
-    int white_pawns_per_file[8];
-    int black_pawns_per_file[8];
-    count_pawns_per_file(white_pawns, white_pawns_per_file);
-    count_pawns_per_file(black_pawns, black_pawns_per_file);
-
     U64 central_files = file_masks[2] | file_masks[3] | file_masks[4]; // C, D, E files
     U64 white_central_blocked_mask = (white_pawns & central_files) << 8;
     U64 black_central_blocked_mask = (black_pawns & central_files) >> 8;
-
-    U64 white_passed_pawns = mark_passed_pawns(board, WHITE);
-    U64 black_passed_pawns = mark_passed_pawns(board, BLACK);
 
     U64 all_pieces = board->occupancy[BOTH];
 
@@ -712,19 +706,35 @@ int evaluate_position(Board *board)
     
     // Probe pawn structure cache
     U64 pawn_key = board_pawn_key(white_pawns, black_pawns);
-    int pawn_idx = (int)(pawn_key % PAWN_TABLE_SIZE);
+    int pawn_idx = (int)(pawn_key & (PAWN_TABLE_SIZE - 1));
     Score pawn_score;
+    U64 white_passed_pawns;
+    U64 black_passed_pawns;
+
     if (pawn_table[pawn_idx].key == pawn_key)
     {
         pawn_score.mg = pawn_table[pawn_idx].mg;
         pawn_score.eg = pawn_table[pawn_idx].eg;
+        white_passed_pawns = pawn_table[pawn_idx].white_passed_pawns;
+        black_passed_pawns = pawn_table[pawn_idx].black_passed_pawns;
     }
     else
     {
+        white_passed_pawns = mark_passed_pawns(board, WHITE);
+        black_passed_pawns = mark_passed_pawns(board, BLACK);
+
+        int white_pawns_per_file[8];
+        int black_pawns_per_file[8];
+        count_pawns_per_file(white_pawns, white_pawns_per_file);
+        count_pawns_per_file(black_pawns, black_pawns_per_file);
+
         pawn_score = evaluate_pawn_structure(board, white_pawns, black_pawns, white_passed_pawns, black_passed_pawns, white_pawns_per_file, black_pawns_per_file);
+
         pawn_table[pawn_idx].key = pawn_key;
         pawn_table[pawn_idx].mg = pawn_score.mg;
         pawn_table[pawn_idx].eg = pawn_score.eg;
+        pawn_table[pawn_idx].white_passed_pawns = white_passed_pawns;
+        pawn_table[pawn_idx].black_passed_pawns = black_passed_pawns;
     }
 
     U64 white_king_ring = bitboard_king_attacks(board->king_square[WHITE]);
@@ -764,7 +774,7 @@ int evaluate_position(Board *board)
             int *king_ring_attackers_mg = (side == WHITE) ? &black_king_ring_attackers_mg : &white_king_ring_attackers_mg;
             int *king_ring_attackers_eg = (side == WHITE) ? &black_king_ring_attackers_eg : &white_king_ring_attackers_eg;
 
-            Score value = evaluate_piece(board, piece, square, passed, own_pawns, white_pawns_per_file, black_pawns_per_file, all_pieces, all_pawns, white_central_blocked_mask, black_central_blocked_mask, knight_open_position_penalty_mg, knight_open_position_penalty_eg, enemy_king_ring, king_ring_attackers_mg, king_ring_attackers_eg);
+            Score value = evaluate_piece(board, piece, square, passed, own_pawns, NULL, NULL, all_pieces, all_pawns, white_central_blocked_mask, black_central_blocked_mask, knight_open_position_penalty_mg, knight_open_position_penalty_eg, enemy_king_ring, king_ring_attackers_mg, king_ring_attackers_eg);
 
             if (side == WHITE)
             {
