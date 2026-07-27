@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ctype.h>
 
 static void push_current_position(Board *board, RepetitionHistory *history) {
     if (history == NULL) {
@@ -365,11 +366,11 @@ void uci_loop(void) {
             printf("id name Cepimetheus\n");           
             printf("id version 13.0.0\n");
             printf("id author  George Bland\n"); 
-            printf("option name overhead type spin default 10 min 0 max 10000\n");
+            printf("option name Overhead type spin default 10 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
             printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
-            printf("option name lichess_draw_rules type check default false\n");
-            printf("option name display_currmove type check default false\n");
+            printf("option name Lichess_Draw_Rules type check default false\n");
+            printf("option name Display_Currmove type check default false\n");
             printf("uciok\n");
             fflush(stdout);
             continue;
@@ -382,6 +383,9 @@ void uci_loop(void) {
         }
 
         if (strncmp(line, "setoption", 9) == 0) {
+            for (int i = 9; line[i] != '\0'; i++) {
+                line[i] = tolower((unsigned char)line[i]);
+            }
             char *nametoken = strstr(line, "name");
             char *valuetoken = strstr(line, "value");
             
@@ -396,14 +400,14 @@ void uci_loop(void) {
                     if (parsed_overhead >= 0 && parsed_overhead <= 10000) {
                         options.overhead_ms = parsed_overhead;
                     }
-                } else if (strncmp(nametoken, "MultiPV", 7) == 0 && valuetoken != NULL) {
+                } else if (strncmp(nametoken, "multipv", 7) == 0 && valuetoken != NULL) {
                     valuetoken += 5;
                     while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
                     int parsed_multipv = atoi(valuetoken);
                     if (parsed_multipv >= 1 && parsed_multipv <= 256) {
                         options.multipv = parsed_multipv;
                     }
-                } else if (strncmp(nametoken, "Hash", 4) == 0 && valuetoken != NULL) {
+                } else if (strncmp(nametoken, "hash", 4) == 0 && valuetoken != NULL) {
                     valuetoken += 5;
                     while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
                     int parsed_hash = atoi(valuetoken);
