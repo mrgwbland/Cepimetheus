@@ -35,7 +35,7 @@ void init_lmr(void)
             }
             else
             {
-                int r = (int)(((log(depth) * log(moves)) / 2) -0.25); //Tune at some point
+                int r = (int)(((log(depth) * log(2*moves)) / 2) -0.25); //Tune at some point
                 LMR[depth][moves] = r > 0 ? r : 0;
             }
         }

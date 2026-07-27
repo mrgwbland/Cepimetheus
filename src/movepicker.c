@@ -264,6 +264,7 @@ Move movepicker_next_move(MovePicker *mp)
                     return best_move;
                 }
                 
+                //SEE pruning
                 if (mp->in_qsearch && !mp->in_check)
                 {
                     mp->stage = STAGE_DONE;
