@@ -23,7 +23,8 @@ SRC := \
     src/move.c \
     src/board.c \
     src/bitboard.c \
-    src/zobrist.c
+    src/zobrist.c \
+    src/see.c
 
 # Source files needed exclusively for evaluation tuning (excludes search/UCI loops)
 TUNING_SRC := \

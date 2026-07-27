@@ -4,7 +4,7 @@ This is my C# engine Epimetheus remade in C. It is a command line chess engine u
 My recommended GUIs are:\
 -SCID: good program for analysis\
 -Cute Chess: Good for playing multiple bots against each other in tournaments\
--En Croissant: A GUI that I only recently came across but it has the most modern styling and is good for playing and analysis\
+-En Croissant: A GUI that I only recently came across but it has the most modern styling and is good for playing and analysis
 
 I run the newest version as a bot on Lichess which you can see here: https://lichess.org/@/EpimetheusBot, you can play it yourself here.\
 I will note that the lichess bot pool (especially bullet) seems very underrated, the Lichess bots (Cepimetheus included), in my opinion, play at a much higher level than a human at the same rating.\
@@ -15,7 +15,7 @@ A friend of mine could not beat Cepimetheus in bullet after several attempts, he
 Cepimetheus is undergoing continuous development, with noticeable strength gains with each major release. The engine is officially tracked on the CCRL Blitz ratings list [here](https://computerchess.org.uk/404/cgi/compare_engines.cgi?family=Cepimetheus).\
 I have also made an effort to estimate the ratings of other major versions to better show per version improvement and let users know how strong a certain version is.\
 Estimated ratings are calculated with Ordo on game pools played at the exact CCRL blitz time control framework of 120s + 1s increment, my testing cpu has very similar single thread performance to the CCRL baseline 4770K.\
-My testing games include several third party "anchor engines", these are engines that are rated on the CCRL list, to improve the accuracy of the data.\
+My testing games include several third party "anchor engines", these are engines that are rated on the CCRL list, to improve the accuracy of the data.
 
 | Version | CCRL Blitz Rating | Estimated Rating | Error
 | :--- | :---: | :---: | :---: |
@@ -46,6 +46,7 @@ My testing games include several third party "anchor engines", these are engines
 
 ### Move Ordering
 * MVV-LVA
+* SEE
 * Killer Move Heuristic
 * Counter Move Heuristic
 * History Heuristic

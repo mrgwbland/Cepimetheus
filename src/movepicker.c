@@ -1,4 +1,5 @@
 #include "movepicker.h"
+#include "see.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -51,6 +52,36 @@ static bool move_is_excluded(Move move, const Move *excluded_moves, int excluded
     }
 
     return false;
+}
+
+static bool is_good_noisy(const Board *board, Move move)
+{
+    if (move_promotion(move) != MOVE_PROMO_NONE)
+    {
+        return true;
+    }
+
+    int flags = move_flags(move);
+    int attacker_piece = board_piece_at(board, move_from(move));
+    int attacker_value = piece_values[board_piece_type(attacker_piece)];
+    int victim_value;
+
+    if ((flags & MOVE_FLAG_EN_PASSANT) != 0)
+    {
+        victim_value = piece_values[WHITE_PAWN];
+    }
+    else
+    {
+        int victim_piece = board_piece_at(board, move_to(move));
+        victim_value = piece_values[board_piece_type(victim_piece)];
+    }
+
+    if (victim_value >= attacker_value)
+    {
+        return true;
+    }
+
+    return see_ge(board, move, 0);
 }
 
 /* Estimate move score for move ordering. This is intentionally cheap. */
@@ -197,10 +228,13 @@ Move movepicker_next_move(MovePicker *mp)
                     
                     if (move_iscapture(m) || move_promotion(m) != MOVE_PROMO_NONE)
                     {
-                        mp->moves[mp->count] = m;
-                        mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
-                        mp->used[i] = true;
-                        mp->count++;
+                        if (is_good_noisy(mp->board, m))
+                        {
+                            mp->moves[mp->count] = m;
+                            mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                            mp->used[i] = true;
+                            mp->count++;
+                        }
                     }
                 }
                 
@@ -319,6 +353,7 @@ Move movepicker_next_move(MovePicker *mp)
                     Move m = mp->all_moves.moves[i];
                     if (mp->used[i]) continue;
                     if (move_is_excluded(m, mp->excluded_moves, mp->excluded_move_count)) continue;
+                    if (move_iscapture(m) || move_promotion(m) != MOVE_PROMO_NONE) continue;
                     
                     mp->moves[mp->count] = m;
                     mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
@@ -330,6 +365,49 @@ Move movepicker_next_move(MovePicker *mp)
                 break;
 
             case STAGE_PLAY_QUIET:
+                if (mp->current_idx < mp->count)
+                {
+                    int best_idx = mp->current_idx;
+                    for (int i = mp->current_idx + 1; i < mp->count; ++i)
+                    {
+                        if (mp->scores[i] > mp->scores[best_idx])
+                        {
+                            best_idx = i;
+                        }
+                    }
+                    Move best_move = mp->moves[best_idx];
+                    int best_score = mp->scores[best_idx];
+                    
+                    mp->moves[best_idx] = mp->moves[mp->current_idx];
+                    mp->scores[best_idx] = mp->scores[mp->current_idx];
+                    mp->moves[mp->current_idx] = best_move;
+                    mp->scores[mp->current_idx] = best_score;
+                    
+                    mp->current_idx++;
+                    return best_move;
+                }
+                mp->stage = STAGE_GENERATE_BAD_NOISY;
+                break;
+
+            case STAGE_GENERATE_BAD_NOISY:
+                mp->count = 0;
+                mp->current_idx = 0;
+                for (int i = 0; i < mp->all_moves.count && mp->count < MAX_ORDERED_MOVES; ++i)
+                {
+                    Move m = mp->all_moves.moves[i];
+                    if (mp->used[i]) continue;
+                    if (move_is_excluded(m, mp->excluded_moves, mp->excluded_move_count)) continue;
+                    
+                    mp->moves[mp->count] = m;
+                    mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                    mp->used[i] = true;
+                    mp->count++;
+                }
+                
+                mp->stage = STAGE_PLAY_BAD_NOISY;
+                break;
+
+            case STAGE_PLAY_BAD_NOISY:
                 if (mp->current_idx < mp->count)
                 {
                     int best_idx = mp->current_idx;

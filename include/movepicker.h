@@ -18,6 +18,8 @@ enum {
     STAGE_COUNTER_2,
     STAGE_GENERATE_QUIET,
     STAGE_PLAY_QUIET,
+    STAGE_GENERATE_BAD_NOISY,
+    STAGE_PLAY_BAD_NOISY,
     STAGE_DONE
 };
 
@@ -58,11 +60,11 @@ int estimate_move_score(Board *board, Move move, const SearchContext *context, i
 void update_history_entry(int16_t *entry, int delta);
 int history_bonus(int depth);
 static const int piece_values[6] = {
-    1000, /* Pawn */
-    3000, /* Knight */
-    3200, /* Bishop */
-    5000, /* Rook */
-    9000, /* Queen */
-    0    /* King */
+    1000,   /* Pawn */
+    3000,   /* Knight */
+    3200,   /* Bishop */
+    5000,   /* Rook */
+    9000,   /* Queen */
+    200000  /* King */
 };
 #endif
