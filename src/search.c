@@ -813,14 +813,20 @@ SearchResult search_root(Board *board,
         result.score = 0;
         for (int i = 0; i < picker.all_moves.count; ++i)
         {
-            if (move_is_excluded(picker.all_moves.moves[i], excluded_moves, excluded_move_count))
+            Move m = picker.all_moves.moves[i];
+            if (move_is_excluded(m, excluded_moves, excluded_move_count))
             {
                 continue;
             }
-            result.move = picker.all_moves.moves[i];
-            result.pv[0] = picker.all_moves.moves[i];
-            result.pv_length = 1;
-            break;
+            Undo undo;
+            if (board_make_move(board, m, &undo))
+            {
+                board_unmake_move(board, &undo);
+                result.move = m;
+                result.pv[0] = m;
+                result.pv_length = 1;
+                break;
+            }
         }
         return result;
     }
