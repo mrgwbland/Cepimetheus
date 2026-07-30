@@ -472,6 +472,12 @@ static SearchResult negamax(Board *board,
 
             return result;
         }
+    }        
+
+    if (depth <= 0)
+    {
+        result.score = quiescence(board, alpha, beta, history, stats, ply, 0, context, control, lichess_draw_rules);
+        return result;
     }
 
     /* Null-move pruning */
@@ -510,12 +516,6 @@ static SearchResult negamax(Board *board,
     if (in_check)
     {
         depth++;
-    }
-
-    if (depth <= 0)
-    {
-        result.score = quiescence(board, alpha, beta, history, stats, ply, 0, context, control, lichess_draw_rules);
-        return result;
     }
 
     int static_eval = evaluate_position(board);
