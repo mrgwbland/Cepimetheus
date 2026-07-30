@@ -49,16 +49,23 @@ static void apply_position(Board *board, RepetitionHistory *history, char *line)
         push_current_position(board, history);
         move_start = 2;
     } else if (strcmp(tokens[1], "fen") == 0) {
-        if (token_count < 8) {
+        int fen_end = 2;
+        while (fen_end < token_count && fen_end < 2 + 6 && strcmp(tokens[fen_end], "moves") != 0) {
+            fen_end++;
+        }
+        if (fen_end - 2 < 4) {
             return;
         }
         char fen[512] = {0};
-        snprintf(fen, sizeof(fen), "%s %s %s %s %s %s", tokens[2], tokens[3], tokens[4], tokens[5], tokens[6], tokens[7]);
+        int offset = 0;
+        for (int i = 2; i < fen_end; ++i) {
+            offset += snprintf(fen + offset, sizeof(fen) - offset, "%s%s", (i > 2) ? " " : "", tokens[i]);
+        }
         if (!board_set_fen(board, fen)) {
             board_set_startpos(board);
         }
         push_current_position(board, history);
-        move_start = 8;
+        move_start = fen_end;
     } else {
         return;
     }
