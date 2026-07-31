@@ -19,16 +19,17 @@ My testing games include several third party "anchor engines", these are engines
 
 | Version | CCRL Blitz Rating | Estimated Rating | Error
 | :--- | :---: | :---: | :---: |
-| **Cepimetheus 13.0.0** | N/A | **2496.0** | +/-18.9
-| **Cepimetheus 12.0.0** | N/A | **2337.4** | +/-22.2
-| **Cepimetheus 11.0.0** | N/A | **2238.0** | +/-7.0
+| **Cepimetheus 14.0.0** | N/A | **2575.1** | +/-16.6
+| **Cepimetheus 13.0.0** | N/A | **2490.3** | +/-19.4
+| **Cepimetheus 12.0.0** | N/A | **2336.8** | +/-27.1
+| **Cepimetheus 11.0.0** | N/A | **2237.7** | +/-15.4
 | **Cepimetheus 10.0.0** | **2173** | **2173.0** | (anchor)
-| **Cepimetheus 9.0.0** | N/A | **2124.7** | +/-26.4
-| **Cepimetheus 8.0.0** | N/A | **2065.3** | +/-23.2
-| **Cepimetheus 7.2.0** | N/A | **2003.9** | +/-20.1
+| **Cepimetheus 9.0.0** | N/A | **2125.3** | +/-24.3
+| **Cepimetheus 8.0.0** | N/A | **2064.3** | +/-26.2
+| **Cepimetheus 7.2.0** | N/A | **2003.9** | +/-12.8
 | **Cepimetheus 6.4.1** | **1914** | **1914.0** | (anchor)
-| **Cepimetheus 5.1.0** | N/A | **1704.8** | +/-30.2
-| **Cepimetheus 4.3.1** | N/A | **1626.3** | +/-30.2
+| **Cepimetheus 5.1.0** | N/A | **1704.6** | +/-30.6
+| **Cepimetheus 4.3.1** | N/A | **21.9** | +/-173.0
 
 > **Note on Accuracy:** All estimated ratings are subject to change as I play more games or add additional CCRL anchor engines to my testing to further calibrate the results.
 
@@ -63,6 +64,7 @@ My testing games include several third party "anchor engines", these are engines
 * No PST Hand Crafted Evaluation
 * Tapered Evaluation
 * Custom Automated Tuning
+* Specific Endgame Knowledge
 
 ### Board Representation
 * PEXT Magic Bitboards
