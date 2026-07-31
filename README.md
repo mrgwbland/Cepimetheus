@@ -29,7 +29,7 @@ My testing games include several third party "anchor engines", these are engines
 | **Cepimetheus 7.2.0** | N/A | **2003.9** | +/-12.8
 | **Cepimetheus 6.4.1** | **1914** | **1914.0** | (anchor)
 | **Cepimetheus 5.1.0** | N/A | **1704.6** | +/-30.6
-| **Cepimetheus 4.3.1** | N/A | **21.9** | +/-173.0
+| **Cepimetheus 4.3.1** | N/A | **1626.2** | +/-21.9
 
 > **Note on Accuracy:** All estimated ratings are subject to change as I play more games or add additional CCRL anchor engines to my testing to further calibrate the results.
 
@@ -56,7 +56,8 @@ My testing games include several third party "anchor engines", these are engines
 * Check Extensions
 * Late Move Reductions
 * Null Move Pruning
-* Delta Pruning
+* Delta Pruning (QSearch)
+* SEE Pruning (QSearch)
 * Futility Pruning
 * Reverse Futility Pruning
 
