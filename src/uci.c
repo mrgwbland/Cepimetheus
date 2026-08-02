@@ -345,7 +345,7 @@ static void run_perft(Board *board, int depth) {
     fflush(stdout);
 }
 
-void uci_loop(void) {
+void uci_loop(int argc, char *argv[]) {
     init_eval();
     init_lmr();
     Board board;
@@ -365,8 +365,26 @@ void uci_loop(void) {
     SearchThreadState search_thread = {0};
     pthread_mutex_init(&search_thread.mutex, NULL);
 
+    bool cli_mode = (argc > 1);
+    bool cli_done = false;
+
     char line[4096];
-    while (fgets(line, sizeof(line), stdin) != NULL) {
+    while (!cli_done) {
+        if (cli_mode) {
+            line[0] = '\0';
+            for (int i = 1; i < argc; ++i) {
+                if (i > 1) {
+                    strncat(line, " ", sizeof(line) - strlen(line) - 1);
+                }
+                strncat(line, argv[i], sizeof(line) - strlen(line) - 1);
+            }
+            cli_done = true;
+        } else {
+            if (fgets(line, sizeof(line), stdin) == NULL) {
+                break;
+            }
+        }
+
         search_thread_join_if_finished(&search_thread);
 
         if (strncmp(line, "uci", 3) == 0 && (line[3] == '\0' || line[3] == ' ' || line[3] == '\t' || line[3] == '\r' || line[3] == '\n')) {

@@ -1,6 +1,6 @@
 #include "uci.h"
 
-int main(void) {
-    uci_loop();
+int main(int argc, char *argv[]) {
+    uci_loop(argc, argv);
     return 0;
 }

@@ -2,6 +2,6 @@
 #define UCI_H
 
 #include "think.h"
-void uci_loop(void);
+void uci_loop(int argc, char *argv[]);
 
 #endif
