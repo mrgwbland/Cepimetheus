@@ -389,7 +389,7 @@ void uci_loop(int argc, char *argv[]) {
 
         if (strncmp(line, "uci", 3) == 0 && (line[3] == '\0' || line[3] == ' ' || line[3] == '\t' || line[3] == '\r' || line[3] == '\n')) {
             printf("id name Cepimetheus\n");           
-            printf("id version 14.0.0\n");
+            printf("id version 14.0.1\n");
             printf("id author  George Bland\n"); 
             printf("option name Overhead type spin default 10 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
@@ -641,11 +641,7 @@ void uci_loop(int argc, char *argv[]) {
 
             unsigned long long overall_nps = (total_nodes * 1000ULL) / (total_time > 0 ? total_time : 1);
             printf("\n==================================================\n");
-            printf("Total nodes: %llu\n", total_nodes);
-            printf("Total time: %lld ms\n", total_time);
-            printf("Overall NPS: %llu\n", overall_nps);
-            printf("Overall hash: 0x%016llx\n", bench_hash);
-            printf("==================================================\n");
+            printf("%llu nodes %llu nps %lld ms 0x%016llx hash\n", total_nodes, overall_nps, total_time, bench_hash);
             fflush(stdout);
             continue;
         }
