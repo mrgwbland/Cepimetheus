@@ -3,19 +3,28 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define HISTORY_BONUS_CAP 400
-#define HISTORY_GRAVITY 512
-#define HISTORY_SCALE 16
+int history_bonus_cap = 366;
+int history_gravity = 415;
+int history_scale = 23;
+int order_knight_promo = 331;
+int order_bishop_promo = 313;
+int order_rook_promo = 530;
+int order_queen_promo = 844;
+int order_victim_mult = 15;
+int order_killer1 = 88833;
+int order_killer2 = 75863;
+int order_castle = 145;
 
 int history_bonus(int depth)
 {
     int b = depth * depth;
-    return b < HISTORY_BONUS_CAP ? b : HISTORY_BONUS_CAP;
+    return b < history_bonus_cap ? b : history_bonus_cap;
 }
 
 void update_history_entry(int16_t *entry, int delta)
 {
-    *entry += HISTORY_SCALE * delta - *entry * abs(delta) / HISTORY_GRAVITY;
+    int grav = history_gravity > 0 ? history_gravity : 1;
+    *entry += history_scale * delta - *entry * abs(delta) / grav;
 }
 
 static int find_move_index(const MoveList *list, Move move)
@@ -92,7 +101,7 @@ int estimate_move_score(Board *board, Move move, const SearchContext *context, i
     /* 1. Promotions */
     if (move_promotion(move) != MOVE_PROMO_NONE)
     {
-        static const int promo_bonus[5] = {0, 300, 320, 500, 950};
+        const int promo_bonus[5] = {0, order_knight_promo, order_bishop_promo, order_rook_promo, order_queen_promo};
         int promo = move_promotion(move);
         if (promo >= 0 && promo <= 4)
         {
@@ -117,7 +126,7 @@ int estimate_move_score(Board *board, Move move, const SearchContext *context, i
             victim_value = piece_values[board_piece_type(victim_piece)];
         }
 
-        return 1000000 + victim_value * 10 - attacker_value;
+        return 1000000 + victim_value * order_victim_mult - attacker_value;
     }
 
     /* 3. Quiet Moves (Killers, History) */
@@ -126,20 +135,20 @@ int estimate_move_score(Board *board, Move move, const SearchContext *context, i
         /* First killer */
         if (context->killer_moves[ply][0] != MOVE_NONE && context->killer_moves[ply][0] == move)
         {
-            return 90000;
+            return order_killer1;
         }
 
         /* Second killer */
         if (context->killer_moves[ply][1] != MOVE_NONE && context->killer_moves[ply][1] == move)
         {
-            return 80000;
+            return order_killer2;
         }
     }
 
     /* Castling */
     if ((flags & MOVE_FLAG_CASTLE) != 0)
     {
-        return 100;
+        return order_castle;
     }
 
     /* History */

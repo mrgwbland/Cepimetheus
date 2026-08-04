@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+int asp_min_depth = 5;
+int asp_initial_delta = 229;
+int asp_growth_factor = 152;
+
 static int score_to_cp(int score)
 {
     if (score >= 0)
@@ -325,9 +329,9 @@ Move think(Board *board,
             control.stop = false;
 
             SearchResult result;
-            if (depth >= 5 && best_result.move != MOVE_NONE && multipv_index == 0) // Use aspiration window search around the best score from the previous depth
+            if (depth >= asp_min_depth && best_result.move != MOVE_NONE && multipv_index == 0) // Use aspiration window search around the best score from the previous depth
             {
-                int delta = 250; //0.25 pawn equivalent
+                int delta = asp_initial_delta; //0.25 pawn equivalent default
                 int alpha = best_result.score - delta;
                 int beta = best_result.score + delta;
 
@@ -376,7 +380,7 @@ Move think(Board *board,
                         break;
                     }
 
-                    delta *=1.5; // Increase the window size for the next iteration
+                    delta = (int)(delta * (double)asp_growth_factor / 100.0); // Increase the window size for the next iteration
                 }
             }
             else

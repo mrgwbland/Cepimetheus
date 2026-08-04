@@ -1,5 +1,6 @@
 #include "uci.h"
 #include "eval.h"
+#include "search.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -396,6 +397,33 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
             printf("option name Lichess_Draw_Rules type check default false\n");
             printf("option name Display_Currmove type check default false\n");
+#ifdef SPSA_TUNING
+            printf("option name FutilityMargin type spin default %d min 0 max 10000\n", futility_margin);
+            printf("option name RFP_Margin type spin default %d min 0 max 5000\n", rfp_margin);
+            printf("option name RFP_MaxDepth type spin default %d min 1 max 32\n", rfp_max_depth);
+            printf("option name NMP_MinDepth type spin default %d min 1 max 10\n", nmp_min_depth);
+            printf("option name NMP_Reduction type spin default %d min 1 max 6\n", nmp_reduction);
+            printf("option name NMP_MinPieces type spin default %d min 1 max 8\n", nmp_min_pieces);
+            printf("option name QS_DeltaMargin type spin default %d min 0 max 10000\n", qs_delta_margin);
+            printf("option name LMR_MinDepth type spin default %d min 1 max 10\n", lmr_min_depth);
+            printf("option name LMR_Offset type spin default %d min -500 max 500\n", lmr_offset);
+            printf("option name LMR_Divisor type spin default %d min 10 max 1000\n", lmr_divisor);
+            printf("option name LMR_MoveMultiplier type spin default %d min 10 max 1000\n", lmr_move_multiplier);
+            printf("option name History_BonusCap type spin default %d min 1 max 5000\n", history_bonus_cap);
+            printf("option name History_Gravity type spin default %d min 1 max 4096\n", history_gravity);
+            printf("option name History_Scale type spin default %d min 1 max 256\n", history_scale);
+            printf("option name Order_KnightPromo type spin default %d min 0 max 10000\n", order_knight_promo);
+            printf("option name Order_BishopPromo type spin default %d min 0 max 10000\n", order_bishop_promo);
+            printf("option name Order_RookPromo type spin default %d min 0 max 10000\n", order_rook_promo);
+            printf("option name Order_QueenPromo type spin default %d min 0 max 10000\n", order_queen_promo);
+            printf("option name Order_VictimMult type spin default %d min 1 max 100\n", order_victim_mult);
+            printf("option name Order_Killer1 type spin default %d min 0 max 500000\n", order_killer1);
+            printf("option name Order_Killer2 type spin default %d min 0 max 500000\n", order_killer2);
+            printf("option name Order_Castle type spin default %d min 0 max 10000\n", order_castle);
+            printf("option name Asp_MinDepth type spin default %d min 1 max 32\n", asp_min_depth);
+            printf("option name Asp_InitialDelta type spin default %d min 1 max 2000\n", asp_initial_delta);
+            printf("option name Asp_GrowthFactor type spin default %d min 100 max 500\n", asp_growth_factor);
+#endif
             printf("uciok\n");
             fflush(stdout);
             continue;
@@ -461,6 +489,39 @@ void uci_loop(int argc, char *argv[]) {
                         options.display_currmove = true;
                     }
                 }
+#ifdef SPSA_TUNING
+                if (valuetoken != NULL) {
+                    char *val_ptr = valuetoken + 5;
+                    while (*val_ptr == ' ' || *val_ptr == '\t') val_ptr++;
+                    int val = atoi(val_ptr);
+
+                    if (strncmp(nametoken, "futilitymargin", 14) == 0) futility_margin = val;
+                    else if (strncmp(nametoken, "rfp_margin", 10) == 0) rfp_margin = val;
+                    else if (strncmp(nametoken, "rfp_maxdepth", 12) == 0) rfp_max_depth = val;
+                    else if (strncmp(nametoken, "nmp_mindepth", 12) == 0) nmp_min_depth = val;
+                    else if (strncmp(nametoken, "nmp_reduction", 13) == 0) nmp_reduction = val;
+                    else if (strncmp(nametoken, "nmp_minpieces", 13) == 0) nmp_min_pieces = val;
+                    else if (strncmp(nametoken, "qs_deltamargin", 14) == 0) qs_delta_margin = val;
+                    else if (strncmp(nametoken, "lmr_mindepth", 12) == 0) lmr_min_depth = val;
+                    else if (strncmp(nametoken, "lmr_offset", 10) == 0) { lmr_offset = val; reinit_lmr(); }
+                    else if (strncmp(nametoken, "lmr_divisor", 11) == 0) { lmr_divisor = val; reinit_lmr(); }
+                    else if (strncmp(nametoken, "lmr_movemultiplier", 18) == 0) { lmr_move_multiplier = val; reinit_lmr(); }
+                    else if (strncmp(nametoken, "history_bonuscap", 16) == 0) history_bonus_cap = val;
+                    else if (strncmp(nametoken, "history_gravity", 15) == 0) history_gravity = val;
+                    else if (strncmp(nametoken, "history_scale", 13) == 0) history_scale = val;
+                    else if (strncmp(nametoken, "order_knightpromo", 17) == 0) order_knight_promo = val;
+                    else if (strncmp(nametoken, "order_bishoppromo", 17) == 0) order_bishop_promo = val;
+                    else if (strncmp(nametoken, "order_rookpromo", 15) == 0) order_rook_promo = val;
+                    else if (strncmp(nametoken, "order_queenpromo", 16) == 0) order_queen_promo = val;
+                    else if (strncmp(nametoken, "order_victimmult", 16) == 0) order_victim_mult = val;
+                    else if (strncmp(nametoken, "order_killer1", 13) == 0) order_killer1 = val;
+                    else if (strncmp(nametoken, "order_killer2", 13) == 0) order_killer2 = val;
+                    else if (strncmp(nametoken, "order_castle", 12) == 0) order_castle = val;
+                    else if (strncmp(nametoken, "asp_mindepth", 12) == 0) asp_min_depth = val;
+                    else if (strncmp(nametoken, "asp_initialdelta", 16) == 0) asp_initial_delta = val;
+                    else if (strncmp(nametoken, "asp_growthfactor", 16) == 0) asp_growth_factor = val;
+                }
+#endif
             }
             continue;
         }

@@ -39,9 +39,14 @@ TUNING_SRC := \
 
 OBJ := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SRC))
 
-.PHONY: all clean run windows tuning release
+.PHONY: all clean run windows tuning release spsa
 
 all: $(TARGET)
+
+spsa:
+	$(MAKE) clean
+	$(MAKE) CFLAGS="$(CFLAGS) -DSPSA_TUNING"
+
 
 $(BUILD_DIR)/%.o: src/%.c
 	mkdir -p $(BUILD_DIR)

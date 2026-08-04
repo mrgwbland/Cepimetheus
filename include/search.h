@@ -47,6 +47,38 @@ typedef void (*SearchMoveInfoCallback)(int depth,
                                        void *user_data);
 
 void init_lmr(void);
+void reinit_lmr(void);
+
+/* Search parameters */
+extern int futility_margin;
+extern int rfp_margin;
+extern int rfp_max_depth;
+extern int nmp_min_depth;
+extern int nmp_reduction;
+extern int nmp_min_pieces;
+extern int qs_delta_margin;
+extern int lmr_min_depth;
+extern int lmr_offset;
+extern int lmr_divisor;
+extern int lmr_move_multiplier;
+
+/* Move picker & history parameters */
+extern int history_bonus_cap;
+extern int history_gravity;
+extern int history_scale;
+extern int order_knight_promo;
+extern int order_bishop_promo;
+extern int order_rook_promo;
+extern int order_queen_promo;
+extern int order_victim_mult;
+extern int order_killer1;
+extern int order_killer2;
+extern int order_castle;
+
+/* Aspiration window parameters */
+extern int asp_min_depth;
+extern int asp_initial_delta;
+extern int asp_growth_factor;
 
 SearchContext *search_context_create(size_t hash_power);
 void search_context_destroy(SearchContext *context);

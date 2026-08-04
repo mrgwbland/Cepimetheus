@@ -11,19 +11,27 @@
 #include <string.h>
 #include <sys/time.h>
 
-#define FUTILITY_MARGIN 1500
-#define RFP_MARGIN 850
-#define RFP_MAX_DEPTH 8
+int futility_margin = 1509;
+int rfp_margin = 969;
+int rfp_max_depth = 7;
+int nmp_min_depth = 2;
+int nmp_reduction = 2;
+int nmp_min_pieces = 1;
+int qs_delta_margin = 3249;
+int lmr_min_depth = 1;
+int lmr_offset = -32;
+int lmr_divisor = 189;
+int lmr_move_multiplier = 234;
 
 static int LMR[64][256];
 static bool lmr_initialised = false;
 
-void init_lmr(void)
+void reinit_lmr(void)
 {
-    if (lmr_initialised)
-    {
-        return;
-    }
+    double move_mult = (double)lmr_move_multiplier / 100.0;
+    double div_factor = (double)lmr_divisor / 100.0;
+    if (div_factor == 0.0) div_factor = 0.01;
+    double offset = (double)lmr_offset / 100.0;
 
     for (int depth = 0; depth < 64; ++depth)
     {
@@ -35,12 +43,21 @@ void init_lmr(void)
             }
             else
             {
-                int r = (int)(((log(depth) * log(2*moves)) / 2) -0.25); //Tune at some point
+                int r = (int)(((log(depth) * log(move_mult * moves)) / div_factor) + offset);
                 LMR[depth][moves] = r > 0 ? r : 0;
             }
         }
     }
     lmr_initialised = true;
+}
+
+void init_lmr(void)
+{
+    if (lmr_initialised)
+    {
+        return;
+    }
+    reinit_lmr();
 }
 
 static long long current_time_ms(void)
@@ -68,7 +85,7 @@ static bool has_sufficient_nmp_material(const Board *board)
         {
             bitboard_pop_lsb(&bb);
             piece_count++;
-            if (piece_count >= 3)
+            if (piece_count >= nmp_min_pieces)
             {
                 return true;
             }
@@ -256,8 +273,7 @@ static int quiescence(Board *board,
                 gain += piece_values[promo] - 1000;
             }
 
-            const int SAFETY_MARGIN = 3000;//Found optimal to the nearest 1000 in 10s+0.1s
-            if (stand_pat + gain + SAFETY_MARGIN < alpha)
+            if (stand_pat + gain + qs_delta_margin < alpha)
             {
                 continue;
             }
@@ -482,17 +498,16 @@ static SearchResult negamax(Board *board,
 
     /* Null-move pruning */
     if (!pv_node &&
-        depth >= 3 &&// NMP not done near leaves as tree is already small, and NMP has overhead
+        depth >= nmp_min_depth &&// NMP not done near leaves as tree is already small, and NMP has overhead
         beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
         !board_is_in_check(board, board->side) && // In check passing is illegal
         has_sufficient_nmp_material(board)) //Not done in endgames to avoid zugzwang issues
     {
-        const int reduction = 2;
         Undo undo;
         board_make_null_move(board, &undo);
 
         SearchResult null_child = negamax(board,
-                                          depth - 1 - reduction,
+                                          depth - 1 - nmp_reduction,
                                           -beta,
                                           -beta + 1,
                                           history,
@@ -522,9 +537,9 @@ static SearchResult negamax(Board *board,
     int static_eval = evaluate_position(board);
 
     // Reverse Futility Pruning: At realtively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node.
-    if (!pv_node && !in_check && depth <= RFP_MAX_DEPTH
+    if (!pv_node && !in_check && depth <= rfp_max_depth
         && abs(static_eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
-        && static_eval - RFP_MARGIN * depth > beta)
+        && static_eval - rfp_margin * depth > beta)
     {
         result.score = static_eval;
         return result;
@@ -534,7 +549,7 @@ static SearchResult negamax(Board *board,
     bool futility_prune = false;
     if (depth == 1 && !in_check && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH)
     {
-        if (static_eval + FUTILITY_MARGIN < alpha)
+        if (static_eval + futility_margin < alpha)
         {
             futility_prune = true;
         }
@@ -609,7 +624,7 @@ static SearchResult negamax(Board *board,
             // Subsequent moves use a null window
             // Late Move Reductions (LMR)
             int r = 0;
-            if (depth >= 3 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            if (depth >= lmr_min_depth && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
             {
                 int d = depth > 63 ? 63 : depth;
                 int m = legal_moves_searched > 255 ? 255 : legal_moves_searched;
@@ -910,7 +925,7 @@ SearchResult search_root(Board *board,
             // Subsequent moves use a null window
             // Late Move Reductions (LMR)
             int r = 0;
-            if (depth >= 3 && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            if (depth >= lmr_min_depth && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
             {
                 int d = depth > 63 ? 63 : depth;
                 int m = legal_moves_searched > 255 ? 255 : legal_moves_searched;
