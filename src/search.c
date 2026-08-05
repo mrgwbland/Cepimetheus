@@ -364,9 +364,7 @@ static SearchResult negamax(Board *board,
 
     if (search_should_stop(control, stats->nodes))
     {
-        MoveList eval_list;
-        movegen_generate_pseudo_legal(board, &eval_list);
-        result.score = evaluate_position(board);
+        result.score = alpha;
         return result;
     }
 
@@ -499,8 +497,8 @@ static SearchResult negamax(Board *board,
     }
 
     /* Null-move pruning */
-    if (!pv_node &&
-        previous_move != MOVE_NONE &&
+    if (!pv_node && // Disallowed in PV nodes- PV must be a legal continuation
+        previous_move != MOVE_NONE && //Disallow null move immediately after a null move
         depth >= nmp_min_depth &&// NMP not done near leaves as tree is already small, and NMP has overhead
         beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
         !board_is_in_check(board, board->side) && // In check passing is illegal
@@ -536,32 +534,32 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    bool in_check = board_is_in_check(board, board->side);
+    bool in_check = board_is_in_check(board, board->side);      
+    bool futility_prune = false; 
     if (in_check)
     {
         depth++;
     }
-
-    int static_eval = evaluate_position(board);
-
-    // Reverse Futility Pruning: At realtively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node.
-    if (!pv_node && !in_check && depth <= rfp_max_depth
-        && abs(static_eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
-        && static_eval - rfp_margin * depth > beta)
+    else
     {
-        result.score = static_eval;
-        return result;
-    }
-
-    // Futility Pruning: At depth 1, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves
-    bool futility_prune = false;
-    if (depth == 1 && !in_check && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH)
-    {
-        if (static_eval + futility_margin < alpha)
+        int static_eval = evaluate_position(board);
+        // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node.
+        if (!pv_node && depth <= rfp_max_depth
+            && abs(static_eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
+            && static_eval - rfp_margin * depth > beta)
         {
-            futility_prune = true;
+            result.score = static_eval;
+            return result;
+        }                    
+        // Futility Pruning: At depth 1, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves
+        if (depth == 1 && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH)
+        {
+            if (static_eval + futility_margin < alpha)
+            {
+                futility_prune = true;
+            }
         }
-    }
+    }  
 
     Move tt_move = MOVE_NONE;
     if (context != NULL)
@@ -643,7 +641,7 @@ static SearchResult negamax(Board *board,
             {
                 child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
                 int score = -child.score;
-                if (score > alpha)
+                if (score > alpha) //If it fails high do a full search
                 {
                     child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
                 }
