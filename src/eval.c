@@ -8,45 +8,52 @@
 #include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2320, 2480, 3160, 10680, 0
+    1000, 2285, 2455, 3135, 10590, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 4180, 3490, 6215, 9500, 0
+    1000, 4210, 3500, 6235, 9600, 0
 };
 
 int eval_parameters_mg[21] = {
-    123, 322, 0, 23, 149, 0, 63, 79, 64, 192, 14, 9, 125, 95, 404, 94, 0, 2, 349, 145, 0
+    124, 323, 0, 22, 149, 0, 63, 79, 64, 189, 15, 9, 134, 95, 397, 94, 0, 4, 352, 143, 0
 };
 
 int eval_parameters_eg[21] = {
-    90, 0, 113, 27, 95, 97, 100, 59, 27, 0, 45, 0, 121, 61, 1007, 41, 41, 1146, 84, 0, 83
+    90, 0, 114, 27, 96, 96, 97, 59, 27, 0, 43, 0, 121, 59, 1019, 41, 41, 1150, 81, 0, 83
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 15, 336, 805, 1178
+    0, 0, 14, 333, 786, 1171
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 209, 417, 719, 1307
+    0, 0, 208, 417, 727, 1312
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 12, 86, 217, 559, 725
+    0, 12, 85, 212, 550, 707
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 26, 282, 498
+    0, 0, 0, 30, 282, 510
 };
 
 int piece_attack_weights_mg[5] = {
-    13, 69, 25, 31, 45
+    19, 81, 32, 34, 49
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 1, 2, 1, 15
+    0, 0, 1, 0, 0
 };
 
+int piece_defense_weights_mg[5] = {
+    17, 20, 3, 0, 0
+};
+
+int piece_defense_weights_eg[5] = {
+    100, 51, 152, 151, 165
+};
 
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS_MG eval_parameters_mg[0]
@@ -255,7 +262,10 @@ static Score evaluate_piece(const Board *board,
                             int knight_open_position_penalty_eg,
                             U64 enemy_king_ring,
                             int *king_ring_attackers_mg,
-                            int *king_ring_attackers_eg)
+                            int *king_ring_attackers_eg,
+                            U64 own_king_ring,
+                            int *king_ring_defenders_mg,
+                            int *king_ring_defenders_eg)
 {
     int side = board_piece_color(piece);
     int type = board_piece_type(piece);
@@ -362,6 +372,12 @@ static Score evaluate_piece(const Board *board,
             *king_ring_attackers_mg += piece_attack_weights_mg[type] * attacks_count;
             *king_ring_attackers_eg += piece_attack_weights_eg[type] * attacks_count;
         }
+
+        if (king_ring_defenders_mg && king_ring_defenders_eg) {
+            int defenses_count = __builtin_popcountll(attacks & own_king_ring);
+            *king_ring_defenders_mg += piece_defense_weights_mg[type] * defenses_count;
+            *king_ring_defenders_eg += piece_defense_weights_eg[type] * defenses_count;
+        }
         break;
     }
     case WHITE_BISHOP:
@@ -402,6 +418,25 @@ static Score evaluate_piece(const Board *board,
                 *king_ring_attackers_eg += piece_attack_weights_eg[type] * xray_count;
             }
         }
+
+        if (king_ring_defenders_mg && king_ring_defenders_eg) {
+            U64 attacks = bitboard_bishop_attacks(square, all_pieces);
+            int direct_count = __builtin_popcountll(attacks & own_king_ring);
+            *king_ring_defenders_mg += piece_defense_weights_mg[type] * direct_count;
+            *king_ring_defenders_eg += piece_defense_weights_eg[type] * direct_count;
+
+            // X-ray attacks
+            U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
+            U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
+            U64 frontline_diagonals = attacks & (own_bishops_queens | enemy_bishops_queens);
+            if (frontline_diagonals) {
+                U64 xray_occupancy = all_pieces ^ frontline_diagonals;
+                U64 xray_attacks = bitboard_bishop_attacks(square, xray_occupancy);
+                int xray_count = __builtin_popcountll(xray_attacks & own_king_ring);
+                *king_ring_defenders_mg += piece_defense_weights_mg[type] * xray_count;
+                *king_ring_defenders_eg += piece_defense_weights_eg[type] * xray_count;
+            }
+        }
         break;
     }
     case WHITE_ROOK:
@@ -435,6 +470,24 @@ static Score evaluate_piece(const Board *board,
                 int xray_count = __builtin_popcountll(xray_attacks & enemy_king_ring);
                 *king_ring_attackers_mg += piece_attack_weights_mg[type] * xray_count;
                 *king_ring_attackers_eg += piece_attack_weights_eg[type] * xray_count;
+            }
+        }
+
+        if (king_ring_defenders_mg && king_ring_defenders_eg) {
+            int direct_count = __builtin_popcountll(attacks & own_king_ring);
+            *king_ring_defenders_mg += piece_defense_weights_mg[type] * direct_count;
+            *king_ring_defenders_eg += piece_defense_weights_eg[type] * direct_count;
+
+            // X-ray attacks
+            U64 own_rooks_queens = board->pieces[side == WHITE ? WHITE_ROOK : BLACK_ROOK] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
+            U64 enemy_rooks_queens = board->pieces[side == WHITE ? BLACK_ROOK : WHITE_ROOK] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
+            U64 frontline_orthogonals = attacks & (own_rooks_queens | enemy_rooks_queens);
+            if (frontline_orthogonals) {
+                U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
+                U64 xray_attacks = bitboard_rook_attacks(square, xray_occupancy);
+                int xray_count = __builtin_popcountll(xray_attacks & own_king_ring);
+                *king_ring_defenders_mg += piece_defense_weights_mg[type] * xray_count;
+                *king_ring_defenders_eg += piece_defense_weights_eg[type] * xray_count;
             }
         }
         break;
@@ -479,6 +532,38 @@ static Score evaluate_piece(const Board *board,
                 *king_ring_attackers_eg += piece_attack_weights_eg[type] * rook_xray;
             }
         }
+
+        if (king_ring_defenders_mg && king_ring_defenders_eg) {
+            // Diagonal direct & X-ray attacks
+            int bishop_direct = __builtin_popcountll(bishop_atk & own_king_ring);
+            *king_ring_defenders_mg += piece_defense_weights_mg[type] * bishop_direct;
+            *king_ring_defenders_eg += piece_defense_weights_eg[type] * bishop_direct;
+            U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
+            U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
+            U64 frontline_diagonals = bishop_atk & (own_bishops_queens | enemy_bishops_queens);
+            if (frontline_diagonals) {
+                U64 xray_occupancy = all_pieces ^ frontline_diagonals;
+                U64 xray_bishop_attacks = bitboard_bishop_attacks(square, xray_occupancy);
+                int bishop_xray = __builtin_popcountll(xray_bishop_attacks & own_king_ring);
+                *king_ring_defenders_mg += piece_defense_weights_mg[type] * bishop_xray;
+                *king_ring_defenders_eg += piece_defense_weights_eg[type] * bishop_xray;
+            }
+
+            // Orthogonal direct & X-ray attacks
+            int rook_direct = __builtin_popcountll(rook_atk & own_king_ring);
+            *king_ring_defenders_mg += piece_defense_weights_mg[type] * rook_direct;
+            *king_ring_defenders_eg += piece_defense_weights_eg[type] * rook_direct;
+            U64 own_rooks_queens = board->pieces[side == WHITE ? WHITE_ROOK : BLACK_ROOK] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
+            U64 enemy_rooks_queens = board->pieces[side == WHITE ? BLACK_ROOK : WHITE_ROOK] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
+            U64 frontline_orthogonals = rook_atk & (own_rooks_queens | enemy_rooks_queens);
+            if (frontline_orthogonals) {
+                U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
+                U64 xray_rook_attacks = bitboard_rook_attacks(square, xray_occupancy);
+                int rook_xray = __builtin_popcountll(xray_rook_attacks & own_king_ring);
+                *king_ring_defenders_mg += piece_defense_weights_mg[type] * rook_xray;
+                *king_ring_defenders_eg += piece_defense_weights_eg[type] * rook_xray;
+            }
+        }
         break;
     }
     case WHITE_KING:
@@ -519,7 +604,7 @@ static Score evaluate_pawn_structure(const Board *board,
     while (wp)
     {
         int square = bitboard_pop_lsb(&wp);
-        Score val = evaluate_piece(board, WHITE_PAWN, square, white_passed_pawns, white_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL);
+        Score val = evaluate_piece(board, WHITE_PAWN, square, white_passed_pawns, white_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, NULL, NULL);
         s.mg += val.mg;
         s.eg += val.eg;
     }
@@ -529,7 +614,7 @@ static Score evaluate_pawn_structure(const Board *board,
     while (bp)
     {
         int square = bitboard_pop_lsb(&bp);
-        Score val = evaluate_piece(board, BLACK_PAWN, square, black_passed_pawns, black_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL);
+        Score val = evaluate_piece(board, BLACK_PAWN, square, black_passed_pawns, black_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, NULL, NULL);
         s.mg -= val.mg;
         s.eg -= val.eg;
     }
@@ -746,6 +831,12 @@ int evaluate_position(Board *board)
     U64 white_pawn_attacks = __builtin_popcountll((((white_pawns & ~file_masks[0]) << 7) & black_king_ring)|
                                                   (((white_pawns & ~file_masks[7]) << 9) & black_king_ring));
 
+    U64 white_pawn_defenses = __builtin_popcountll((((white_pawns & ~file_masks[0]) << 7) & white_king_ring)|
+                                                   (((white_pawns & ~file_masks[7]) << 9) & white_king_ring));
+
+    U64 black_pawn_defenses = __builtin_popcountll((((black_pawns & ~file_masks[0]) >> 9) & black_king_ring)|
+                                                   (((black_pawns & ~file_masks[7]) >> 7) & black_king_ring));
+
     int white_king_ring_attackers_mg =
         piece_attack_weights_mg[0] * black_pawn_attacks;
 
@@ -757,6 +848,18 @@ int evaluate_position(Board *board)
 
     int black_king_ring_attackers_eg =
         piece_attack_weights_eg[0] * white_pawn_attacks;
+
+    int white_king_ring_defenders_mg =
+        piece_defense_weights_mg[0] * white_pawn_defenses;
+
+    int white_king_ring_defenders_eg =
+        piece_defense_weights_eg[0] * white_pawn_defenses;
+
+    int black_king_ring_defenders_mg =
+        piece_defense_weights_mg[0] * black_pawn_defenses;
+
+    int black_king_ring_defenders_eg =
+        piece_defense_weights_eg[0] * black_pawn_defenses;
 
     for (int piece = 0; piece < PIECE_NB; ++piece)
     {
@@ -771,10 +874,13 @@ int evaluate_position(Board *board)
             U64 passed = (side == WHITE) ? white_passed_pawns : black_passed_pawns;
             U64 own_pawns = (side == WHITE) ? white_pawns : black_pawns;
             U64 enemy_king_ring = (side == WHITE) ? black_king_ring : white_king_ring;
+            U64 own_king_ring = (side == WHITE) ? white_king_ring : black_king_ring;
             int *king_ring_attackers_mg = (side == WHITE) ? &black_king_ring_attackers_mg : &white_king_ring_attackers_mg;
             int *king_ring_attackers_eg = (side == WHITE) ? &black_king_ring_attackers_eg : &white_king_ring_attackers_eg;
+            int *king_ring_defenders_mg = (side == WHITE) ? &white_king_ring_defenders_mg : &black_king_ring_defenders_mg;
+            int *king_ring_defenders_eg = (side == WHITE) ? &white_king_ring_defenders_eg : &black_king_ring_defenders_eg;
 
-            Score value = evaluate_piece(board, piece, square, passed, own_pawns, NULL, NULL, all_pieces, all_pawns, white_central_blocked_mask, black_central_blocked_mask, knight_open_position_penalty_mg, knight_open_position_penalty_eg, enemy_king_ring, king_ring_attackers_mg, king_ring_attackers_eg);
+            Score value = evaluate_piece(board, piece, square, passed, own_pawns, NULL, NULL, all_pieces, all_pawns, white_central_blocked_mask, black_central_blocked_mask, knight_open_position_penalty_mg, knight_open_position_penalty_eg, enemy_king_ring, king_ring_attackers_mg, king_ring_attackers_eg, own_king_ring, king_ring_defenders_mg, king_ring_defenders_eg);
 
             if (side == WHITE)
             {
@@ -789,11 +895,23 @@ int evaluate_position(Board *board)
         }
     }
 
-    white_score.mg -= (white_king_ring_attackers_mg * white_king_ring_attackers_mg) >> 6; // Quadratic penalty
-    black_score.mg -= (black_king_ring_attackers_mg * black_king_ring_attackers_mg) >> 6;
+    int net_white_attackers_mg = white_king_ring_attackers_mg - white_king_ring_defenders_mg;
+    if (net_white_attackers_mg < 0) net_white_attackers_mg = 0;
 
-    white_score.eg -= (white_king_ring_attackers_eg * white_king_ring_attackers_eg) >> 6;
-    black_score.eg -= (black_king_ring_attackers_eg * black_king_ring_attackers_eg) >> 6;
+    int net_white_attackers_eg = white_king_ring_attackers_eg - white_king_ring_defenders_eg;
+    if (net_white_attackers_eg < 0) net_white_attackers_eg = 0;
+
+    int net_black_attackers_mg = black_king_ring_attackers_mg - black_king_ring_defenders_mg;
+    if (net_black_attackers_mg < 0) net_black_attackers_mg = 0;
+
+    int net_black_attackers_eg = black_king_ring_attackers_eg - black_king_ring_defenders_eg;
+    if (net_black_attackers_eg < 0) net_black_attackers_eg = 0;
+
+    white_score.mg -= (net_white_attackers_mg * net_white_attackers_mg) >> 6; // Quadratic penalty
+    black_score.mg -= (net_black_attackers_mg * net_black_attackers_mg) >> 6;
+
+    white_score.eg -= (net_white_attackers_eg * net_white_attackers_eg) >> 6;
+    black_score.eg -= (net_black_attackers_eg * net_black_attackers_eg) >> 6;
 
     int mg_total = white_score.mg - black_score.mg + pawn_score.mg;
     int eg_total = white_score.eg - black_score.eg + pawn_score.eg;
@@ -964,6 +1082,21 @@ int evaluate_position_with_weights(const char *fen, int *weights)
         for (int i = 0; i < 5; ++i) {
             if (piece_attack_weights_eg[i] != weights[offset]) {
                 piece_attack_weights_eg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
+        }
+
+        for (int i = 0; i < 5; ++i) {
+            if (piece_defense_weights_mg[i] != weights[offset]) {
+                piece_defense_weights_mg[i] = weights[offset];
+                weights_changed = true;
+            }
+            offset++;
+        }
+        for (int i = 0; i < 5; ++i) {
+            if (piece_defense_weights_eg[i] != weights[offset]) {
+                piece_defense_weights_eg[i] = weights[offset];
                 weights_changed = true;
             }
             offset++;
