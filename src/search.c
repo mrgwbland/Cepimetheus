@@ -15,7 +15,9 @@ int futility_margin = 1509;
 int rfp_margin = 969;
 int rfp_max_depth = 7;
 int nmp_min_depth = 2;
+int nmp_base_reduction = 2;
 int nmp_reduction = 2;
+int nmp_depth_scale = 4;
 int nmp_min_pieces = 1;
 int qs_delta_margin = 3249;
 int lmr_min_depth = 1;
@@ -498,16 +500,22 @@ static SearchResult negamax(Board *board,
 
     /* Null-move pruning */
     if (!pv_node &&
+        previous_move != MOVE_NONE &&
         depth >= nmp_min_depth &&// NMP not done near leaves as tree is already small, and NMP has overhead
         beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
         !board_is_in_check(board, board->side) && // In check passing is illegal
         has_sufficient_nmp_material(board)) //Not done in endgames to avoid zugzwang issues
     {
+        int scale = nmp_depth_scale > 0 ? nmp_depth_scale : 1;
+        int reduction = nmp_base_reduction + depth / scale;
+        int child_depth = depth - 1 - reduction;
+        if (child_depth < 0) child_depth = 0;
+
         Undo undo;
         board_make_null_move(board, &undo);
 
         SearchResult null_child = negamax(board,
-                                          depth - 1 - nmp_reduction,
+                                          child_depth,
                                           -beta,
                                           -beta + 1,
                                           history,

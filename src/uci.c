@@ -402,7 +402,8 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name RFP_Margin type spin default %d min 0 max 5000\n", rfp_margin);
             printf("option name RFP_MaxDepth type spin default %d min 1 max 32\n", rfp_max_depth);
             printf("option name NMP_MinDepth type spin default %d min 1 max 10\n", nmp_min_depth);
-            printf("option name NMP_Reduction type spin default %d min 1 max 6\n", nmp_reduction);
+            printf("option name NMP_BaseReduction type spin default %d min 1 max 6\n", nmp_base_reduction);
+            printf("option name NMP_DepthScale type spin default %d min 1 max 16\n", nmp_depth_scale);
             printf("option name NMP_MinPieces type spin default %d min 1 max 8\n", nmp_min_pieces);
             printf("option name QS_DeltaMargin type spin default %d min 0 max 10000\n", qs_delta_margin);
             printf("option name LMR_MinDepth type spin default %d min 1 max 10\n", lmr_min_depth);
@@ -499,7 +500,9 @@ void uci_loop(int argc, char *argv[]) {
                     else if (strncmp(nametoken, "rfp_margin", 10) == 0) rfp_margin = val;
                     else if (strncmp(nametoken, "rfp_maxdepth", 12) == 0) rfp_max_depth = val;
                     else if (strncmp(nametoken, "nmp_mindepth", 12) == 0) nmp_min_depth = val;
-                    else if (strncmp(nametoken, "nmp_reduction", 13) == 0) nmp_reduction = val;
+                    else if (strncmp(nametoken, "nmp_basereduction", 17) == 0) { nmp_base_reduction = val; nmp_reduction = val; }
+                    else if (strncmp(nametoken, "nmp_reduction", 13) == 0) { nmp_base_reduction = val; nmp_reduction = val; }
+                    else if (strncmp(nametoken, "nmp_depthscale", 14) == 0) nmp_depth_scale = val;
                     else if (strncmp(nametoken, "nmp_minpieces", 13) == 0) nmp_min_pieces = val;
                     else if (strncmp(nametoken, "qs_deltamargin", 14) == 0) qs_delta_margin = val;
                     else if (strncmp(nametoken, "lmr_mindepth", 12) == 0) lmr_min_depth = val;
