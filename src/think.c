@@ -42,10 +42,10 @@ void get_score_string(int score, char *buffer, size_t size)
     }
 }
 
-static void print_move_info(int depth, int move_number, Move move, int score)
+static void print_move_info(int depth, int move_number, Move move, int score, const Board *board)
 {
     char move_buffer[6];
-    move_to_string(move, move_buffer);
+    move_to_string(move, board, move_buffer);
     char score_buffer[32];
     get_score_string(score, score_buffer, sizeof(score_buffer));
     printf("info depth %d currmove %s currmovenumber %d score %s\n",
@@ -62,8 +62,8 @@ static void print_move_info_callback(int depth,
                                      int score,
                                      void *user_data)
 {
-    (void)user_data;
-    print_move_info(depth, move_number, move, score);
+    const Board *board = (const Board *)user_data;
+    print_move_info(depth, move_number, move, score, board);
 }
 
 long long current_time_ms(void)
@@ -87,7 +87,7 @@ static unsigned long long compute_nps(unsigned long long nodes, long long elapse
     return (nodes * 1000ULL) / (unsigned long long)elapsed_ms;
 }
 
-static void print_depth_info(int depth, int multipv, const SearchResult *result, const SearchStats *stats, long long elapsed_ms)
+static void print_depth_info(int depth, int multipv, const SearchResult *result, const SearchStats *stats, long long elapsed_ms, const Board *board)
 {
     unsigned long long nps = compute_nps(stats->nodes, elapsed_ms);
     char score_buffer[32];
@@ -108,7 +108,7 @@ static void print_depth_info(int depth, int multipv, const SearchResult *result,
         for (int i = 0; i < result->pv_length; ++i)
         {
             char move_buffer[6];
-            move_to_string(result->pv[i], move_buffer);
+            move_to_string(result->pv[i], board, move_buffer);
             printf(" %s", move_buffer);
         }
     }
@@ -351,7 +351,7 @@ Move think(Board *board,
                                          search_context,
                                          &control,
                                          (options != NULL && options->display_currmove) ? print_move_info_callback : NULL,
-                                         NULL,
+                                         (void *)board,
                                          lichess_draw_rules,
                                          excluded_root_moves,
                                          excluded_root_move_count);
@@ -394,7 +394,7 @@ Move think(Board *board,
                                      search_context,
                                      &control,
                                      (options != NULL && options->display_currmove) ? print_move_info_callback : NULL,
-                                     NULL,
+                                     (void *)board,
                                      lichess_draw_rules,
                                      excluded_root_moves,
                                      excluded_root_move_count);
@@ -418,7 +418,7 @@ Move think(Board *board,
                 elapsed_ms = 0;
             }
 
-            print_depth_info(depth, multipv_index + 1, &result, &stats, elapsed_ms);
+            print_depth_info(depth, multipv_index + 1, &result, &stats, elapsed_ms, board);
 
             if (multipv_index == 0)
             {

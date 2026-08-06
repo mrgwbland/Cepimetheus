@@ -127,6 +127,39 @@ static void generate_queen_moves(Board *board, MoveList *list, int side) {
     }
 }
 
+static void try_add_castle_move(Board *board, MoveList *list, int side, int castle_flag, int king_to, int rook_idx) {
+    if ((board->castling_rights & castle_flag) == 0) {
+        return;
+    }
+    if (board_is_in_check(board, side)) {
+        return;
+    }
+
+    int king_from = board->king_square[side];
+    int rook_from = board->castling_rook_square[rook_idx];
+    int rook_to = (side == WHITE) ? (king_to == 6 ? 5 : 3) : (king_to == 62 ? 61 : 59);
+
+    U64 king_crossing = bitboard_in_between_mask(king_from, king_to) | (1ULL << king_to);
+    U64 rook_crossing = bitboard_in_between_mask(rook_from, rook_to) | (1ULL << rook_to);
+    U64 between = king_crossing | rook_crossing;
+
+    U64 occ_check = board->occupancy[BOTH] ^ (1ULL << king_from) ^ (1ULL << rook_from);
+    if (occ_check & between) {
+        return;
+    }
+
+    int enemy = side ^ 1;
+    U64 check_sqs = king_crossing;
+    while (check_sqs) {
+        int sq = bitboard_pop_lsb(&check_sqs);
+        if (board_is_square_attacked_with_occupancy(board, sq, enemy, board->occupancy[BOTH])) {
+            return;
+        }
+    }
+
+    add_pseudo_legal_move(list, move_make(king_from, king_to, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
+}
+
 static void generate_king_moves(Board *board, MoveList *list, int side) {
     U64 king = board->pieces[side == WHITE ? WHITE_KING : BLACK_KING];
     U64 own = board->occupancy[side];
@@ -142,37 +175,12 @@ static void generate_king_moves(Board *board, MoveList *list, int side) {
         add_pseudo_legal_move(list, move_make(from, target, MOVE_PROMO_NONE, flags));
     }
 
-    int enemy = side ^ 1;
-    if (side == WHITE && from == 4 && !board_is_in_check(board, WHITE)) {
-        if ((board->castling_rights & CASTLE_WHITE_KING) != 0 &&
-            board_piece_at(board, 5) < 0 && board_piece_at(board, 6) < 0 &&
-            board_piece_at(board, 7) == WHITE_ROOK &&
-            !board_is_square_attacked(board, 5, enemy) &&
-            !board_is_square_attacked(board, 6, enemy)) {
-            add_pseudo_legal_move(list, move_make(4, 6, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
-        }
-        if ((board->castling_rights & CASTLE_WHITE_QUEEN) != 0 &&
-            board_piece_at(board, 1) < 0 && board_piece_at(board, 2) < 0 && board_piece_at(board, 3) < 0 &&
-            board_piece_at(board, 0) == WHITE_ROOK &&
-            !board_is_square_attacked(board, 3, enemy) &&
-            !board_is_square_attacked(board, 2, enemy)) {
-            add_pseudo_legal_move(list, move_make(4, 2, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
-        }
-    } else if (side == BLACK && from == 60 && !board_is_in_check(board, BLACK)) {
-        if ((board->castling_rights & CASTLE_BLACK_KING) != 0 &&
-            board_piece_at(board, 61) < 0 && board_piece_at(board, 62) < 0 &&
-            board_piece_at(board, 63) == BLACK_ROOK &&
-            !board_is_square_attacked(board, 61, enemy) &&
-            !board_is_square_attacked(board, 62, enemy)) {
-            add_pseudo_legal_move(list, move_make(60, 62, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
-        }
-        if ((board->castling_rights & CASTLE_BLACK_QUEEN) != 0 &&
-            board_piece_at(board, 57) < 0 && board_piece_at(board, 58) < 0 && board_piece_at(board, 59) < 0 &&
-            board_piece_at(board, 56) == BLACK_ROOK &&
-            !board_is_square_attacked(board, 59, enemy) &&
-            !board_is_square_attacked(board, 58, enemy)) {
-            add_pseudo_legal_move(list, move_make(60, 58, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE));
-        }
+    if (side == WHITE) {
+        try_add_castle_move(board, list, WHITE, CASTLE_WHITE_KING, 6, 0);
+        try_add_castle_move(board, list, WHITE, CASTLE_WHITE_QUEEN, 2, 1);
+    } else {
+        try_add_castle_move(board, list, BLACK, CASTLE_BLACK_KING, 62, 2);
+        try_add_castle_move(board, list, BLACK, CASTLE_BLACK_QUEEN, 58, 3);
     }
 }
 
@@ -200,10 +208,29 @@ bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move)
     movegen_generate_pseudo_legal(board, &list);
     char buffer[6];
     for (int i = 0; i < list.count; ++i) {
-        move_to_string(list.moves[i], buffer);
+        move_to_string(list.moves[i], board, buffer);
         if (strcmp(buffer, uci_move) == 0) {
             *out_move = list.moves[i];
             return true;
+        }
+    }
+
+    if (strlen(uci_move) >= 4) {
+        int from = board_parse_square(uci_move);
+        int to = board_parse_square(uci_move + 2);
+        if (from >= 0 && to >= 0) {
+            for (int i = 0; i < list.count; ++i) {
+                Move m = list.moves[i];
+                if (move_from(m) == from && (move_flags(m) & MOVE_FLAG_CASTLE)) {
+                    int k_to = move_to(m);
+                    int r_idx = (board->side == WHITE) ? (k_to == 6 ? 0 : 1) : (k_to == 62 ? 2 : 3);
+                    int r_sq = board->castling_rook_square[r_idx];
+                    if (to == k_to || to == r_sq) {
+                        *out_move = m;
+                        return true;
+                    }
+                }
+            }
         }
     }
 

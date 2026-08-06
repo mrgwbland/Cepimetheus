@@ -50,6 +50,7 @@ typedef struct Board {
     int halfmove_clock;
     int fullmove_number;
     int king_square[2];
+    int castling_rook_square[4];
     U64 hash;
 } Board;
 

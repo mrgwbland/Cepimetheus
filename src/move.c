@@ -7,15 +7,32 @@
 
 #include "board.h"
 
+#include "uci.h"
+
 static void square_to_string(int square, char buffer[3]) {
     board_square_to_string(square, buffer);
 }
 
-void move_to_string(Move move, char buffer[6]) {
+void move_to_string(Move move, const Board *board, char buffer[6]) {
+    int from_sq = move_from(move);
+    int to_sq = move_to(move);
+
+    if (option_chess960 && board != NULL && (move_flags(move) & MOVE_FLAG_CASTLE)) {
+        if (to_sq == 6) {
+            to_sq = board->castling_rook_square[0];
+        } else if (to_sq == 2) {
+            to_sq = board->castling_rook_square[1];
+        } else if (to_sq == 62) {
+            to_sq = board->castling_rook_square[2];
+        } else if (to_sq == 58) {
+            to_sq = board->castling_rook_square[3];
+        }
+    }
+
     char from[3];
     char to[3];
-    square_to_string(move_from(move), from);
-    square_to_string(move_to(move), to);
+    square_to_string(from_sq, from);
+    square_to_string(to_sq, to);
     buffer[0] = from[0];
     buffer[1] = from[1];
     buffer[2] = to[0];
@@ -27,11 +44,7 @@ void move_to_string(Move move, char buffer[6]) {
         case MOVE_PROMO_QUEEN: buffer[4] = 'q'; break;
         default: buffer[4] = '\0'; break;
     }
-    if (buffer[4] == '\0') {
-        buffer[5] = '\0';
-    } else {
-        buffer[5] = '\0';
-    }
+    buffer[5] = '\0';
 }
 
 void zobrist_hash_to_string(uint64_t hash, char buffer[17]) {

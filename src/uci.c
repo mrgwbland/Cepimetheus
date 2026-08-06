@@ -9,6 +9,8 @@
 #include <math.h>
 #include <ctype.h>
 
+bool option_chess960 = false;
+
 static void push_current_position(Board *board, RepetitionHistory *history) {
     if (history == NULL) {
         return;
@@ -98,7 +100,7 @@ typedef struct {
     pthread_mutex_t *mutex;
 } SearchTask;
 
-static void print_bestmove(Move best) {
+static void print_bestmove(Move best, const Board *board) {
     if (best == MOVE_NONE) {
         printf("bestmove 0000\n");
         fflush(stdout);
@@ -106,7 +108,7 @@ static void print_bestmove(Move best) {
     }
 
     char buffer[6];
-    move_to_string(best, buffer);
+    move_to_string(best, board, buffer);
     printf("bestmove %s\n", buffer);
     fflush(stdout);
 }
@@ -178,7 +180,7 @@ static void *search_thread_main(void *arg) {
                       task->stop_requested,
                       NULL,
                       NULL);
-    print_bestmove(best);
+    print_bestmove(best, &task->board);
 
     pthread_mutex_lock(task->mutex);
     *task->searching = false;
@@ -327,7 +329,7 @@ static void run_perft(Board *board, int depth) {
             board_unmake_move(board, &undo);
 
             char move_str[6];
-            move_to_string(list.moves[i], move_str);
+            move_to_string(list.moves[i], board, move_str);
             printf("%s : %llu\n", move_str, nodes);
             fflush(stdout);
         }
@@ -397,6 +399,7 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
             printf("option name Lichess_Draw_Rules type check default false\n");
             printf("option name Display_Currmove type check default false\n");
+            printf("option name UCI_Chess960 type check default false\n");
 #ifdef SPSA_TUNING
             printf("option name FutilityMargin type spin default %d min 0 max 10000\n", futility_margin);
             printf("option name RFP_Margin type spin default %d min 0 max 5000\n", rfp_margin);
@@ -488,6 +491,14 @@ void uci_loop(int argc, char *argv[]) {
                         options.display_currmove = (strncmp(valuetoken, "true", 4) == 0);
                     } else {
                         options.display_currmove = true;
+                    }
+                } else if (strncmp(nametoken, "uci_chess960", 12) == 0) {
+                    if (valuetoken != NULL) {
+                        valuetoken += 5;
+                        while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
+                        option_chess960 = (strncmp(valuetoken, "true", 4) == 0);
+                    } else {
+                        option_chess960 = true;
                     }
                 }
 #ifdef SPSA_TUNING
@@ -688,7 +699,7 @@ void uci_loop(int argc, char *argv[]) {
                 }
 
                 char move_str[6];
-                move_to_string(best, move_str);
+                move_to_string(best, &bench_board, move_str);
 
                 unsigned long long nps = (nodes * 1000ULL) / (pos_time > 0 ? pos_time : 1);
                 printf("Position %s results: Bestmove: %s, Nodes: %llu, Time: %lld ms, NPS: %llu\n",
@@ -728,7 +739,7 @@ void uci_loop(int argc, char *argv[]) {
             SearchLimits limits;
             parse_go_limits(&limits, line);
             if (!search_thread_start(&search_thread, &board, &history, &limits, &options)) {
-                print_bestmove(MOVE_NONE);
+                print_bestmove(MOVE_NONE, &board);
             }
             continue;
         }
