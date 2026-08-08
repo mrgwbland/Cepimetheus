@@ -36,8 +36,16 @@ static int on_board(int file, int rank) {
     return file >= 0 && file < 8 && rank >= 0 && rank < 8;
 }
 
+#if defined(NO_PEXT)
+    /* Hardware PEXT explicitly disabled */
+#elif defined(USE_PEXT)
+#   define USE_HARDWARE_PEXT
+#elif defined(__BMI2__) && !defined(__znver1__) && !defined(__znver2__) && !defined(__znver1) && !defined(__znver2) && !defined(__tune_znver1__) && !defined(__tune_znver2__)
+#   define USE_HARDWARE_PEXT
+#endif
+
 static U64 bitboard_pext(U64 value, U64 mask) {
-#if defined(__BMI2__)
+#if defined(USE_HARDWARE_PEXT)
     return _pext_u64(value, mask);
 #else
     U64 result = 0;
