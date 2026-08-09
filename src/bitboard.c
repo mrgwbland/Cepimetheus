@@ -44,23 +44,80 @@ static int on_board(int file, int rank) {
 #   define USE_HARDWARE_PEXT
 #endif
 
-static U64 bitboard_pext(U64 value, U64 mask) {
+// The number which converts blockers into a polite index
+static const U64 rook_magics[64] = {
+    0x008000e090400180ULL, 0x2e40004120015000ULL, 0x5080100220008028ULL, 0x0080100080058800ULL,
+    0x0100080004100300ULL, 0x090012480c000100ULL, 0xd200040092000801ULL, 0x0880008000422100ULL,
+    0x0000800040038020ULL, 0x020c402010014000ULL, 0x0200802000900080ULL, 0x0020800800100080ULL,
+    0x8000808008002400ULL, 0x01e600382c100a00ULL, 0x0004000250082439ULL, 0x0220800900085080ULL,
+    0x4120410020800300ULL, 0x0102820041060121ULL, 0x8008888010006000ULL, 0x0410008010080280ULL,
+    0x0081110008010104ULL, 0x0301808042009400ULL, 0x00c0040002010810ULL, 0x00080200004400a1ULL,
+    0x808c401080012080ULL, 0xc008200240005004ULL, 0x4211004500200010ULL, 0x4000100080080084ULL,
+    0x1480110100040800ULL, 0x0c0a008081000400ULL, 0x8900020400080910ULL, 0x0045000100024082ULL,
+    0x0402804000800220ULL, 0x0221400080802000ULL, 0x8150801001802000ULL, 0x2024100081800800ULL,
+    0x0d60800800800c00ULL, 0x1062800200804c00ULL, 0x0a22082244000150ULL, 0x1141010446001094ULL,
+    0x0101688240028000ULL, 0x0060004030024000ULL, 0x000101a004110040ULL, 0x0011001004210008ULL,
+    0x8204a40008008080ULL, 0x004200100c020098ULL, 0x003200c104060028ULL, 0x00100a4301820024ULL,
+    0x0180023100804100ULL, 0x1003102080c20200ULL, 0x4502221140820a00ULL, 0xc0802068c2001200ULL,
+    0x0208000900049100ULL, 0x0018802200040080ULL, 0x0018100306080400ULL, 0x0205548508442600ULL,
+    0x4002802832010042ULL, 0x3421014000188121ULL, 0x008008c100702001ULL, 0xa222002010408846ULL,
+    0x008200101409a022ULL, 0x6002004c080d3012ULL, 0x4480083001a60104ULL, 0x8001240061004082ULL
+};
+// 64 - k possible blockers
+static const int rook_shifts[64] = {
+    52, 53, 53, 53, 53, 53, 53, 52,
+    53, 54, 54, 54, 54, 54, 54, 53,
+    53, 54, 54, 54, 54, 54, 54, 53,
+    53, 54, 54, 54, 54, 54, 54, 53,
+    53, 54, 54, 54, 54, 54, 54, 53,
+    53, 54, 54, 54, 54, 54, 54, 53,
+    53, 54, 54, 54, 54, 54, 54, 53,
+    52, 53, 53, 53, 53, 53, 53, 52
+};
+// The number which converts blockers into a polite index
+static const U64 bishop_magics[64] = {
+    0x0040041812184031ULL, 0x0002100204810801ULL, 0x0010008089102000ULL, 0x0404040092008022ULL,
+    0x200410288200e080ULL, 0x4006013008040020ULL, 0x040108020a204000ULL, 0x00802104100c1281ULL,
+    0x0102446008ca0081ULL, 0x9810280800888204ULL, 0x0100308882810104ULL, 0x1010082244404200ULL,
+    0x0000240520000000ULL, 0xc000909010088128ULL, 0x4420210110100490ULL, 0x4001820104023201ULL,
+    0x280a0120a0210204ULL, 0x00a0080485840105ULL, 0x2508001000c41020ULL, 0x010400080c600808ULL,
+    0x0004000080e00049ULL, 0x1a01002201010108ULL, 0x0882020082102240ULL, 0x002306018048260aULL,
+    0x0421140410048822ULL, 0x0008020008064800ULL, 0xb882050008004c00ULL, 0x0428580000820040ULL,
+    0x0101010100b04000ULL, 0x5200c18084100400ULL, 0x0404010004009200ULL, 0x0140420113012128ULL,
+    0x0010052000104290ULL, 0x0808440400020801ULL, 0x1126020100408105ULL, 0x2408020082880080ULL,
+    0x0000454040040100ULL, 0x0420900080010087ULL, 0x8016040c04091180ULL, 0x591812008144208aULL,
+    0x4002104209202010ULL, 0x1000420210a82068ULL, 0x4104510808000100ULL, 0x0200002018000102ULL,
+    0x0001102200601202ULL, 0x20412008008010c0ULL, 0x0824084841000842ULL, 0x040a020c00201104ULL,
+    0x5001043004948441ULL, 0x040040680c100031ULL, 0x1400002084300080ULL, 0x0001080020880814ULL,
+    0x0040081002088008ULL, 0x024284b002020600ULL, 0x3020381081004000ULL, 0x0014084081020001ULL,
+    0x8113410410014408ULL, 0x8481030180900980ULL, 0x0001024424020806ULL, 0x804012000a840410ULL,
+    0x8002004010060200ULL, 0x2100201042900100ULL, 0x0012082104040040ULL, 0x40a0200401104411ULL
+};
+// 64 - k possible blockers
+static const int bishop_shifts[64] = {
+    58, 59, 59, 59, 59, 59, 59, 58,
+    59, 59, 59, 59, 59, 59, 59, 59,
+    59, 59, 57, 57, 57, 57, 59, 59,
+    59, 59, 57, 55, 55, 57, 59, 59,
+    59, 59, 57, 55, 55, 57, 59, 59,
+    59, 59, 57, 57, 57, 57, 59, 59,
+    59, 59, 59, 59, 59, 59, 59, 59,
+    58, 59, 59, 59, 59, 59, 59, 58
+};
+
+static inline U64 bishop_attack_index(int square, U64 occupancy) {
 #if defined(USE_HARDWARE_PEXT)
-    return _pext_u64(value, mask);
+    return _pext_u64(occupancy, bishop_masks[square]);
 #else
-    U64 result = 0;
-    U64 bit = 1;
+    return ((occupancy & bishop_masks[square]) * bishop_magics[square]) >> bishop_shifts[square];
+#endif
+}
 
-    while (mask) {
-        U64 lsb = mask & (~mask + 1ULL);
-        if (value & lsb) {
-            result |= bit;
-        }
-        mask &= (mask - 1ULL);
-        bit <<= 1;
-    }
-
-    return result;
+static inline U64 rook_attack_index(int square, U64 occupancy) {
+#if defined(USE_HARDWARE_PEXT)
+    return _pext_u64(occupancy, rook_masks[square]);
+#else
+    return ((occupancy & rook_masks[square]) * rook_magics[square]) >> rook_shifts[square];
 #endif
 }
 
@@ -214,7 +271,9 @@ static void build_tables(void) {
                 for (int b = 0; b < bits; ++b) {
                     if (idx & (1 << b)) blockers |= (1ULL << positions[b]);
                 }
-                rook_table[rook_table_index + idx] = generate_rook_attacks_otb(square, blockers);
+                U64 attacks = generate_rook_attacks_otb(square, blockers);
+                U64 attack_idx = rook_attack_index(square, blockers);
+                rook_attacks[square][attack_idx] = attacks;
             }
             rook_table_index += permutations;
         }
@@ -234,7 +293,9 @@ static void build_tables(void) {
                 for (int b = 0; b < bits; ++b) {
                     if (idx & (1 << b)) blockers |= (1ULL << positions[b]);
                 }
-                bishop_table[bishop_table_index + idx] = generate_bishop_attacks_otb(square, blockers);
+                U64 attacks = generate_bishop_attacks_otb(square, blockers);
+                U64 attack_idx = bishop_attack_index(square, blockers);
+                bishop_attacks[square][attack_idx] = attacks;
             }
             bishop_table_index += permutations;
         }
@@ -329,12 +390,12 @@ U64 bitboard_pawn_attacks(int side, int square) {
 }
 
 U64 bitboard_bishop_attacks(int square, U64 occupancy) {
-    U64 index = bitboard_pext(occupancy, bishop_masks[square]);
+    U64 index = bishop_attack_index(square, occupancy);
     return bishop_attacks[square][index];
 }
 
 U64 bitboard_rook_attacks(int square, U64 occupancy) {
-    U64 index = bitboard_pext(occupancy, rook_masks[square]);
+    U64 index = rook_attack_index(square, occupancy);
     return rook_attacks[square][index];
 }
 
