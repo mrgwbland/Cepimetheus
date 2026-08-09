@@ -24,6 +24,9 @@ typedef struct SearchLimits {
     int movestogo;
     bool has_clock_time;
     bool infinite;
+    Move search_moves[256];
+    int search_move_count;
+    bool has_search_moves;
 } SearchLimits;
 
 Move think(Board *board,

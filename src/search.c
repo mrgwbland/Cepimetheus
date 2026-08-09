@@ -796,6 +796,24 @@ void search_context_destroy(SearchContext *context)
     free(context);
 }
 
+static bool move_is_in_list(Move move, const Move *list, int count)
+{
+    if (list == NULL || count <= 0)
+    {
+        return false;
+    }
+    // Restrict to searchmoves
+    for (int i = 0; i < count; ++i)
+    {
+        if (list[i] == move)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 SearchResult search_root(Board *board,
                          int depth,
                          int alpha,
@@ -808,7 +826,9 @@ SearchResult search_root(Board *board,
                          void *user_data,
                          bool lichess_draw_rules,
                          const Move *excluded_moves,
-                         int excluded_move_count)
+                         int excluded_move_count,
+                         const Move *search_moves,
+                         int search_move_count)
 {
     init_lmr();
     SearchResult result = {0, MOVE_NONE, {0}, 0, false};
@@ -837,6 +857,10 @@ SearchResult search_root(Board *board,
         {
             Move m = picker.all_moves.moves[i];
             if (move_is_excluded(m, excluded_moves, excluded_move_count))
+            {
+                continue;
+            }
+            if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(m, search_moves, search_move_count))
             {
                 continue;
             }
@@ -873,6 +897,10 @@ SearchResult search_root(Board *board,
             {
                 continue;
             }
+            if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(m, search_moves, search_move_count))
+            {
+                continue;
+            }
             Undo undo;
             if (board_make_move(board, m, &undo))
             {
@@ -903,6 +931,11 @@ SearchResult search_root(Board *board,
         if (search_should_stop(control, stats->nodes))
         {
             break;
+        }
+
+        if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(move, search_moves, search_move_count))
+        {
+            continue;
         }
 
         Undo undo;

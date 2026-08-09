@@ -97,6 +97,8 @@ SearchResult search_root(Board *board,
                          void *user_data,
                          bool lichess_draw_rules,
                          const Move *excluded_moves,
-                         int excluded_move_count);
+                         int excluded_move_count,
+                         const Move *search_moves,
+                         int search_move_count);
 
 #endif

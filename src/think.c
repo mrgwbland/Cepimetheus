@@ -218,6 +218,13 @@ Move think(Board *board,
 
     if (limits != NULL)
     {
+        if (limits->has_search_moves)
+        {
+            if (multipv > limits->search_move_count)
+            {
+                multipv = limits->search_move_count;
+            }
+        }
         if (limits->depth > 0)
         {
             target_depth = limits->depth;
@@ -354,7 +361,9 @@ Move think(Board *board,
                                          (void *)board,
                                          lichess_draw_rules,
                                          excluded_root_moves,
-                                         excluded_root_move_count);
+                                         excluded_root_move_count,
+                                         (limits != NULL && limits->has_search_moves) ? limits->search_moves : NULL,
+                                         (limits != NULL && limits->has_search_moves) ? limits->search_move_count : 0);
 
                     if (control.stop || result.move == MOVE_NONE)
                     {
@@ -397,7 +406,9 @@ Move think(Board *board,
                                      (void *)board,
                                      lichess_draw_rules,
                                      excluded_root_moves,
-                                     excluded_root_move_count);
+                                     excluded_root_move_count,
+                                     (limits != NULL && limits->has_search_moves) ? limits->search_moves : NULL,
+                                     (limits != NULL && limits->has_search_moves) ? limits->search_move_count : 0);
             }
 
 

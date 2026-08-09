@@ -113,14 +113,48 @@ static void print_bestmove(Move best, const Board *board) {
     fflush(stdout);
 }
 
-static void parse_go_limits(SearchLimits *limits, const char *line) {
+static void parse_go_limits(SearchLimits *limits, const char *line, const Board *board) {
     memset(limits, 0, sizeof(*limits));
 
     char parse_buffer[4096];
     strncpy(parse_buffer, line, sizeof(parse_buffer) - 1);
     parse_buffer[sizeof(parse_buffer) - 1] = '\0';
 
+    bool parsing_searchmoves = false;
+
     for (char *token = strtok(parse_buffer, " \t\r\n"); token != NULL; token = strtok(NULL, " \t\r\n")) {
+        // Only search limited moves at root
+        if (strcmp(token, "searchmoves") == 0) {
+            parsing_searchmoves = true;
+            limits->has_search_moves = true;
+            continue;
+        }
+
+        if (parsing_searchmoves) {
+            Move m = MOVE_NONE;
+            Board temp_board;
+            if (board != NULL) {
+                temp_board = *board;
+            }
+            if (board != NULL && movegen_find_legal_move(&temp_board, token, &m)) {
+                if (limits->search_move_count < 256) {
+                    bool duplicate = false;
+                    for (int i = 0; i < limits->search_move_count; i++) {
+                        if (limits->search_moves[i] == m) {
+                            duplicate = true;
+                            break;
+                        }
+                    }
+                    if (!duplicate) {
+                        limits->search_moves[limits->search_move_count++] = m;
+                    }
+                }
+                continue;
+            } else {
+                parsing_searchmoves = false;
+            }
+        }
+
         if (strcmp(token, "depth") == 0) {
             char *value = strtok(NULL, " \t\r\n");
             if (value != NULL) {
@@ -157,6 +191,11 @@ static void parse_go_limits(SearchLimits *limits, const char *line) {
             if (value != NULL) {
                 limits->binc_ms = atoi(value);
                 limits->has_clock_time = true;
+            }
+        } else if (strcmp(token, "movestogo") == 0) {
+            char *value = strtok(NULL, " \t\r\n");
+            if (value != NULL) {
+                limits->movestogo = atoi(value);
             }
         } else if (strcmp(token, "infinite") == 0) {
             limits->infinite = true;
@@ -737,7 +776,7 @@ void uci_loop(int argc, char *argv[]) {
             }
 
             SearchLimits limits;
-            parse_go_limits(&limits, line);
+            parse_go_limits(&limits, line, &board);
             if (!search_thread_start(&search_thread, &board, &history, &limits, &options)) {
                 print_bestmove(MOVE_NONE, &board);
             }

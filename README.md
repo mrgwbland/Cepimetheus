@@ -68,7 +68,7 @@ My testing games include several third party "anchor engines", these are engines
 * Specific Endgame Knowledge
 
 ### Board Representation
-* PEXT Magic Bitboards
+* PEXT/Fancy Magic Bitboards
 
 ### Features
 * MultiPV Support
