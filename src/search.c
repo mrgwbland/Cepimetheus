@@ -25,6 +25,22 @@ int lmr_offset = -32;
 int lmr_divisor = 189;
 int lmr_move_multiplier = 234;
 
+int lmp_quiet_limits[11];
+static bool lmp_initialised = false;
+
+void init_lmp(void)
+{
+    if (lmp_initialised)
+    {
+        return;
+    }
+    for (int depth = 0; depth < 11; ++depth)
+    {
+        lmp_quiet_limits[depth] = (int)(3.0 + 0.8 * depth * depth);
+    }
+    lmp_initialised = true;
+}
+
 static int LMR[64][256];
 static bool lmr_initialised = false;
 
@@ -60,6 +76,7 @@ void init_lmr(void)
         return;
     }
     reinit_lmr();
+    init_lmp();
 }
 
 static long long current_time_ms(void)
@@ -587,10 +604,20 @@ static SearchResult negamax(Board *board,
             break;
         }
 
+        bool is_quiet = !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE;
+
         if (futility_prune)
         {
-            bool is_quiet = !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE;
             if (is_quiet && !move_ischeck(board, move))
+            {
+                continue;
+            }
+        }
+
+        // Late Move Pruning (LMP) - Quiet only pruning when remaining depth < 11
+        if (!pv_node && !in_check && depth < 11 && is_quiet)
+        {
+            if (quiet_searched_count >= lmp_quiet_limits[depth])
             {
                 continue;
             }
