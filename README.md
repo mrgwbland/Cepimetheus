@@ -8,7 +8,7 @@ My recommended GUIs are:\
 
 I run the newest version as a bot on Lichess which you can see here: https://lichess.org/@/EpimetheusBot, you can play it yourself here.\
 I will note that the lichess bot pool (especially bullet) seems very underrated, the Lichess bots (Cepimetheus included), in my opinion, play at a much higher level than a human at the same rating.\
-A friend of mine could not beat Cepimetheus in bullet after several attempts, he was 2629 at the time whilst the bot was 1850.
+A friend of mine could not beat Cepimetheus in bullet after several attempts, he was 2629 at the time whilst the bot was 1850 (both ratings lichess bullet).
 
 ## Rating
 
@@ -19,6 +19,7 @@ My testing games include several third party "anchor engines", these are engines
 
 | Version | CCRL Blitz Rating | Estimated Rating | Error
 | :--- | :---: | :---: | :---: |
+| **Cepimetheus 15.0.0** | N/A | ** | +/-
 | **Cepimetheus 14.0.0** | N/A | **2575.1** | +/-16.6
 | **Cepimetheus 13.0.0** | N/A | **2490.3** | +/-19.4
 | **Cepimetheus 12.0.0** | N/A | **2336.8** | +/-27.1
@@ -60,6 +61,7 @@ My testing games include several third party "anchor engines", these are engines
 * SEE Pruning (QSearch)
 * Futility Pruning
 * Reverse Futility Pruning
+* Late Move Pruning
 
 ### Evaluation
 * No PST Hand Crafted Evaluation
@@ -76,7 +78,18 @@ My testing games include several third party "anchor engines", these are engines
 * Move Overhead Adjustment
 
 ## Download
-To use this engine please click on the "releases" section of the github page. Starting from version 7.0.0 I am providing both linux and windows binaries at a variety of instruction set support levels, choose the one that best performs on your machine, for most modern cpus this will be AVX2 although AVX512 is superior if your CPU supports it, POPCNT is more compatible, and the basic 64 bit build is for legacy systems. \
-Additionally you can also of course compile it yourself from the source code. \
-Please note that some CPUs support instruction sets on a software level, so will actually perform faster using older compiles, for this reason it is optimal to either test all prebuilt binaries or to compile yourself with march=native. \
-Please note that the older the version of engine you get, not only will it be weaker, but the number of bugs will increase, versions 6.4.1 and later have no major bugs.
+To use this engine please click on the "releases" section of the github page. For newer versions I have provided a range of binaries for use on Windows or Linux. \
+Depending on your cpu different binaries will perform differently, or will not be supported at all, please refer to the table below which recommends which version to use, alternatively you can also of course compile it yourself from the source code.
+### CPU Binary Selection Guide
+
+| Binary Name | Intel | AMD |
+| :--- | :--- | :--- |
+| **AVX512** | **10th/11th Gen Core** <br>*(Not supported on newer consumer chips)* | **Zen 4 & Zen 5** |
+| **BMI2** | **4th Gen Core to 14th Gen Core** & **Core Ultra** | **Zen 3** |
+| **AVX2** | **N/A** <br> *(Intel CPUs that support AVX2 also support hardware PEXT)* | **Zen, Zen+, & Zen 2** <br>*(These CPUs are unique in that they support BMI2 but will underperform due to microcoded PEXT)* |
+| **POPCNT** | **1st Gen to 3rd Gen Core** | **Phenom II, FX Series** |
+| **64** | **Legacy 64-bit CPUs** *(Core 2 Duo, Pentium D)* | **Legacy 64-bit CPUs** *(Athlon 64, Opteron)* |
+
+To avoid confusion, before the release of v15.0.0, I didn't release a binary called BMI2, however the old AVX2 binaries are equivalent to the new BMI2 binaries in that they demand hardware PEXT, for this reason for older releases, POPCNT binaries are potentially superior on older Zen architectures, although this is ineffficient as they lack the AVX2 support, hence the new binary beginning with version 15.0.0.
+
+Please note that the older the version of engine you get, not only will it be weaker, but the potential for bugs will increase, versions 6.4.1 and later have no major bugs.

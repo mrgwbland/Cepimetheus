@@ -71,16 +71,16 @@ windows:
 
 release:
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-64 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-64.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-POPCNT -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-POPCNT.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-AVX2 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-AVX2.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-BMI2 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-BMI2.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-AVX512 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-dev-AVX512.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-64 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-64.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-POPCNT -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-POPCNT.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX2 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX2.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-BMI2 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-BMI2.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX512 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX512.exe -lm
 
 clean:
 	rm -rf $(BUILD_DIR)
