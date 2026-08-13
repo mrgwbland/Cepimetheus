@@ -390,6 +390,7 @@ static void run_perft(Board *board, int depth) {
 void uci_loop(int argc, char *argv[]) {
     init_eval();
     init_lmr();
+    init_lmp();
     Board board;
     board_init(&board);
     RepetitionHistory history;
@@ -452,6 +453,8 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name LMR_Offset type spin default %d min -500 max 500\n", lmr_offset);
             printf("option name LMR_Divisor type spin default %d min 10 max 1000\n", lmr_divisor);
             printf("option name LMR_MoveMultiplier type spin default %d min 10 max 1000\n", lmr_move_multiplier);
+            printf("option name LMP_Base type spin default %d min 0 max 1000\n", lmp_base);
+            printf("option name LMP_Multiplier type spin default %d min 0 max 1000\n", lmp_multiplier);
             printf("option name History_BonusCap type spin default %d min 1 max 5000\n", history_bonus_cap);
             printf("option name History_Gravity type spin default %d min 1 max 4096\n", history_gravity);
             printf("option name History_Scale type spin default %d min 1 max 256\n", history_scale);
@@ -559,6 +562,8 @@ void uci_loop(int argc, char *argv[]) {
                     else if (strncmp(nametoken, "lmr_offset", 10) == 0) { lmr_offset = val; reinit_lmr(); }
                     else if (strncmp(nametoken, "lmr_divisor", 11) == 0) { lmr_divisor = val; reinit_lmr(); }
                     else if (strncmp(nametoken, "lmr_movemultiplier", 18) == 0) { lmr_move_multiplier = val; reinit_lmr(); }
+                    else if (strncmp(nametoken, "lmp_base", 8) == 0) { lmp_base = val; reinit_lmp(); }
+                    else if (strncmp(nametoken, "lmp_multiplier", 14) == 0) { lmp_multiplier = val; reinit_lmp(); }
                     else if (strncmp(nametoken, "history_bonuscap", 16) == 0) history_bonus_cap = val;
                     else if (strncmp(nametoken, "history_gravity", 15) == 0) history_gravity = val;
                     else if (strncmp(nametoken, "history_scale", 13) == 0) history_scale = val;

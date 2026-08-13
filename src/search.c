@@ -25,8 +25,20 @@ int lmr_offset = -32;
 int lmr_divisor = 189;
 int lmr_move_multiplier = 234;
 
+int lmp_base = 300;
+int lmp_multiplier = 80;
 int lmp_quiet_limits[11];
 static bool lmp_initialised = false;
+
+void reinit_lmp(void)
+{
+    double base = (double)lmp_base / 100.0;
+    double mult = (double)lmp_multiplier / 100.0;
+    for (int depth = 0; depth < 11; ++depth)
+    {
+        lmp_quiet_limits[depth] = (int)(base + mult * depth * depth);
+    }
+}
 
 void init_lmp(void)
 {
@@ -34,10 +46,7 @@ void init_lmp(void)
     {
         return;
     }
-    for (int depth = 0; depth < 11; ++depth)
-    {
-        lmp_quiet_limits[depth] = (int)(3.0 + 0.8 * depth * depth);
-    }
+    reinit_lmp();
     lmp_initialised = true;
 }
 

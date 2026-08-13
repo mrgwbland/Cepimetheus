@@ -49,6 +49,7 @@ typedef void (*SearchMoveInfoCallback)(int depth,
 void init_lmr(void);
 void reinit_lmr(void);
 void init_lmp(void);
+void reinit_lmp(void);
 
 /* Search parameters */
 extern int futility_margin;
@@ -64,6 +65,8 @@ extern int lmr_min_depth;
 extern int lmr_offset;
 extern int lmr_divisor;
 extern int lmr_move_multiplier;
+extern int lmp_base;
+extern int lmp_multiplier;
 extern int lmp_quiet_limits[11];
 
 /* Move picker & history parameters */
