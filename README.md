@@ -19,7 +19,7 @@ My testing games include several third party "anchor engines", these are engines
 
 | Version | CCRL Blitz Rating | Estimated Rating | Error
 | :--- | :---: | :---: | :---: |
-| **Cepimetheus 15.0.0** | N/A | *2659.5* | +/-20.0
+| **Cepimetheus 15.0.0** | N/A | **2659.5** | +/-20.0
 | **Cepimetheus 14.0.0** | N/A | **2573.1** | +/-16.2
 | **Cepimetheus 13.0.0** | N/A | **2490.7** | +/-20.4
 | **Cepimetheus 12.0.0** | N/A | **2336.4** | +/-22.3
@@ -79,7 +79,8 @@ My testing games include several third party "anchor engines", these are engines
 
 ## Download
 To use this engine please click on the "releases" section of the github page. For newer versions I have provided a range of binaries for use on Windows or Linux. \
-Depending on your cpu different binaries will perform differently, or will not be supported at all, please refer to the table below which recommends which version to use, alternatively you can also of course compile it yourself from the source code.
+Depending on your cpu, different binaries will perform differently, or will not be supported at all, please refer to the table below which recommends which version to use. \
+Alternatively you can also of course compile it yourself from the source code.
 ### CPU Binary Selection Guide
 
 | Binary Name | Intel | AMD |
@@ -90,6 +91,6 @@ Depending on your cpu different binaries will perform differently, or will not b
 | **POPCNT** | **1st Gen to 3rd Gen Core** | **Phenom II, FX Series** |
 | **64** | **Legacy 64-bit CPUs** *(Core 2 Duo, Pentium D)* | **Legacy 64-bit CPUs** *(Athlon 64, Opteron)* |
 
-To avoid confusion, before the release of v15.0.0, I didn't release a binary called BMI2, however the old AVX2 binaries are equivalent to the new BMI2 binaries in that they demand hardware PEXT, for this reason for older releases, POPCNT binaries are potentially superior on older Zen architectures, although this is ineffficient as they lack the AVX2 support, hence the new binary beginning with version 15.0.0.
+To avoid confusion, before the release of v15.0.0, I didn't release a binary called BMI2, however the old AVX2 binaries are equivalent to the new BMI2 binaries in that they demand hardware PEXT, for this reason, for older releases, POPCNT binaries are potentially superior on older Zen architectures, although this is still ineffficient as they lack the AVX2 support (and only run on software PEXT rather than magic bitboards), hence my introduction of the new binary beginning with version 15.0.0.
 
 Please note that the older the version of engine you get, not only will it be weaker, but the potential for bugs will increase, versions 6.4.1 and later have no major bugs.
