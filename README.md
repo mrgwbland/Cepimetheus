@@ -17,20 +17,20 @@ I have also made an effort to estimate the ratings of other major versions to be
 Estimated ratings are calculated with Ordo on game pools played at the exact CCRL blitz time control framework of 120s + 1s increment, my testing cpu has very similar single thread performance to the CCRL baseline 4770K.\
 My testing games include several third party "anchor engines", these are engines that are rated on the CCRL list, to improve the accuracy of the data.
 
-| Version | CCRL Blitz Rating | Estimated CCRL Blitz Rating | COPE Bullet Rating | COPE Rapid Rating
-| :--- | :---: | :---: | :---: | :---: |
-| **Cepimetheus 15.0.0** | N/A | **2659.5** | 2725 | 2922
-| **Cepimetheus 14.0.1** | N/A | **2573.1** | 2647 | 2771
-| **Cepimetheus 13.0.0** | N/A | **2490.7** | N/A | N/A
-| **Cepimetheus 12.0.0** | N/A | **2336.4** | N/A | N/A
-| **Cepimetheus 11.0.0** | N/A | **2237.9** | N/A | N/A
-| **Cepimetheus 10.0.0** | **2173** | **2173.0** | N/A | N/A
-| **Cepimetheus 9.0.0** | N/A | **2124.2** | N/A | N/A
-| **Cepimetheus 8.0.0** | N/A | **2065.6** | N/A | N/A
-| **Cepimetheus 7.2.0** | N/A | **2003.9** | N/A | N/A
-| **Cepimetheus 6.4.1** | **1914** | **1914.0** | N/A | N/A
-| **Cepimetheus 5.1.0** | N/A | **1704.7** | N/A | N/A
-| **Cepimetheus 4.3.1** | N/A | **1626.2** | N/A | N/A
+| Version | CCRL Blitz Rating | Estimated CCRL Blitz Rating | CCRL Rapid Rating | COPE Bullet Rating | COPE Rapid Rating
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Cepimetheus 15.0.0** | N/A | **2659.5** | N/A | **2725** | **2922**
+| **Cepimetheus 14.0.1** | N/A | **2573.1** | **2517** | **2647** | **2771**
+| **Cepimetheus 13.0.0** | N/A | **2490.7** | N/A | N/A | N/A
+| **Cepimetheus 12.0.0** | N/A | **2336.4** | N/A | N/A | N/A
+| **Cepimetheus 11.0.0** | N/A | **2237.9** | N/A | N/A | N/A
+| **Cepimetheus 10.0.0** | **2173** | **2173.0** | N/A | N/A | N/A
+| **Cepimetheus 9.0.0** | N/A | **2124.2** | N/A | N/A | N/A
+| **Cepimetheus 8.0.0** | N/A | **2065.6** | N/A | N/A | N/A
+| **Cepimetheus 7.2.0** | N/A | **2003.9** | N/A | N/A | N/A
+| **Cepimetheus 6.4.1** | **1914** | **1914.0** | N/A | N/A | N/A
+| **Cepimetheus 5.1.0** | N/A | **1704.7** | N/A | N/A | N/A
+| **Cepimetheus 4.3.1** | N/A | **1626.2** | N/A | N/A | N/A
 
 > **Note on Accuracy:** All estimated ratings are subject to change as I play more games or add additional CCRL anchor engines to my testing to further calibrate the results.
 
