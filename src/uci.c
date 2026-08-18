@@ -595,6 +595,14 @@ void uci_loop(int argc, char *argv[]) {
             continue;
         }
 
+        if (strncmp(line, "eval", 4) == 0 && (line[4] == '\0' || line[4] == ' ' || line[4] == '\t' || line[4] == '\r' || line[4] == '\n')) {
+            search_thread_stop_and_join(&search_thread);
+            int score = evaluate_position(&board);
+            printf("%d\n", score);
+            fflush(stdout);
+            continue;
+        }
+
         if (strncmp(line, "bench", 5) == 0 && (line[5] == '\0' || line[5] == ' ' || line[5] == '\t' || line[5] == '\r' || line[5] == '\n')) {
             search_thread_stop_and_join(&search_thread);
 
