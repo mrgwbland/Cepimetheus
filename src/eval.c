@@ -12,35 +12,35 @@ int piece_values_mg[6] = {
 };
 
 int piece_values_eg[6] = {
-    1000, 4215, 3495, 6220, 9620, 0
+    1000, 4215, 3490, 6225, 9630, 0
 };
 
 int eval_parameters_mg[22] = {
-    123, 323, 0, 22, 150, 0, 63, 79, 64, 194, 16, 9, 135, 95, 399, 89, 0, 4, 352, 138, 0, 0
+    124, 323, 0, 22, 151, 0, 63, 79, 64, 189, 16, 9, 135, 95, 399, 89, 0, 2, 352, 141, 0, 0
 };
 
 int eval_parameters_eg[22] = {
-    91, 0, 116, 27, 88, 98, 96, 57, 27, 0, 40, 0, 128, 62, 1020, 42, 35, 1148, 83, 0, 84, 269
+    86, 0, 116, 27, 88, 98, 95, 57, 27, 0, 40, 0, 128, 62, 1020, 42, 35, 1151, 90, 0, 86, 119
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 12, 328, 780, 1148
+    0, 0, 20, 338, 806, 1212
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 181, 380, 683, 1278
+    0, 0, 173, 350, 618, 1173
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 11, 84, 212, 539, 739
+    0, 11, 84, 212, 543, 778
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 27, 307, 501
+    0, 0, 0, 27, 317, 509
 };
 
 int piece_attack_weights_mg[5] = {
-    21, 81, 32, 34, 49
+    21, 82, 32, 34, 49
 };
 
 int piece_attack_weights_eg[5] = {
@@ -48,12 +48,13 @@ int piece_attack_weights_eg[5] = {
 };
 
 int piece_defense_weights_mg[5] = {
-    17, 21, 3, 0, 0
+    18, 21, 3, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
     100, 51, 152, 151, 165
 };
+
 
 
 /* Macros redirect the existing engine code to array*/
@@ -899,57 +900,129 @@ int evaluate_position(Board *board)
     }
 
     // Safe Promotion Path for passed pawns
-    U64 w_passers = white_passed_pawns;
-    while (w_passers)
+    if ((PASSED_PAWN_SAFE_PATH_MG | PASSED_PAWN_SAFE_PATH_EG) != 0)// Only calculate if passed pawns exist
     {
-        int square = bitboard_pop_lsb(&w_passers);
-        U64 path = bitboard_pawn_push_path_mask(WHITE, square);
-        if ((path & board->occupancy[BLACK]) == 0 && (path & white_pawns) == 0)
+        U64 occ = board->occupancy[BOTH];
+
+        U64 w_passers = white_passed_pawns;
+        if (w_passers)
         {
-            bool safe = true;
-            U64 path_temp = path;
-            while (path_temp)
+            U64 bp_attacks = (((black_pawns & ~file_masks[0]) >> 9) | ((black_pawns & ~file_masks[7]) >> 7));
+            U64 bk_attacks = bitboard_king_attacks(board->king_square[BLACK]);
+            U64 b_knights = board->pieces[BLACK_KNIGHT];
+            U64 b_diag = board->pieces[BLACK_BISHOP] | board->pieces[BLACK_QUEEN];
+            U64 b_ortho = board->pieces[BLACK_ROOK] | board->pieces[BLACK_QUEEN];
+
+            while (w_passers)
             {
-                int path_sq = bitboard_pop_lsb(&path_temp);
-                if (board_is_square_attacked(board, path_sq, BLACK))
+                int square = bitboard_pop_lsb(&w_passers);
+                U64 path = bitboard_pawn_push_path_mask(WHITE, square);
+                if ((path & occ) == 0 && (path & bp_attacks) == 0 && (path & bk_attacks) == 0)
                 {
-                    safe = false;
-                    break;
+                    bool safe = true;
+                    U64 kn = b_knights;
+                    while (kn)
+                    {
+                        if (bitboard_knight_attacks(bitboard_pop_lsb(&kn)) & path)
+                        {
+                            safe = false;
+                            break;
+                        }
+                    }
+                    if (safe)
+                    {
+                        U64 diag = b_diag;
+                        while (diag)
+                        {
+                            if (bitboard_bishop_attacks(bitboard_pop_lsb(&diag), occ) & path)
+                            {
+                                safe = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (safe)
+                    {
+                        U64 ortho = b_ortho;
+                        while (ortho)
+                        {
+                            if (bitboard_rook_attacks(bitboard_pop_lsb(&ortho), occ) & path)
+                            {
+                                safe = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (safe)
+                    {
+                        int scale = rank_of(square) + 1 - (board->side != WHITE);
+                        white_score.mg += PASSED_PAWN_SAFE_PATH_MG * scale;
+                        white_score.eg += PASSED_PAWN_SAFE_PATH_EG * scale;
+                    }
                 }
             }
-            if (safe)
+        }
+
+        U64 b_passers = black_passed_pawns;
+        if (b_passers)
+        {
+            U64 wp_attacks = (((white_pawns & ~file_masks[0]) << 7) | ((white_pawns & ~file_masks[7]) << 9));
+            U64 wk_attacks = bitboard_king_attacks(board->king_square[WHITE]);
+            U64 w_knights = board->pieces[WHITE_KNIGHT];
+            U64 w_diag = board->pieces[WHITE_BISHOP] | board->pieces[WHITE_QUEEN];
+            U64 w_ortho = board->pieces[WHITE_ROOK] | board->pieces[WHITE_QUEEN];
+
+            while (b_passers)
             {
-                white_score.mg += PASSED_PAWN_SAFE_PATH_MG;
-                white_score.eg += PASSED_PAWN_SAFE_PATH_EG;
+                int square = bitboard_pop_lsb(&b_passers);
+                U64 path = bitboard_pawn_push_path_mask(BLACK, square);
+                if ((path & occ) == 0 && (path & wp_attacks) == 0 && (path & wk_attacks) == 0)
+                {
+                    bool safe = true;
+                    U64 kn = w_knights;
+                    while (kn)
+                    {
+                        if (bitboard_knight_attacks(bitboard_pop_lsb(&kn)) & path)
+                        {
+                            safe = false;
+                            break;
+                        }
+                    }
+                    if (safe)
+                    {
+                        U64 diag = w_diag;
+                        while (diag)
+                        {
+                            if (bitboard_bishop_attacks(bitboard_pop_lsb(&diag), occ) & path)
+                            {
+                                safe = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (safe)
+                    {
+                        U64 ortho = w_ortho;
+                        while (ortho)
+                        {
+                            if (bitboard_rook_attacks(bitboard_pop_lsb(&ortho), occ) & path)
+                            {
+                                safe = false;
+                                break;
+                            }
+                        }
+                    }
+                    if (safe)
+                    {
+                        int scale = 8 - rank_of(square) - (board->side != BLACK);
+                        black_score.mg += PASSED_PAWN_SAFE_PATH_MG * scale;
+                        black_score.eg += PASSED_PAWN_SAFE_PATH_EG * scale;
+                    }
+                }
             }
         }
     }
 
-    U64 b_passers = black_passed_pawns;
-    while (b_passers)
-    {
-        int square = bitboard_pop_lsb(&b_passers);
-        U64 path = bitboard_pawn_push_path_mask(BLACK, square);
-        if ((path & board->occupancy[WHITE]) == 0 && (path & black_pawns) == 0)
-        {
-            bool safe = true;
-            U64 path_temp = path;
-            while (path_temp)
-            {
-                int path_sq = bitboard_pop_lsb(&path_temp);
-                if (board_is_square_attacked(board, path_sq, WHITE))
-                {
-                    safe = false;
-                    break;
-                }
-            }
-            if (safe)
-            {
-                black_score.mg += PASSED_PAWN_SAFE_PATH_MG;
-                black_score.eg += PASSED_PAWN_SAFE_PATH_EG;
-            }
-        }
-    }
 
     int net_white_attackers_mg = white_king_ring_attackers_mg - white_king_ring_defenders_mg;
     if (net_white_attackers_mg < 0) net_white_attackers_mg = 0;
