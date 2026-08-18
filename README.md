@@ -12,25 +12,25 @@ A friend of mine could not beat Cepimetheus in bullet after several attempts, he
 
 ## Rating
 
-Cepimetheus is undergoing continuous development, with noticeable strength gains with each major release. The engine is officially tracked on the CCRL Blitz ratings list [here](https://computerchess.org.uk/404/cgi/compare_engines.cgi?family=Cepimetheus).\
+Cepimetheus is undergoing continuous development, with noticeable strength gains with each major release. The engine is officially tracked on the CCRL Blitz ratings list [here](https://computerchess.org.uk/404/cgi/compare_engines.cgi?family=Cepimetheus) and on COPE [here](https://cope-chess.live/engines/76).\
 I have also made an effort to estimate the ratings of other major versions to better show per version improvement and let users know how strong a certain version is.\
 Estimated ratings are calculated with Ordo on game pools played at the exact CCRL blitz time control framework of 120s + 1s increment, my testing cpu has very similar single thread performance to the CCRL baseline 4770K.\
 My testing games include several third party "anchor engines", these are engines that are rated on the CCRL list, to improve the accuracy of the data.
 
-| Version | CCRL Blitz Rating | Estimated Rating | Error
-| :--- | :---: | :---: | :---: |
-| **Cepimetheus 15.0.0** | N/A | ** | +/-
-| **Cepimetheus 14.0.0** | N/A | **2575.1** | +/-16.6
-| **Cepimetheus 13.0.0** | N/A | **2490.3** | +/-19.4
-| **Cepimetheus 12.0.0** | N/A | **2336.8** | +/-27.1
-| **Cepimetheus 11.0.0** | N/A | **2237.7** | +/-15.4
-| **Cepimetheus 10.0.0** | **2173** | **2173.0** | (anchor)
-| **Cepimetheus 9.0.0** | N/A | **2125.3** | +/-24.3
-| **Cepimetheus 8.0.0** | N/A | **2064.3** | +/-26.2
-| **Cepimetheus 7.2.0** | N/A | **2003.9** | +/-12.8
-| **Cepimetheus 6.4.1** | **1914** | **1914.0** | (anchor)
-| **Cepimetheus 5.1.0** | N/A | **1704.6** | +/-30.6
-| **Cepimetheus 4.3.1** | N/A | **1626.2** | +/-21.9
+| Version | CCRL Blitz Rating | Estimated CCRL Blitz Rating | CCRL Rapid Rating | COPE Bullet Rating | COPE Rapid Rating
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Cepimetheus 15.0.0** | N/A | **2659.5** | N/A | **2725** | **2922**
+| **Cepimetheus 14.0.1** | N/A | **2573.1** | **2517** | **2647** | **2771**
+| **Cepimetheus 13.0.0** | N/A | **2490.7** | N/A | N/A | N/A
+| **Cepimetheus 12.0.0** | N/A | **2336.4** | N/A | N/A | N/A
+| **Cepimetheus 11.0.0** | N/A | **2237.9** | N/A | N/A | N/A
+| **Cepimetheus 10.0.0** | **2173** | **2173.0** | N/A | N/A | N/A
+| **Cepimetheus 9.0.0** | N/A | **2124.2** | N/A | N/A | N/A
+| **Cepimetheus 8.0.0** | N/A | **2065.6** | N/A | N/A | N/A
+| **Cepimetheus 7.2.0** | N/A | **2003.9** | N/A | N/A | N/A
+| **Cepimetheus 6.4.1** | **1914** | **1914.0** | N/A | N/A | N/A
+| **Cepimetheus 5.1.0** | N/A | **1704.7** | N/A | N/A | N/A
+| **Cepimetheus 4.3.1** | N/A | **1626.2** | N/A | N/A | N/A
 
 > **Note on Accuracy:** All estimated ratings are subject to change as I play more games or add additional CCRL anchor engines to my testing to further calibrate the results.
 
@@ -79,7 +79,8 @@ My testing games include several third party "anchor engines", these are engines
 
 ## Download
 To use this engine please click on the "releases" section of the github page. For newer versions I have provided a range of binaries for use on Windows or Linux. \
-Depending on your cpu different binaries will perform differently, or will not be supported at all, please refer to the table below which recommends which version to use, alternatively you can also of course compile it yourself from the source code.
+Depending on your cpu, different binaries will perform differently, or will not be supported at all, please refer to the table below which recommends which version to use. \
+Alternatively you can also of course compile it yourself from the source code.
 ### CPU Binary Selection Guide
 
 | Binary Name | Intel | AMD |
@@ -90,6 +91,6 @@ Depending on your cpu different binaries will perform differently, or will not b
 | **POPCNT** | **1st Gen to 3rd Gen Core** | **Phenom II, FX Series** |
 | **64** | **Legacy 64-bit CPUs** *(Core 2 Duo, Pentium D)* | **Legacy 64-bit CPUs** *(Athlon 64, Opteron)* |
 
-To avoid confusion, before the release of v15.0.0, I didn't release a binary called BMI2, however the old AVX2 binaries are equivalent to the new BMI2 binaries in that they demand hardware PEXT, for this reason for older releases, POPCNT binaries are potentially superior on older Zen architectures, although this is ineffficient as they lack the AVX2 support, hence the new binary beginning with version 15.0.0.
+To avoid confusion, before the release of v15.0.0, I didn't release a binary called BMI2, however the old AVX2 binaries are equivalent to the new BMI2 binaries in that they demand hardware PEXT, for this reason, for older releases, POPCNT binaries are potentially superior on older Zen architectures, although this is still ineffficient as they lack the AVX2 support (and only run on software PEXT rather than magic bitboards), hence my introduction of the new binary beginning with version 15.0.0.
 
 Please note that the older the version of engine you get, not only will it be weaker, but the potential for bugs will increase, versions 6.4.1 and later have no major bugs.
