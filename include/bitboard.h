@@ -15,6 +15,7 @@ U64 bitboard_bishop_attacks(int square, U64 occupancy);
 U64 bitboard_rook_attacks(int square, U64 occupancy);
 U64 bitboard_queen_attacks(int square, U64 occupancy);
 U64 bitboard_passed_pawn_mask(int side, int square);
+U64 bitboard_pawn_push_path_mask(int side, int square);
 U64 bitboard_line_mask(int sq1, int sq2);
 U64 bitboard_in_between_mask(int sq1, int sq2);
 

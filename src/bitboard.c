@@ -6,6 +6,7 @@ static U64 knight_table[64];
 static U64 king_table[64];
 static U64 pawn_table[2][64];
 static U64 passed_pawn_masks[2][64];
+static U64 pawn_push_path_masks[2][64];
 static U64 line_masks[64][64];
 static U64 in_between_masks[64][64];
 
@@ -237,6 +238,13 @@ static void build_tables(void) {
         }
         passed_pawn_masks[WHITE][square] = white_passed_pawn_mask;
 
+        U64 white_push_path = 0;
+        for (int passed_rank = rank + 1; passed_rank < 8; ++passed_rank)
+        {
+            white_push_path |= 1ULL << (passed_rank * 8 + file);
+        }
+        pawn_push_path_masks[WHITE][square] = white_push_path;
+
         U64 black_passed_pawn_mask = 0;
         for (int passed_file = file - 1; passed_file <= file + 1; ++passed_file)
         {
@@ -251,6 +259,13 @@ static void build_tables(void) {
             }
         }
         passed_pawn_masks[BLACK][square] = black_passed_pawn_mask;
+
+        U64 black_push_path = 0;
+        for (int passed_rank = rank - 1; passed_rank >= 0; --passed_rank)
+        {
+            black_push_path |= 1ULL << (passed_rank * 8 + file);
+        }
+        pawn_push_path_masks[BLACK][square] = black_push_path;
 
         /* Generate and store rook/bishop masks for this square */
         rook_masks[square] = generate_rook_mask(square);
@@ -406,6 +421,11 @@ U64 bitboard_queen_attacks(int square, U64 occupancy) {
 U64 bitboard_passed_pawn_mask(int side, int square) {
     bitboard_init_tables();
     return passed_pawn_masks[side][square];
+}
+
+U64 bitboard_pawn_push_path_mask(int side, int square) {
+    bitboard_init_tables();
+    return pawn_push_path_masks[side][square];
 }
 
 U64 bitboard_line_mask(int sq1, int sq2) {

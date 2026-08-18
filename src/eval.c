@@ -8,39 +8,39 @@
 #include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2285, 2455, 3135, 10590, 0
+    1000, 2285, 2460, 3130, 10590, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 4210, 3500, 6235, 9600, 0
+    1000, 4215, 3495, 6220, 9620, 0
 };
 
-int eval_parameters_mg[21] = {
-    124, 323, 0, 22, 149, 0, 63, 79, 64, 189, 15, 9, 134, 95, 397, 94, 0, 4, 352, 143, 0
+int eval_parameters_mg[22] = {
+    123, 323, 0, 22, 150, 0, 63, 79, 64, 194, 16, 9, 135, 95, 399, 89, 0, 4, 352, 138, 0, 0
 };
 
-int eval_parameters_eg[21] = {
-    90, 0, 114, 27, 96, 96, 97, 59, 27, 0, 43, 0, 121, 59, 1019, 41, 41, 1150, 81, 0, 83
+int eval_parameters_eg[22] = {
+    91, 0, 116, 27, 88, 98, 96, 57, 27, 0, 40, 0, 128, 62, 1020, 42, 35, 1148, 83, 0, 84, 269
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 14, 333, 786, 1171
+    0, 0, 12, 328, 780, 1148
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 208, 417, 727, 1312
+    0, 0, 181, 380, 683, 1278
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 12, 85, 212, 550, 707
+    0, 11, 84, 212, 539, 739
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 30, 282, 510
+    0, 0, 0, 27, 307, 501
 };
 
 int piece_attack_weights_mg[5] = {
-    19, 81, 32, 34, 49
+    21, 81, 32, 34, 49
 };
 
 int piece_attack_weights_eg[5] = {
@@ -48,12 +48,13 @@ int piece_attack_weights_eg[5] = {
 };
 
 int piece_defense_weights_mg[5] = {
-    17, 20, 3, 0, 0
+    17, 21, 3, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
     100, 51, 152, 151, 165
 };
+
 
 /* Macros redirect the existing engine code to array*/
 #define TEMPO_BONUS_MG eval_parameters_mg[0]
@@ -98,6 +99,8 @@ int piece_defense_weights_eg[5] = {
 #define BISHOP_OUTPOST_BONUS_EG eval_parameters_eg[19]
 #define OCB_SCALE_MG eval_parameters_mg[20]
 #define OCB_SCALE_EG eval_parameters_eg[20]
+#define PASSED_PAWN_SAFE_PATH_MG eval_parameters_mg[21]
+#define PASSED_PAWN_SAFE_PATH_EG eval_parameters_eg[21]
 
 static inline int manhattan_distance(int sq1, int sq2)
 {
@@ -895,6 +898,59 @@ int evaluate_position(Board *board)
         }
     }
 
+    // Safe Promotion Path for passed pawns
+    U64 w_passers = white_passed_pawns;
+    while (w_passers)
+    {
+        int square = bitboard_pop_lsb(&w_passers);
+        U64 path = bitboard_pawn_push_path_mask(WHITE, square);
+        if ((path & board->occupancy[BLACK]) == 0 && (path & white_pawns) == 0)
+        {
+            bool safe = true;
+            U64 path_temp = path;
+            while (path_temp)
+            {
+                int path_sq = bitboard_pop_lsb(&path_temp);
+                if (board_is_square_attacked(board, path_sq, BLACK))
+                {
+                    safe = false;
+                    break;
+                }
+            }
+            if (safe)
+            {
+                white_score.mg += PASSED_PAWN_SAFE_PATH_MG;
+                white_score.eg += PASSED_PAWN_SAFE_PATH_EG;
+            }
+        }
+    }
+
+    U64 b_passers = black_passed_pawns;
+    while (b_passers)
+    {
+        int square = bitboard_pop_lsb(&b_passers);
+        U64 path = bitboard_pawn_push_path_mask(BLACK, square);
+        if ((path & board->occupancy[WHITE]) == 0 && (path & black_pawns) == 0)
+        {
+            bool safe = true;
+            U64 path_temp = path;
+            while (path_temp)
+            {
+                int path_sq = bitboard_pop_lsb(&path_temp);
+                if (board_is_square_attacked(board, path_sq, WHITE))
+                {
+                    safe = false;
+                    break;
+                }
+            }
+            if (safe)
+            {
+                black_score.mg += PASSED_PAWN_SAFE_PATH_MG;
+                black_score.eg += PASSED_PAWN_SAFE_PATH_EG;
+            }
+        }
+    }
+
     int net_white_attackers_mg = white_king_ring_attackers_mg - white_king_ring_defenders_mg;
     if (net_white_attackers_mg < 0) net_white_attackers_mg = 0;
 
@@ -1027,14 +1083,14 @@ int evaluate_position_with_weights(const char *fen, int *weights)
             offset++;
         }
         
-        for (int i = 0; i < 21; ++i) {
+        for (int i = 0; i < 22; ++i) {
             if (eval_parameters_mg[i] != weights[offset]) {
                 eval_parameters_mg[i] = weights[offset];
                 weights_changed = true;
             }
             offset++;
         }
-        for (int i = 0; i < 21; ++i) {
+        for (int i = 0; i < 22; ++i) {
             if (eval_parameters_eg[i] != weights[offset]) {
                 eval_parameters_eg[i] = weights[offset];
                 weights_changed = true;
