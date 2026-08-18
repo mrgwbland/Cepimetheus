@@ -9,8 +9,6 @@
 #include <math.h>
 #include <ctype.h>
 
-bool option_chess960 = false;
-
 static void push_current_position(Board *board, RepetitionHistory *history) {
     if (history == NULL) {
         return;

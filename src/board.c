@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+bool option_chess960 = false;
+
 static int piece_for_side_at_type(int side, int type) {
     return side == WHITE ? type : type + 6;
 }

@@ -7,8 +7,6 @@
 
 #include "board.h"
 
-#include "uci.h"
-
 static void square_to_string(int square, char buffer[3]) {
     board_square_to_string(square, buffer);
 }

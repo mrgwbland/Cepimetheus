@@ -72,6 +72,8 @@ typedef struct RepetitionHistory {
     int count;
 } RepetitionHistory;
 
+extern bool option_chess960;
+
 void board_init(Board *board);
 void board_set_startpos(Board *board);
 bool board_set_fen(Board *board, const char *fen);
