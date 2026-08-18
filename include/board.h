@@ -52,10 +52,14 @@ typedef struct Board {
     int king_square[2];
     int castling_rook_square[4];
     U64 hash;
+    U64 checkers;
+    U64 pinned_mask;
 } Board;
 
 typedef struct Undo {
     U64 hash;
+    U64 checkers;
+    U64 pinned_mask;
     int castling_rights;
     int ep_square;
     int halfmove_clock;

@@ -1127,8 +1127,8 @@ int evaluate_position_with_weights(const char *fen, int *weights)
     MoveList list;
     movegen_generate_pseudo_legal(&board, &list);
 
-    U64 pinned = board_pinned_mask(&board, board.side);
-    U64 checkers = board_checkers(&board, board.side);
+    U64 pinned = board.pinned_mask;
+    U64 checkers = board.checkers;
     bool has_legal_move = false;
 
     for (int i = 0; i < list.count; i++)

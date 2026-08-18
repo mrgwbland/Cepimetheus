@@ -448,6 +448,8 @@ bool board_set_fen(Board *board, const char *fen) {
     board_sync_occupancy(board);
     board_sync_kings(board);
     board->hash = zobrist_hash_full(board);
+    board->checkers = board_checkers(board, board->side);
+    board->pinned_mask = board_pinned_mask(board, board->side);
     return board->king_square[WHITE] >= 0 && board->king_square[BLACK] >= 0;
 }
 
@@ -499,6 +501,12 @@ bool board_is_square_attacked(const Board *board, int square, int attacker_side)
 }
 
 bool board_is_in_check(const Board *board, int side) {
+    if (board == NULL) {
+        return false;
+    }
+    if (side == board->side) {
+        return board->checkers != 0;
+    }
     int king_square = board->king_square[side];
     if (king_square < 0) {
         return false;
@@ -759,6 +767,8 @@ void board_unmake_move(Board *board, const Undo *undo) {
         board->ep_square = undo->ep_square;
         board->halfmove_clock = undo->halfmove_clock;
         board->hash = undo->hash;
+        board->checkers = undo->checkers;
+        board->pinned_mask = undo->pinned_mask;
         return;
     }
 
@@ -810,6 +820,8 @@ void board_unmake_move(Board *board, const Undo *undo) {
     board->ep_square = undo->ep_square;
     board->halfmove_clock = undo->halfmove_clock;
     board->hash = undo->hash;
+    board->checkers = undo->checkers;
+    board->pinned_mask = undo->pinned_mask;
 }
 
 bool board_make_move(Board *board, Move move, Undo *undo) {
@@ -817,13 +829,13 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
         return false;
     }
 
-    U64 checkers = board_checkers(board, board->side);
-    U64 pinned = board_pinned_mask(board, board->side);
-    if (!board_is_move_legal(board, move, pinned, checkers)) {
+    if (!board_is_move_legal(board, move, board->pinned_mask, board->checkers)) {
         return false;
     }
 
     undo->hash = board->hash;
+    undo->checkers = board->checkers;
+    undo->pinned_mask = board->pinned_mask;
     undo->castling_rights = board->castling_rights;
     undo->ep_square = board->ep_square;
     undo->halfmove_clock = board->halfmove_clock;
@@ -935,6 +947,9 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
         board->hash ^= ZOBRIST_EP_KEYS[file_of(board->ep_square)];
     }
 
+    board->checkers = board_checkers(board, board->side);
+    board->pinned_mask = board_pinned_mask(board, board->side);
+
     return true;
 }
 
@@ -944,6 +959,8 @@ void board_make_null_move(Board *board, Undo *undo) {
     }
 
     undo->hash = board->hash;
+    undo->checkers = board->checkers;
+    undo->pinned_mask = board->pinned_mask;
     undo->castling_rights = board->castling_rights;
     undo->ep_square = board->ep_square;
     undo->halfmove_clock = board->halfmove_clock;
@@ -962,4 +979,6 @@ void board_make_null_move(Board *board, Undo *undo) {
     ++board->halfmove_clock;
 
     board->hash ^= ZOBRIST_SIDE_KEY;
+    board->checkers = board_checkers(board, board->side);
+    board->pinned_mask = board_pinned_mask(board, board->side);
 }

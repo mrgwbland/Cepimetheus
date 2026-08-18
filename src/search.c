@@ -203,10 +203,8 @@ static bool has_any_legal_move(Board *board, const MoveList *list)
 
     for (int i = 0; i < list->count; ++i)
     {
-        Undo undo;
-        if (board_make_move(board, list->moves[i], &undo))
+        if (board_is_move_legal(board, list->moves[i], board->pinned_mask, board->checkers))
         {
-            board_unmake_move(board, &undo);
             return true;
         }
     }
