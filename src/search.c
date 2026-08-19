@@ -595,7 +595,7 @@ static SearchResult negamax(Board *board,
         {
             tt_move = entry->best_move;
         }
-        else if (depth >= 4) // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
+        else if (depth >= 4 && !pv_node) // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
         {
             depth--;
         }
