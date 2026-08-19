@@ -38,6 +38,7 @@ bool transposition_table_init(TranspositionTable *table, size_t hash_power)
     return true;
 }
 
+// Clear TT
 void transposition_table_destroy(TranspositionTable *table)
 {
     if (table != NULL && table->buckets != NULL)
@@ -53,6 +54,7 @@ void transposition_table_destroy(TranspositionTable *table)
     }
 }
 
+// Get the index of the bucket for a given hash
 static size_t transposition_table_index(const TranspositionTable *table, U64 hash)
 {
     return (size_t)(hash & (table->size - 1U));
@@ -103,6 +105,7 @@ static inline int score_from_tt(int score, int ply)
     return score;
 }
 
+// Test whether a position exists and can cause a cutoff
 bool transposition_table_probe(const TranspositionTable *table,
                                U64 hash,
                                int depth,
@@ -145,6 +148,7 @@ bool transposition_table_probe(const TranspositionTable *table,
     return false;
 }
 
+// Test whether a position exists and can cause a cutoff, but only allow exact values
 bool transposition_table_probe_exact(const TranspositionTable *table,
                                      U64 hash,
                                      int depth,

@@ -380,12 +380,14 @@ static SearchResult negamax(Board *board,
                             bool lichess_draw_rules)
 {
     SearchResult result = {0, MOVE_NONE, {0}, 0, false};
+    // Original bounds to determine cutoff types
     const int alpha_orig = alpha;
     const int beta_orig = beta;
 
     // Determine PV node implicitly by checking if the search window width is greater than 1.
     const bool pv_node = (beta - alpha) > 1;
 
+    // Time constraint met
     if (search_should_stop(control, stats->nodes))
     {
         result.score = alpha;
@@ -407,14 +409,13 @@ static SearchResult negamax(Board *board,
     int tt_score = 0;
     if (context != NULL)
     {
-        // On non-PV nodes, allow all TT cutoffs (EXACT, LOWER, UPPER).
-        // On PV nodes, only allow EXACT cutoffs — bound scores from null-window searches would return imprecise values and corrupt the PV.
-        // Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed
+        // (Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed)
         bool tt_cutoff = pv_node
-            ? transposition_table_probe_exact(&context->table, board->hash, depth, ply, &tt_score)
-            : transposition_table_probe(&context->table, board->hash, depth, alpha, beta, ply, &tt_score);
+            ? transposition_table_probe_exact(&context->table, board->hash, depth, ply, &tt_score)// On PV nodes, only allow EXACT cutoffs — bound scores from null-window searches would return imprecise values and corrupt the PV.
+            : transposition_table_probe(&context->table, board->hash, depth, alpha, beta, ply, &tt_score);// On non-PV nodes, allow all TT cutoffs (EXACT, LOWER, UPPER).
 
         bool is_repeated = false;
+        // Check if the current position is a repeated position in the real game history
         if (history != NULL && history->count > 1)
         {
             U64 current_key = board->hash;
@@ -431,7 +432,6 @@ static SearchResult negamax(Board *board,
                 }
             }
         }
-
         if (tt_cutoff && !is_repeated)
         {
             result.score = tt_score;
@@ -514,6 +514,7 @@ static SearchResult negamax(Board *board,
         }
     }        
 
+    // At leaf node, quiescence search
     if (depth <= 0)
     {
         result.score = quiescence(board, alpha, beta, history, stats, ply, 0, context, control, lichess_draw_rules);
@@ -562,7 +563,7 @@ static SearchResult negamax(Board *board,
     bool futility_prune = false; 
     if (in_check)
     {
-        depth++;
+        depth++; // Check extension to ensure forcing lines are fully explored
     }
     else
     {
@@ -585,6 +586,7 @@ static SearchResult negamax(Board *board,
         }
     }  
 
+    // Extract the best move from the transposition table if it exists for move ordering
     Move tt_move = MOVE_NONE;
     if (context != NULL)
     {
@@ -592,6 +594,10 @@ static SearchResult negamax(Board *board,
         if (entry != NULL)
         {
             tt_move = entry->best_move;
+        }
+        else if (depth >= 4) // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
+        {
+            depth--;
         }
     }
 
@@ -604,6 +610,8 @@ static SearchResult negamax(Board *board,
     int legal_moves_searched = 0;
 
     Move move;
+
+    // Main move loop
     while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
     {
         if (search_should_stop(control, stats->nodes))
@@ -622,7 +630,7 @@ static SearchResult negamax(Board *board,
         }
 
         // Late Move Pruning (LMP) - Quiet only pruning when remaining depth < 11
-        if (!pv_node && !in_check && depth < 11 && is_quiet)
+        if (depth < 11 && !in_check && is_quiet && !pv_node)
         {
             if (quiet_searched_count >= lmp_quiet_limits[depth])
             {

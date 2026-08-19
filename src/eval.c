@@ -55,9 +55,7 @@ int piece_defense_weights_eg[5] = {
     100, 51, 152, 151, 165
 };
 
-
-
-/* Macros redirect the existing engine code to array*/
+// Macros for parameters
 #define TEMPO_BONUS_MG eval_parameters_mg[0]
 #define TEMPO_BONUS_EG eval_parameters_eg[0]
 #define PAWN_BLOCKING_PENALTY_MG eval_parameters_mg[1]
