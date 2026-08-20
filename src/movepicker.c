@@ -163,8 +163,7 @@ int estimate_move_score(Board *board, Move move, const SearchContext *context, i
 void movepicker_init(MovePicker *mp,
                      Board *board,
                      const SearchContext *context,
-                     int ply,
-                     Move previous_move,
+                     const SearchStack *ss,
                      Move tt_move,
                      const Move *excluded_moves,
                      int excluded_move_count,
@@ -172,19 +171,25 @@ void movepicker_init(MovePicker *mp,
 {
     mp->board = board;
     mp->context = context;
-    mp->ply = ply;
+    mp->ply = (ss != NULL) ? ss->ply : 0;
     mp->tt_move = tt_move;
     
     mp->killer1 = MOVE_NONE;
     mp->killer2 = MOVE_NONE;
-    if (context != NULL && ply >= 0 && ply < MAX_PLY_DEPTH)
+    if (ss != NULL)
     {
-        mp->killer1 = context->killer_moves[ply][0];
-        mp->killer2 = context->killer_moves[ply][1];
+        mp->killer1 = ss->killers[0];
+        mp->killer2 = ss->killers[1];
+    }
+    else if (context != NULL && mp->ply >= 0 && mp->ply < MAX_PLY_DEPTH)
+    {
+        mp->killer1 = context->killer_moves[mp->ply][0];
+        mp->killer2 = context->killer_moves[mp->ply][1];
     }
     
     mp->counter1 = MOVE_NONE;
     mp->counter2 = MOVE_NONE;
+    Move previous_move = (ss != NULL) ? (ss - 1)->move : MOVE_NONE;
     if (context != NULL && previous_move != MOVE_NONE)
     {
         int prev_from = move_from(previous_move);

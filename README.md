@@ -56,6 +56,7 @@ My testing games include several third party "anchor engines", these are engines
 ### Selectivity
 * Check Extensions
 * Late Move Reductions
+* Internal Iterative Reductions
 * Null Move Pruning
 * Delta Pruning (QSearch)
 * SEE Pruning (QSearch)

@@ -238,12 +238,13 @@ static int quiescence(Board *board,
                       int beta,
                       RepetitionHistory *history,
                       SearchStats *stats,
-                      int ply,
+                      SearchStack *ss,
                       int qply,
                       SearchContext *context,
                       SearchControl *control,
                       bool lichess_draw_rules)
 {
+    int ply = ss->ply;
     ++stats->nodes;
     if (ply > stats->seldepth)
     {
@@ -262,6 +263,7 @@ static int quiescence(Board *board,
     if (!in_check)
     {
         stand_pat = evaluate_position(board);
+        ss->static_eval = stand_pat;
 
         if (stand_pat >= beta)
         {
@@ -276,7 +278,7 @@ static int quiescence(Board *board,
 
     MovePicker picker;
     // Pass NULL as context to disable killer move sorting in qsearch
-    movepicker_init(&picker, board, NULL, ply, MOVE_NONE, MOVE_NONE, NULL, 0, true);
+    movepicker_init(&picker, board, NULL, ss, MOVE_NONE, NULL, 0, true);
 
     bool has_legal_move = false;
     Move move;
@@ -321,7 +323,13 @@ static int quiescence(Board *board,
             continue;
         }
 
-        int score = -quiescence(board, -beta, -alpha, history, stats, ply + 1, qply + 1, context, control, lichess_draw_rules);
+        (ss + 1)->ply = ss->ply + 1;
+        (ss + 1)->move = move;
+        (ss + 1)->static_eval = -32000;
+        (ss + 1)->killers[0] = MOVE_NONE;
+        (ss + 1)->killers[1] = MOVE_NONE;
+
+        int score = -quiescence(board, -beta, -alpha, history, stats, ss + 1, qply + 1, context, control, lichess_draw_rules);
 
         if (best_move == MOVE_NONE || score > alpha)
         {
@@ -373,12 +381,12 @@ static SearchResult negamax(Board *board,
                             int beta,
                             RepetitionHistory *history,
                             SearchStats *stats,
-                            int ply,
-                            Move previous_move,
+                            SearchStack *ss,
                             SearchContext *context,
                             SearchControl *control,
                             bool lichess_draw_rules)
 {
+    int ply = ss->ply;
     SearchResult result = {0, MOVE_NONE, {0}, 0, false};
     // Original bounds to determine cutoff types
     const int alpha_orig = alpha;
@@ -517,9 +525,11 @@ static SearchResult negamax(Board *board,
     // At leaf node, quiescence search
     if (depth <= 0)
     {
-        result.score = quiescence(board, alpha, beta, history, stats, ply, 0, context, control, lichess_draw_rules);
+        result.score = quiescence(board, alpha, beta, history, stats, ss, 0, context, control, lichess_draw_rules);
         return result;
     }
+
+    Move previous_move = (ss - 1)->move;
 
     /* Null-move pruning */
     if (!pv_node && // Disallowed in PV nodes- PV must be a legal continuation
@@ -537,14 +547,24 @@ static SearchResult negamax(Board *board,
         Undo undo;
         board_make_null_move(board, &undo);
 
+        (ss + 1)->ply = ss->ply + 1;
+        (ss + 1)->move = MOVE_NONE;
+        (ss + 1)->static_eval = -32000;
+        (ss + 1)->killers[0] = MOVE_NONE;
+        (ss + 1)->killers[1] = MOVE_NONE;
+        if (context != NULL && (ss + 1)->ply < MAX_PLY_DEPTH)
+        {
+            (ss + 1)->killers[0] = context->killer_moves[(ss + 1)->ply][0];
+            (ss + 1)->killers[1] = context->killer_moves[(ss + 1)->ply][1];
+        }
+
         SearchResult null_child = negamax(board,
                                           child_depth,
                                           -beta,
                                           -beta + 1,
                                           history,
                                           stats,
-                                          ply + 1,
-                                          MOVE_NONE,
+                                          ss + 1,
                                           context,
                                           control,
                                           lichess_draw_rules);
@@ -568,6 +588,7 @@ static SearchResult negamax(Board *board,
     else
     {
         int static_eval = evaluate_position(board);
+        ss->static_eval = static_eval;
         // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node.
         if (!pv_node && depth <= rfp_max_depth
             && abs(static_eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
@@ -602,7 +623,7 @@ static SearchResult negamax(Board *board,
     }
 
     MovePicker picker;
-    movepicker_init(&picker, board, context, ply, previous_move, tt_move, NULL, 0, false);
+    movepicker_init(&picker, board, context, ss, tt_move, NULL, 0, false);
 
     bool has_legal_move = false;
     Move quiet_searched[MAX_QUIET_TRACKED];
@@ -661,11 +682,22 @@ static SearchResult negamax(Board *board,
             continue;
         }
 
+        (ss + 1)->ply = ss->ply + 1;
+        (ss + 1)->move = move;
+        (ss + 1)->static_eval = -32000;
+        (ss + 1)->killers[0] = MOVE_NONE;
+        (ss + 1)->killers[1] = MOVE_NONE;
+        if (context != NULL && (ss + 1)->ply < MAX_PLY_DEPTH)
+        {
+            (ss + 1)->killers[0] = context->killer_moves[(ss + 1)->ply][0];
+            (ss + 1)->killers[1] = context->killer_moves[(ss + 1)->ply][1];
+        }
+
         SearchResult child;
         if (legal_moves_searched == 0)
         {
             // First move is searched with the full window
-            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
         }
         else
         {
@@ -681,16 +713,16 @@ static SearchResult negamax(Board *board,
 
             if (r > 0)
             {
-                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 int score = -child.score;
                 if (score > alpha) //If it fails high do a full search
                 {
-                    child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+                    child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 }
             }
             else
             {
-                child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
             int score = -child.score;
 
@@ -698,7 +730,7 @@ static SearchResult negamax(Board *board,
             // Bypassing the re-search is safe if score >= beta, as it will trigger a cutoff anyway.
             if (score > alpha && pv_node && score < beta)
             {
-                child = negamax(board, depth - 1, -beta, -alpha, history, stats, ply + 1, move, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
         }
         int score = -child.score;
@@ -737,6 +769,12 @@ static SearchResult negamax(Board *board,
                         context->killer_moves[ply][1] = context->killer_moves[ply][0];
                         context->killer_moves[ply][0] = move;
                     }
+                }
+
+                if (ss->killers[0] != move)
+                {
+                    ss->killers[1] = ss->killers[0];
+                    ss->killers[0] = move;
                 }
 
                 if (previous_move != MOVE_NONE)
@@ -879,6 +917,18 @@ SearchResult search_root(Board *board,
     stats->hashfull = 0;
     /* `context` holds the transposition table and killer moves. */
 
+    SearchStack stack[MAX_PLY_DEPTH + STACK_OFFSET + 4];
+    memset(stack, 0, sizeof(stack));
+    SearchStack *ss = stack + STACK_OFFSET;
+    ss->ply = 0;
+    ss->move = MOVE_NONE;
+    ss->static_eval = -32000;
+    if (context != NULL)
+    {
+        ss->killers[0] = context->killer_moves[0][0];
+        ss->killers[1] = context->killer_moves[0][1];
+    }
+
     Move tt_move = MOVE_NONE;
     if (context != NULL)
     {
@@ -890,7 +940,7 @@ SearchResult search_root(Board *board,
     }
 
     MovePicker picker;
-    movepicker_init(&picker, board, context, 0, MOVE_NONE, tt_move, excluded_moves, excluded_move_count, false);
+    movepicker_init(&picker, board, context, ss, tt_move, excluded_moves, excluded_move_count, false);
 
     if (board_is_draw(board, history, 0, lichess_draw_rules))
     {
@@ -995,11 +1045,22 @@ SearchResult search_root(Board *board,
             continue;
         }
 
+        (ss + 1)->ply = 1;
+        (ss + 1)->move = move;
+        (ss + 1)->static_eval = -32000;
+        (ss + 1)->killers[0] = MOVE_NONE;
+        (ss + 1)->killers[1] = MOVE_NONE;
+        if (context != NULL)
+        {
+            (ss + 1)->killers[0] = context->killer_moves[1][0];
+            (ss + 1)->killers[1] = context->killer_moves[1][1];
+        }
+
         SearchResult child;
         if (legal_moves_searched == 0)
         {
             // First move is searched with the full window
-            child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
         }
         else
         {
@@ -1015,16 +1076,16 @@ SearchResult search_root(Board *board,
 
             if (r > 0)
             {
-                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 int score = -child.score;
                 if (score > alpha)
                 {
-                    child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+                    child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 }
             }
             else
             {
-                child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
             int score = -child.score;
 
@@ -1033,7 +1094,7 @@ SearchResult search_root(Board *board,
             // widen the bounds and re-search the position from scratch.
             if (score > alpha && score < beta)
             {
-                child = negamax(board, depth - 1, -beta, -alpha, history, stats, 1, move, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
         }
         int score = -child.score;

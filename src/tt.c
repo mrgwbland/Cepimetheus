@@ -9,6 +9,7 @@
 
 #define MAX_TRANSPOSITION_TABLE_POWER 30
 
+// Create TT, return true if successful
 bool transposition_table_init(TranspositionTable *table, size_t hash_power)
 {
     if (hash_power > MAX_TRANSPOSITION_TABLE_POWER)

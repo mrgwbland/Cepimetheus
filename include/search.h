@@ -7,6 +7,15 @@
 
 #define MAX_PV_MOVES 128
 #define MAX_QUIET_TRACKED 256
+#define STACK_OFFSET 4 // Offset to allow negative checks at root
+
+// Information for each ply in the search stack
+typedef struct SearchStack {
+    int ply;
+    int static_eval;
+    Move move;
+    Move killers[2];
+} SearchStack;
 
 typedef struct {
     int score;
