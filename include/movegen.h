@@ -10,5 +10,6 @@ typedef struct MoveList {
 
 void movegen_generate_pseudo_legal(Board *board, MoveList *list);
 bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move);
+int find_move_index(const MoveList *list, Move move);
 
 #endif

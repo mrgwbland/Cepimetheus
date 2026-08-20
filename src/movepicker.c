@@ -27,42 +27,6 @@ void update_history_entry(int16_t *entry, int delta)
     *entry += history_scale * delta - *entry * abs(delta) / grav;
 }
 
-static int find_move_index(const MoveList *list, Move move)
-{
-    if (list == NULL)
-    {
-        return -1;
-    }
-
-    for (int i = 0; i < list->count; ++i)
-    {
-        if (list->moves[i] == move)
-        {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-static bool move_is_excluded(Move move, const Move *excluded_moves, int excluded_move_count)
-{
-    if (excluded_moves == NULL || excluded_move_count <= 0)
-    {
-        return false;
-    }
-
-    for (int i = 0; i < excluded_move_count; ++i)
-    {
-        if (excluded_moves[i] == move)
-        {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 static bool is_good_noisy(const Board *board, Move move)
 {
     if (move_promotion(move) != MOVE_PROMO_NONE)
@@ -220,7 +184,7 @@ Move movepicker_next_move(MovePicker *mp)
             case STAGE_TT:
                 mp->stage = STAGE_GENERATE_NOISY;
                 if (mp->tt_move != MOVE_NONE &&
-                    !move_is_excluded(mp->tt_move, mp->excluded_moves, mp->excluded_move_count))
+                    !move_is_in_list(mp->tt_move, mp->excluded_moves, mp->excluded_move_count))
                 {
                     int idx = find_move_index(&mp->all_moves, mp->tt_move);
                     if (idx >= 0)
@@ -238,7 +202,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     Move m = mp->all_moves.moves[i];
                     if (mp->used[i]) continue;
-                    if (move_is_excluded(m, mp->excluded_moves, mp->excluded_move_count)) continue;
+                    if (move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count)) continue;
                     
                     if (move_iscapture(m) || move_promotion(m) != MOVE_PROMO_NONE)
                     {
@@ -292,7 +256,7 @@ Move movepicker_next_move(MovePicker *mp)
             case STAGE_KILLER_1:
                 mp->stage = STAGE_KILLER_2;
                 if (mp->killer1 != MOVE_NONE && mp->killer1 != mp->tt_move &&
-                    !move_is_excluded(mp->killer1, mp->excluded_moves, mp->excluded_move_count))
+                    !move_is_in_list(mp->killer1, mp->excluded_moves, mp->excluded_move_count))
                 {
                     int idx = find_move_index(&mp->all_moves, mp->killer1);
                     if (idx >= 0 && !mp->used[idx])
@@ -309,7 +273,7 @@ Move movepicker_next_move(MovePicker *mp)
             case STAGE_KILLER_2:
                 mp->stage = STAGE_COUNTER_1;
                 if (mp->killer2 != MOVE_NONE && mp->killer2 != mp->tt_move && mp->killer2 != mp->killer1 &&
-                    !move_is_excluded(mp->killer2, mp->excluded_moves, mp->excluded_move_count))
+                    !move_is_in_list(mp->killer2, mp->excluded_moves, mp->excluded_move_count))
                 {
                     int idx = find_move_index(&mp->all_moves, mp->killer2);
                     if (idx >= 0 && !mp->used[idx])
@@ -327,7 +291,7 @@ Move movepicker_next_move(MovePicker *mp)
                 mp->stage = STAGE_COUNTER_2;
                 if (mp->counter1 != MOVE_NONE && mp->counter1 != mp->tt_move &&
                     mp->counter1 != mp->killer1 && mp->counter1 != mp->killer2 &&
-                    !move_is_excluded(mp->counter1, mp->excluded_moves, mp->excluded_move_count))
+                    !move_is_in_list(mp->counter1, mp->excluded_moves, mp->excluded_move_count))
                 {
                     int idx = find_move_index(&mp->all_moves, mp->counter1);
                     if (idx >= 0 && !mp->used[idx])
@@ -346,7 +310,7 @@ Move movepicker_next_move(MovePicker *mp)
                 if (mp->counter2 != MOVE_NONE && mp->counter2 != mp->tt_move &&
                     mp->counter2 != mp->killer1 && mp->counter2 != mp->killer2 &&
                     mp->counter2 != mp->counter1 &&
-                    !move_is_excluded(mp->counter2, mp->excluded_moves, mp->excluded_move_count))
+                    !move_is_in_list(mp->counter2, mp->excluded_moves, mp->excluded_move_count))
                 {
                     int idx = find_move_index(&mp->all_moves, mp->counter2);
                     if (idx >= 0 && !mp->used[idx])
@@ -367,7 +331,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     Move m = mp->all_moves.moves[i];
                     if (mp->used[i]) continue;
-                    if (move_is_excluded(m, mp->excluded_moves, mp->excluded_move_count)) continue;
+                    if (move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count)) continue;
                     if (move_iscapture(m) || move_promotion(m) != MOVE_PROMO_NONE) continue;
                     
                     mp->moves[mp->count] = m;
@@ -411,7 +375,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     Move m = mp->all_moves.moves[i];
                     if (mp->used[i]) continue;
-                    if (move_is_excluded(m, mp->excluded_moves, mp->excluded_move_count)) continue;
+                    if (move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count)) continue;
                     
                     mp->moves[mp->count] = m;
                     mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);

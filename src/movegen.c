@@ -236,3 +236,16 @@ bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move)
 
     return false;
 }
+
+int find_move_index(const MoveList *list, Move move) {
+    if (list == NULL) {
+        return -1;
+    }
+    for (int i = 0; i < list->count; ++i) {
+        if (list->moves[i] == move) {
+            return i;
+        }
+    }
+    return -1;
+}
+

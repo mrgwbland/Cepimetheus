@@ -16,6 +16,7 @@ SRC := \
     src/eval_helpers.c \
     src/endgame.c \
     src/search.c \
+    src/search_helpers.c \
     src/tt.c \
     src/movepicker.c \
     src/think.c \

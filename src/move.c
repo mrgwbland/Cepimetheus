@@ -86,3 +86,16 @@ bool move_ischeck(const struct Board *board, Move move) {
     }
     return board_is_in_check(&temp, temp.side);
 }
+
+bool move_is_in_list(Move move, const Move *list, int count) {
+    if (list == NULL || count <= 0) {
+        return false;
+    }
+    for (int i = 0; i < count; ++i) {
+        if (list[i] == move) {
+            return true;
+        }
+    }
+    return false;
+}
+
