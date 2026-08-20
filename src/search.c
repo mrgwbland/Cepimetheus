@@ -102,8 +102,6 @@ static int quiescence(Board *board,
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = move;
         (ss + 1)->static_eval = -32000;
-        (ss + 1)->killers[0] = MOVE_NONE;
-        (ss + 1)->killers[1] = MOVE_NONE;
 
         int score = -quiescence(board, -beta, -alpha, history, stats, ss + 1, qply + 1, context, control, lichess_draw_rules);
 
@@ -326,13 +324,6 @@ static SearchResult negamax(Board *board,
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = MOVE_NONE;
         (ss + 1)->static_eval = -32000;
-        (ss + 1)->killers[0] = MOVE_NONE;
-        (ss + 1)->killers[1] = MOVE_NONE;
-        if (context != NULL && (ss + 1)->ply < MAX_PLY_DEPTH)
-        {
-            (ss + 1)->killers[0] = context->killer_moves[(ss + 1)->ply][0];
-            (ss + 1)->killers[1] = context->killer_moves[(ss + 1)->ply][1];
-        }
 
         SearchResult null_child = negamax(board,
                                           child_depth,
@@ -461,13 +452,6 @@ static SearchResult negamax(Board *board,
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = move;
         (ss + 1)->static_eval = -32000;
-        (ss + 1)->killers[0] = MOVE_NONE;
-        (ss + 1)->killers[1] = MOVE_NONE;
-        if (context != NULL && (ss + 1)->ply < MAX_PLY_DEPTH)
-        {
-            (ss + 1)->killers[0] = context->killer_moves[(ss + 1)->ply][0];
-            (ss + 1)->killers[1] = context->killer_moves[(ss + 1)->ply][1];
-        }
 
         SearchResult child;
         if (legal_moves_searched == 0)
@@ -547,11 +531,6 @@ static SearchResult negamax(Board *board,
                     }
                 }
 
-                if (ss->killers[0] != move)
-                {
-                    ss->killers[1] = ss->killers[0];
-                    ss->killers[0] = move;
-                }
 
                 if (previous_move != MOVE_NONE)
                 {
@@ -638,11 +617,7 @@ SearchResult search_root(Board *board,
     ss->ply = 0;
     ss->move = MOVE_NONE;
     ss->static_eval = -32000;
-    if (context != NULL)
-    {
-        ss->killers[0] = context->killer_moves[0][0];
-        ss->killers[1] = context->killer_moves[0][1];
-    }
+
 
     Move tt_move = MOVE_NONE;
     if (context != NULL)
@@ -763,13 +738,7 @@ SearchResult search_root(Board *board,
         (ss + 1)->ply = 1;
         (ss + 1)->move = move;
         (ss + 1)->static_eval = -32000;
-        (ss + 1)->killers[0] = MOVE_NONE;
-        (ss + 1)->killers[1] = MOVE_NONE;
-        if (context != NULL)
-        {
-            (ss + 1)->killers[0] = context->killer_moves[1][0];
-            (ss + 1)->killers[1] = context->killer_moves[1][1];
-        }
+
 
         SearchResult child;
         if (legal_moves_searched == 0)

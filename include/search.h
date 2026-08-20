@@ -14,7 +14,6 @@ typedef struct SearchStack {
     int ply;
     int static_eval;
     Move move;
-    Move killers[2];
 } SearchStack;
 
 typedef struct {

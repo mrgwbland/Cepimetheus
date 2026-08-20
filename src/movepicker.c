@@ -140,12 +140,7 @@ void movepicker_init(MovePicker *mp,
     
     mp->killer1 = MOVE_NONE;
     mp->killer2 = MOVE_NONE;
-    if (ss != NULL)
-    {
-        mp->killer1 = ss->killers[0];
-        mp->killer2 = ss->killers[1];
-    }
-    else if (context != NULL && mp->ply >= 0 && mp->ply < MAX_PLY_DEPTH)
+    if (context != NULL && mp->ply >= 0 && mp->ply < MAX_PLY_DEPTH)
     {
         mp->killer1 = context->killer_moves[mp->ply][0];
         mp->killer2 = context->killer_moves[mp->ply][1];
