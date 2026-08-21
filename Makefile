@@ -1,7 +1,8 @@
+VERSION ?= 15.0.0
 CC ?= gcc
 THREAD_FLAGS ?= -pthread
-CFLAGS ?= -Ofast -march=native -flto=auto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -g -fno-omit-frame-pointer #(last two for profiling)
-RELEASE_FLAGS ?= -Ofast -flto=auto -Iinclude $(THREAD_FLAGS)
+CFLAGS ?= -Ofast -march=native -flto=auto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\" -g -fno-omit-frame-pointer #(last two for profiling)
+RELEASE_FLAGS ?= -Ofast -flto=auto -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\"
 WIN_CC ?= x86_64-w64-mingw32-gcc
 WIN32_CC ?= i686-w64-mingw32-gcc
 BUILD_DIR ?= release
@@ -72,16 +73,16 @@ windows:
 
 release:
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-64 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-64.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-POPCNT -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-POPCNT.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX2 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX2.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-BMI2 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-BMI2.exe -lm
-	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX512 -lm
-	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-15.0.0-AVX512.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64 $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-64 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-64.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v2 $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-POPCNT -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v2 -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-POPCNT.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-AVX2 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DNO_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-AVX2.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-BMI2 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v3 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-BMI2.exe -lm
+	$(CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-AVX512 -lm
+	$(WIN_CC) $(RELEASE_FLAGS) -march=x86-64-v4 -DUSE_PEXT -static -static-libgcc $(SRC) -o $(BUILD_DIR)/Cepimetheus-$(VERSION)-AVX512.exe -lm
 
 clean:
 	rm -rf $(BUILD_DIR)

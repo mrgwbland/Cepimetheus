@@ -430,7 +430,10 @@ void uci_loop(int argc, char *argv[]) {
 
         if (strncmp(line, "uci", 3) == 0 && (line[3] == '\0' || line[3] == ' ' || line[3] == '\t' || line[3] == '\r' || line[3] == '\n')) {
             printf("id name Cepimetheus\n");           
-            printf("id version 15.0.0\n");
+#ifndef ENGINE_VERSION
+#define ENGINE_VERSION "NULL"
+#endif
+            printf("id version %s\n", ENGINE_VERSION);
             printf("id author  George Bland\n"); 
             printf("option name Overhead type spin default 10 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
