@@ -45,6 +45,7 @@ static int on_board(int file, int rank) {
 #   define USE_HARDWARE_PEXT
 #endif
 
+#if !defined(USE_HARDWARE_PEXT)
 // The number which converts blockers into a polite index
 static const U64 rook_magics[64] = {
     0x008000e090400180ULL, 0x2e40004120015000ULL, 0x5080100220008028ULL, 0x0080100080058800ULL,
@@ -105,6 +106,7 @@ static const int bishop_shifts[64] = {
     59, 59, 59, 59, 59, 59, 59, 59,
     58, 59, 59, 59, 59, 59, 59, 58
 };
+#endif
 
 static inline U64 bishop_attack_index(int square, U64 occupancy) {
 #if defined(USE_HARDWARE_PEXT)
