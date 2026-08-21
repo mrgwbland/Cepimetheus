@@ -161,7 +161,7 @@ static SearchResult negamax(Board *board,
                             bool lichess_draw_rules)
 {
     int ply = ss->ply;
-    SearchResult result = {0, MOVE_NONE, {0}, 0, false};
+    SearchResult result = {0, MOVE_NONE, {0}, 0};
     // Original bounds to determine cutoff types
     const int alpha_orig = alpha;
     const int beta_orig = beta;
@@ -606,7 +606,7 @@ SearchResult search_root(Board *board,
                          int search_move_count)
 {
     init_lmr();
-    SearchResult result = {0, MOVE_NONE, {0}, 0, false};
+    SearchResult result = {0, MOVE_NONE, {0}, 0};
     const int alpha_orig = alpha;
     const int beta_orig = beta;
     stats->hashfull = 0;
@@ -666,45 +666,6 @@ SearchResult search_root(Board *board,
         return result;
     }
 
-    // Count legal moves to detect forced moves.
-    // This is only done at the root, so the cost of testing legality is negligible.
-    if (control != NULL && control->allow_forced_root_move)
-    {
-        int legal_count = 0;
-        Move only_legal_move = MOVE_NONE;
-        for (int i = 0; i < picker.all_moves.count; ++i)
-        {
-            Move m = picker.all_moves.moves[i];
-            if (move_is_in_list(m, excluded_moves, excluded_move_count))
-            {
-                continue;
-            }
-            if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(m, search_moves, search_move_count))
-            {
-                continue;
-            }
-            Undo undo;
-            if (board_make_move(board, m, &undo))
-            {
-                board_unmake_move(board, &undo);
-                legal_count++;
-                only_legal_move = m;
-                if (legal_count > 1)
-                {
-                    break; // No need to count further
-                }
-            }
-        }
-        if (legal_count == 1)
-        {
-            result.move = only_legal_move;
-            result.pv[0] = only_legal_move;
-            result.pv_length = 1;
-            result.forced_root_move = true;
-            return result;
-        }
-    }
-
     Move move;
     int move_index = 0;
     int legal_moves_searched = 0;
@@ -727,6 +688,8 @@ SearchResult search_root(Board *board,
         {
             continue;
         }
+
+        unsigned long long nodes_before = stats->nodes;
 
         U64 key = board->hash;
         if (!repetition_history_push(history, key))
@@ -787,6 +750,27 @@ SearchResult search_root(Board *board,
         --history->count;
 
         board_unmake_move(board, &undo);
+
+        unsigned long long nodes_spent = stats->nodes - nodes_before;
+        if (context != NULL)
+        {
+            bool found = false;
+            for (int i = 0; i < context->root_moves.count; ++i)
+            {
+                if (context->root_moves.entries[i].move == move)
+                {
+                    context->root_moves.entries[i].nodes += nodes_spent;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found && context->root_moves.count < MAX_QUIET_TRACKED)
+            {
+                context->root_moves.entries[context->root_moves.count].move = move;
+                context->root_moves.entries[context->root_moves.count].nodes = nodes_spent;
+                context->root_moves.count++;
+            }
+        }
 
         if (on_move_info != NULL)
         {

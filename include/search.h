@@ -21,7 +21,6 @@ typedef struct {
     Move move;
     Move pv[MAX_PV_MOVES];
     int pv_length;
-    bool forced_root_move;
 } SearchResult;
 
 typedef struct {
@@ -33,10 +32,19 @@ typedef struct {
 typedef struct {
     bool hard_time_limited;
     long long hard_stop_time_ms;
-    bool allow_forced_root_move;
     bool stop;
     volatile bool *external_stop;
 } SearchControl;
+
+typedef struct {
+    Move move;
+    unsigned long long nodes;
+} RootMoveEntry;
+
+typedef struct {
+    RootMoveEntry entries[MAX_QUIET_TRACKED];
+    int count;
+} RootMoveTable;
 
 typedef struct SearchContext SearchContext;
 
@@ -46,6 +54,7 @@ struct SearchContext
     Move killer_moves[MAX_PLY_DEPTH][2];
     Move counter_moves[64][64][2];
     int16_t hh_table[2][64][64];
+    RootMoveTable root_moves;
 };
 
 typedef void (*SearchMoveInfoCallback)(int depth,

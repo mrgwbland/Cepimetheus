@@ -178,6 +178,37 @@ static bool compute_clock_budget(const Board *board,
     return true;
 }
 
+static int compute_scaled_soft_limit(int base_soft_limit_ms,
+                                     int depth,
+                                     Move best_move,
+                                     unsigned long long total_nodes,
+                                     const SearchContext *context)
+{
+    if (depth < 8 || best_move == MOVE_NONE || context == NULL || total_nodes == 0)
+    {
+        return base_soft_limit_ms;
+    }
+
+    unsigned long long best_move_nodes = 0;
+    for (int i = 0; i < context->root_moves.count; ++i)
+    {
+        if (context->root_moves.entries[i].move == best_move)
+        {
+            best_move_nodes = context->root_moves.entries[i].nodes;
+            break;
+        }
+    }
+
+    double node_frac = (double)best_move_nodes / (double)total_nodes;
+    double scale = 1.67 * (1.0 - node_frac); // Estimating that in a typical position the root node searches 1/3 of moves
+    if (scale < 0.0)
+    {
+        scale = 0.0;
+    }
+
+    return (int)(base_soft_limit_ms * scale);
+}
+
 Move think(Board *board,
            const SearchLimits *limits,
            const SearchOptions *options,
@@ -280,8 +311,6 @@ Move think(Board *board,
         control.hard_time_limited = true;
         control.hard_stop_time_ms = start_time_ms + (long long)hard_time_limit_ms;
     }
-    // Only return single moves instantly if playing on clock time
-    control.allow_forced_root_move = (time_limited && movetime_ms <= 0 && !depth_explicitly_set && !infinite_search);
 
     size_t hash_power = 20;
     if (options != NULL && options->hash_power >= 0)
@@ -291,7 +320,7 @@ Move think(Board *board,
 
     SearchContext *search_context = search_context_create(hash_power);
 
-    SearchResult best_result = {0, MOVE_NONE, {0}, 0, false};
+    SearchResult best_result = {0, MOVE_NONE, {0}, 0};
 
     /* Iterative deepening: search depths 1 through target_depth. */
     int depth_limit = target_depth;
@@ -315,7 +344,13 @@ Move think(Board *board,
                 elapsed_before_depth_ms = 0;
             }
 
-            if (elapsed_before_depth_ms >= soft_time_limit_ms && best_result.move != MOVE_NONE)
+            int effective_soft_limit_ms = compute_scaled_soft_limit(soft_time_limit_ms,
+                                                                    depth - 1,
+                                                                    best_result.move,
+                                                                    stats.nodes,
+                                                                    search_context);
+
+            if (elapsed_before_depth_ms >= effective_soft_limit_ms && best_result.move != MOVE_NONE)
             {
                 break;
             }
@@ -324,7 +359,7 @@ Move think(Board *board,
         bool lichess_draw_rules = (options != NULL) ? options->lichess_draw_rules : false;
         Move excluded_root_moves[256] = {0};
         int excluded_root_move_count = 0;
-        SearchResult depth_best_result = {0, MOVE_NONE, {0}, 0, false};
+        SearchResult depth_best_result = {0, MOVE_NONE, {0}, 0};
 
         for (int multipv_index = 0; multipv_index < multipv; ++multipv_index)
         {
@@ -441,12 +476,13 @@ Move think(Board *board,
                 excluded_root_moves[excluded_root_move_count++] = result.move;
             }
 
-            if (control.allow_forced_root_move && result.forced_root_move)
-            {
-                break;
-            }
+            int effective_soft_limit_ms = compute_scaled_soft_limit(soft_time_limit_ms,
+                                                                    depth,
+                                                                    depth_best_result.move,
+                                                                    stats.nodes,
+                                                                    search_context);
 
-            if (time_limited && elapsed_ms >= soft_time_limit_ms)
+            if (time_limited && elapsed_ms >= effective_soft_limit_ms)
             {
                 break;
             }
@@ -457,18 +493,19 @@ Move think(Board *board,
             best_result = depth_best_result;
         }
 
-        if (control.allow_forced_root_move && depth_best_result.forced_root_move)
-        {
-            break;
-        }
-
         long long elapsed_ms = current_time_ms() - start_time_ms;
         if (elapsed_ms < 0)
         {
             elapsed_ms = 0;
         }
 
-        if (time_limited && elapsed_ms >= soft_time_limit_ms)
+        int effective_soft_limit_ms = compute_scaled_soft_limit(soft_time_limit_ms,
+                                                                depth,
+                                                                best_result.move,
+                                                                stats.nodes,
+                                                                search_context);
+
+        if (time_limited && elapsed_ms >= effective_soft_limit_ms)
         {
             break;
         }
