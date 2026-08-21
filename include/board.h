@@ -91,6 +91,7 @@ bool board_is_in_check(const Board *board, int side);
 U64 board_pinned_mask(const Board *board, int side);
 U64 board_checkers(const Board *board, int side);
 bool board_is_move_legal(const Board *board, Move move, U64 pinned_mask, U64 checkers);
+bool board_is_move_pseudo_legal(const Board *board, Move move);
 int board_piece_at(const Board *board, int square);
 int board_piece_color(int piece);
 int board_piece_type(int piece);

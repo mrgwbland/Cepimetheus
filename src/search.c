@@ -127,7 +127,7 @@ static int quiescence(Board *board,
 
     if (!has_legal_move)
     {
-        if (!in_check && has_any_legal_move(board, &picker.all_moves))
+        if (!in_check && board_has_any_legal_move(board))
         {
             return alpha;
         }
@@ -256,9 +256,7 @@ static SearchResult negamax(Board *board,
                     break;
                 }
 
-                MoveList list;
-                movegen_generate_pseudo_legal(board, &list);
-                if (find_move_index(&list, entry->best_move) < 0)
+                if (!board_is_move_pseudo_legal(board, entry->best_move))
                 {
                     break;
                 }
@@ -566,7 +564,7 @@ static SearchResult negamax(Board *board,
 
     if (!has_legal_move)
     {
-        if (!in_check && has_any_legal_move(board, &picker.all_moves))
+        if (!in_check && board_has_any_legal_move(board))
         {
             result.score = alpha;
             return result;
@@ -635,9 +633,11 @@ SearchResult search_root(Board *board,
     if (board_is_draw(board, history, 0, lichess_draw_rules))
     {
         result.score = 0;
-        for (int i = 0; i < picker.all_moves.count; ++i)
+        MoveList root_list;
+        movegen_generate_pseudo_legal(board, &root_list);
+        for (int i = 0; i < root_list.count; ++i)
         {
-            Move m = picker.all_moves.moves[i];
+            Move m = root_list.moves[i];
             if (move_is_in_list(m, excluded_moves, excluded_move_count))
             {
                 continue;
@@ -656,13 +656,6 @@ SearchResult search_root(Board *board,
                 break;
             }
         }
-        return result;
-    }
-
-    EvalTerminalState terminal_state = eval_terminal_state(board, picker.all_moves.count);
-    if (terminal_state != EVAL_TERMINAL_NONE)
-    {
-        result.score = eval_terminal_score(terminal_state, 0);
         return result;
     }
 
@@ -801,6 +794,16 @@ SearchResult search_root(Board *board,
     }
     // hashfull of 0 means empty TT, 1000 means full TT
     stats->hashfull = (int)((context->table.count * 1000) / (context->table.size * 4));
+    if (legal_moves_searched == 0)
+    {
+        EvalTerminalState terminal_state = eval_terminal_state(board, false);
+        if (terminal_state != EVAL_TERMINAL_NONE)
+        {
+            result.score = eval_terminal_score(terminal_state, 0);
+            return result;
+        }
+    }
+
     if (result.move != MOVE_NONE && context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);

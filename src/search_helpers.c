@@ -162,6 +162,18 @@ bool has_any_legal_move(Board *board, const MoveList *list)
     return false;
 }
 
+bool board_has_any_legal_move(Board *board)
+{
+    if (board == NULL)
+    {
+        return false;
+    }
+
+    MoveList list;
+    movegen_generate_pseudo_legal(board, &list);
+    return has_any_legal_move(board, &list);
+}
+
 int get_captured_piece_value(const Board *board, Move move)
 {
     int flags = move_flags(move);

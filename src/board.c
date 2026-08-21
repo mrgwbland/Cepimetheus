@@ -672,6 +672,171 @@ bool board_is_move_legal(const Board *board, Move move, U64 pinned_mask, U64 che
     return true;
 }
 
+bool board_is_move_pseudo_legal(const Board *board, Move move) {
+    if (board == NULL || move == MOVE_NONE) {
+        return false;
+    }
+
+    int from = move_from(move);
+    int to = move_to(move);
+    if (from < 0 || from >= 64 || to < 0 || to >= 64 || from == to) {
+        return false;
+    }
+
+    int side = board->side;
+    int mover_piece = board_piece_at(board, from);
+    if (mover_piece < 0 || board_piece_color(mover_piece) != side) {
+        return false;
+    }
+
+    int piece_type = board_piece_type(mover_piece);
+    int flags = move_flags(move);
+    int promo = move_promotion(move);
+    U64 own = board->occupancy[side];
+    U64 enemy = board->occupancy[side ^ 1];
+    U64 occupied = board->occupancy[BOTH];
+
+    // 1. King moves & Castling
+    if (piece_type == 5) { // KING
+        if (promo != MOVE_PROMO_NONE) {
+            return false;
+        }
+
+        if (flags & MOVE_FLAG_CASTLE) {
+            if (flags != MOVE_FLAG_CASTLE) return false;
+            if (from != board->king_square[side]) return false;
+            int castle_flag;
+            int rook_idx;
+            if (side == WHITE) {
+                if (to == 6) {
+                    castle_flag = CASTLE_WHITE_KING;
+                    rook_idx = 0;
+                } else if (to == 2) {
+                    castle_flag = CASTLE_WHITE_QUEEN;
+                    rook_idx = 1;
+                } else {
+                    return false;
+                }
+            } else {
+                if (to == 62) {
+                    castle_flag = CASTLE_BLACK_KING;
+                    rook_idx = 2;
+                } else if (to == 58) {
+                    castle_flag = CASTLE_BLACK_QUEEN;
+                    rook_idx = 3;
+                } else {
+                    return false;
+                }
+            }
+
+            if ((board->castling_rights & castle_flag) == 0) return false;
+            if (board_is_in_check(board, side)) return false;
+
+            int rook_from = board->castling_rook_square[rook_idx];
+            int rook_to = rook_to_castle_square(side, to);
+
+            U64 king_crossing = bitboard_in_between_mask(from, to) | (1ULL << to);
+            U64 rook_crossing = bitboard_in_between_mask(rook_from, rook_to) | (1ULL << rook_to);
+            U64 between = king_crossing | rook_crossing;
+
+            U64 occ_check = occupied ^ (1ULL << from) ^ (1ULL << rook_from);
+            if (occ_check & between) return false;
+
+            int enemy_side = side ^ 1;
+            U64 check_sqs = king_crossing;
+            while (check_sqs) {
+                int sq = bitboard_pop_lsb(&check_sqs);
+                if (board_is_square_attacked_with_occupancy(board, sq, enemy_side, occupied)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (own & (1ULL << to)) return false;
+        bool is_cap = (enemy & (1ULL << to)) != 0;
+        int expected_flags = is_cap ? MOVE_FLAG_CAPTURE : 0;
+        if (flags != expected_flags) return false;
+        return (bitboard_king_attacks(from) & (1ULL << to)) != 0;
+    }
+
+    // Non-king moves cannot land on friendly pieces
+    if (own & (1ULL << to)) {
+        return false;
+    }
+
+    // 2. Pawns
+    if (piece_type == 0) { // PAWN
+        int step = side == WHITE ? 8 : -8;
+        int start_rank = side == WHITE ? 1 : 6;
+        int promo_rank = side == WHITE ? 6 : 1;
+        int promo_target_rank = side == WHITE ? 7 : 0;
+        int from_rank = from >> 3;
+        int to_rank = to >> 3;
+
+        if (promo != MOVE_PROMO_NONE) {
+            if (from_rank != promo_rank || to_rank != promo_target_rank) return false;
+            if (promo < MOVE_PROMO_KNIGHT || promo > MOVE_PROMO_QUEEN) return false;
+        } else {
+            if (to_rank == promo_target_rank) return false;
+        }
+
+        if (flags & MOVE_FLAG_EN_PASSANT) {
+            if (flags != (MOVE_FLAG_CAPTURE | MOVE_FLAG_EN_PASSANT)) return false;
+            if (promo != MOVE_PROMO_NONE) return false;
+            if (to != board->ep_square || board->ep_square < 0) return false;
+            return (bitboard_pawn_attacks(side, from) & (1ULL << to)) != 0;
+        }
+
+        if (flags & MOVE_FLAG_CAPTURE) {
+            if (flags != MOVE_FLAG_CAPTURE) return false;
+            if (!(enemy & (1ULL << to))) return false;
+            return (bitboard_pawn_attacks(side, from) & (1ULL << to)) != 0;
+        }
+
+        // Quiet pawn moves
+        if (occupied & (1ULL << to)) return false;
+
+        if (to == from + step) {
+            return flags == 0;
+        }
+
+        if (from_rank == start_rank && to == from + 2 * step) {
+            return flags == MOVE_FLAG_DOUBLE_PAWN && !(occupied & (1ULL << (from + step)));
+        }
+
+        return false;
+    }
+
+    // 3. Knights, Bishops, Rooks, Queens
+    if (promo != MOVE_PROMO_NONE) return false;
+    bool is_cap = (enemy & (1ULL << to)) != 0;
+    int expected_flags = is_cap ? MOVE_FLAG_CAPTURE : 0;
+    if (flags != expected_flags) return false;
+
+    // 3. Knights
+    if (piece_type == 1) {
+        return (bitboard_knight_attacks(from) & (1ULL << to)) != 0;
+    }
+
+    // 4. Bishops
+    if (piece_type == 2) {
+        return (bitboard_bishop_attacks(from, occupied) & (1ULL << to)) != 0;
+    }
+
+    // 5. Rooks
+    if (piece_type == 3) {
+        return (bitboard_rook_attacks(from, occupied) & (1ULL << to)) != 0;
+    }
+
+    // 6. Queens
+    if (piece_type == 4) {
+        return (bitboard_queen_attacks(from, occupied) & (1ULL << to)) != 0;
+    }
+
+    return false;
+}
+
 static inline void remove_piece_at(Board *board, int piece, int square) {
     U64 mask = 1ULL << square;
     board->pieces[piece] &= ~mask;

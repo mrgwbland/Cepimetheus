@@ -58,7 +58,7 @@ static bool is_good_noisy(const Board *board, Move move)
 }
 
 /* Estimate move score for move ordering. This is intentionally cheap. */
-int estimate_move_score(Board *board, Move move, const SearchContext *context, int ply)
+int estimate_move_score(const Board *board, Move move, const SearchContext *context, int ply)
 {
     int flags = move_flags(move);
 
@@ -125,7 +125,7 @@ int estimate_move_score(Board *board, Move move, const SearchContext *context, i
 }
 
 void movepicker_init(MovePicker *mp,
-                     Board *board,
+                     const Board *board,
                      const SearchContext *context,
                      const SearchStack *ss,
                      Move tt_move,
@@ -165,9 +165,7 @@ void movepicker_init(MovePicker *mp,
     mp->stage = STAGE_TT;
     mp->count = 0;
     mp->current_idx = 0;
-    memset(mp->used, 0, sizeof(mp->used));
-    
-    movegen_generate_pseudo_legal(board, &mp->all_moves);
+    mp->bad_noisy_count = 0;
 }
 
 Move movepicker_next_move(MovePicker *mp)
@@ -179,43 +177,46 @@ Move movepicker_next_move(MovePicker *mp)
             case STAGE_TT:
                 mp->stage = STAGE_GENERATE_NOISY;
                 if (mp->tt_move != MOVE_NONE &&
-                    !move_is_in_list(mp->tt_move, mp->excluded_moves, mp->excluded_move_count))
+                    !move_is_in_list(mp->tt_move, mp->excluded_moves, mp->excluded_move_count) &&
+                    board_is_move_pseudo_legal(mp->board, mp->tt_move))
                 {
-                    int idx = find_move_index(&mp->all_moves, mp->tt_move);
-                    if (idx >= 0)
-                    {
-                        mp->used[idx] = true;
-                        return mp->tt_move;
-                    }
+                    return mp->tt_move;
                 }
-                break;
+                /* fallthrough */
 
-            case STAGE_GENERATE_NOISY:
+            case STAGE_GENERATE_NOISY: {
+                Move raw_noisy[MAX_ORDERED_MOVES];
+                int raw_count = movegen_generate_noisy(mp->board, raw_noisy);
                 mp->count = 0;
-                mp->current_idx = 0;
-                for (int i = 0; i < mp->all_moves.count && mp->count < MAX_ORDERED_MOVES; ++i)
+                mp->bad_noisy_count = 0;
+                for (int i = 0; i < raw_count; ++i)
                 {
-                    Move m = mp->all_moves.moves[i];
-                    if (mp->used[i]) continue;
-                    if (move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count)) continue;
-                    
-                    if (move_iscapture(m) || move_promotion(m) != MOVE_PROMO_NONE)
+                    Move m = raw_noisy[i];
+                    if (m == mp->tt_move ||
+                        move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count))
                     {
-                        if (is_good_noisy(mp->board, m))
-                        {
-                            mp->moves[mp->count] = m;
-                            mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
-                            mp->used[i] = true;
-                            mp->count++;
-                        }
+                        continue;
+                    }
+                    if (is_good_noisy(mp->board, m))
+                    {
+                        mp->moves[mp->count] = m;
+                        mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                        mp->count++;
+                    }
+                    else if (mp->bad_noisy_count < 64)
+                    {
+                        mp->bad_noisy[mp->bad_noisy_count] = m;
+                        mp->bad_scores[mp->bad_noisy_count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                        mp->bad_noisy_count++;
                     }
                 }
-                
+                mp->current_idx = 0;
                 mp->stage = STAGE_PLAY_NOISY;
-                break;
+                /* fallthrough */
+            }
 
             case STAGE_PLAY_NOISY:
-                if (mp->current_idx < mp->count)
+                while (mp->current_idx < mp->count)
                 {
                     int best_idx = mp->current_idx;
                     for (int i = mp->current_idx + 1; i < mp->count; ++i)
@@ -232,114 +233,91 @@ Move movepicker_next_move(MovePicker *mp)
                     mp->scores[best_idx] = mp->scores[mp->current_idx];
                     mp->moves[mp->current_idx] = best_move;
                     mp->scores[mp->current_idx] = best_score;
-                    
                     mp->current_idx++;
+
                     return best_move;
                 }
                 
-                //SEE pruning
                 if (mp->in_qsearch && !mp->in_check)
                 {
                     mp->stage = STAGE_DONE;
+                    return MOVE_NONE;
                 }
-                else
-                {
-                    mp->stage = STAGE_KILLER_1;
-                }
-                break;
+
+                mp->stage = STAGE_KILLER_1;
+                /* fallthrough */
 
             case STAGE_KILLER_1:
                 mp->stage = STAGE_KILLER_2;
                 if (mp->killer1 != MOVE_NONE && mp->killer1 != mp->tt_move &&
-                    !move_is_in_list(mp->killer1, mp->excluded_moves, mp->excluded_move_count))
+                    !move_iscapture(mp->killer1) && move_promotion(mp->killer1) == MOVE_PROMO_NONE &&
+                    !move_is_in_list(mp->killer1, mp->excluded_moves, mp->excluded_move_count) &&
+                    board_is_move_pseudo_legal(mp->board, mp->killer1))
                 {
-                    int idx = find_move_index(&mp->all_moves, mp->killer1);
-                    if (idx >= 0 && !mp->used[idx])
-                    {
-                        if (!move_iscapture(mp->killer1) && move_promotion(mp->killer1) == MOVE_PROMO_NONE)
-                        {
-                            mp->used[idx] = true;
-                            return mp->killer1;
-                        }
-                    }
+                    return mp->killer1;
                 }
-                break;
+                /* fallthrough */
 
             case STAGE_KILLER_2:
                 mp->stage = STAGE_COUNTER_1;
                 if (mp->killer2 != MOVE_NONE && mp->killer2 != mp->tt_move && mp->killer2 != mp->killer1 &&
-                    !move_is_in_list(mp->killer2, mp->excluded_moves, mp->excluded_move_count))
+                    !move_iscapture(mp->killer2) && move_promotion(mp->killer2) == MOVE_PROMO_NONE &&
+                    !move_is_in_list(mp->killer2, mp->excluded_moves, mp->excluded_move_count) &&
+                    board_is_move_pseudo_legal(mp->board, mp->killer2))
                 {
-                    int idx = find_move_index(&mp->all_moves, mp->killer2);
-                    if (idx >= 0 && !mp->used[idx])
-                    {
-                        if (!move_iscapture(mp->killer2) && move_promotion(mp->killer2) == MOVE_PROMO_NONE)
-                        {
-                            mp->used[idx] = true;
-                            return mp->killer2;
-                        }
-                    }
+                    return mp->killer2;
                 }
-                break;
+                /* fallthrough */
 
             case STAGE_COUNTER_1:
                 mp->stage = STAGE_COUNTER_2;
                 if (mp->counter1 != MOVE_NONE && mp->counter1 != mp->tt_move &&
                     mp->counter1 != mp->killer1 && mp->counter1 != mp->killer2 &&
-                    !move_is_in_list(mp->counter1, mp->excluded_moves, mp->excluded_move_count))
+                    !move_iscapture(mp->counter1) && move_promotion(mp->counter1) == MOVE_PROMO_NONE &&
+                    !move_is_in_list(mp->counter1, mp->excluded_moves, mp->excluded_move_count) &&
+                    board_is_move_pseudo_legal(mp->board, mp->counter1))
                 {
-                    int idx = find_move_index(&mp->all_moves, mp->counter1);
-                    if (idx >= 0 && !mp->used[idx])
-                    {
-                        if (!move_iscapture(mp->counter1) && move_promotion(mp->counter1) == MOVE_PROMO_NONE)
-                        {
-                            mp->used[idx] = true;
-                            return mp->counter1;
-                        }
-                    }
+                    return mp->counter1;
                 }
-                break;
+                /* fallthrough */
 
             case STAGE_COUNTER_2:
                 mp->stage = STAGE_GENERATE_QUIET;
                 if (mp->counter2 != MOVE_NONE && mp->counter2 != mp->tt_move &&
                     mp->counter2 != mp->killer1 && mp->counter2 != mp->killer2 &&
                     mp->counter2 != mp->counter1 &&
-                    !move_is_in_list(mp->counter2, mp->excluded_moves, mp->excluded_move_count))
+                    !move_iscapture(mp->counter2) && move_promotion(mp->counter2) == MOVE_PROMO_NONE &&
+                    !move_is_in_list(mp->counter2, mp->excluded_moves, mp->excluded_move_count) &&
+                    board_is_move_pseudo_legal(mp->board, mp->counter2))
                 {
-                    int idx = find_move_index(&mp->all_moves, mp->counter2);
-                    if (idx >= 0 && !mp->used[idx])
-                    {
-                        if (!move_iscapture(mp->counter2) && move_promotion(mp->counter2) == MOVE_PROMO_NONE)
-                        {
-                            mp->used[idx] = true;
-                            return mp->counter2;
-                        }
-                    }
+                    return mp->counter2;
                 }
-                break;
+                /* fallthrough */
 
-            case STAGE_GENERATE_QUIET:
+            case STAGE_GENERATE_QUIET: {
+                Move raw_quiets[MAX_ORDERED_MOVES];
+                int raw_count = movegen_generate_quiet(mp->board, raw_quiets);
                 mp->count = 0;
-                mp->current_idx = 0;
-                for (int i = 0; i < mp->all_moves.count && mp->count < MAX_ORDERED_MOVES; ++i)
+                for (int i = 0; i < raw_count; ++i)
                 {
-                    Move m = mp->all_moves.moves[i];
-                    if (mp->used[i]) continue;
-                    if (move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count)) continue;
-                    if (move_iscapture(m) || move_promotion(m) != MOVE_PROMO_NONE) continue;
-                    
+                    Move m = raw_quiets[i];
+                    if (m == mp->tt_move || m == mp->killer1 || m == mp->killer2 ||
+                        m == mp->counter1 || m == mp->counter2 ||
+                        move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count))
+                    {
+                        continue;
+                    }
                     mp->moves[mp->count] = m;
                     mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
-                    mp->used[i] = true;
                     mp->count++;
                 }
-                
+                mp->current_idx = 0;
                 mp->stage = STAGE_PLAY_QUIET;
-                break;
+                /* fallthrough */
+            }
 
             case STAGE_PLAY_QUIET:
-                if (mp->current_idx < mp->count)
+                while (mp->current_idx < mp->count)
                 {
                     int best_idx = mp->current_idx;
                     for (int i = mp->current_idx + 1; i < mp->count; ++i)
@@ -356,55 +334,47 @@ Move movepicker_next_move(MovePicker *mp)
                     mp->scores[best_idx] = mp->scores[mp->current_idx];
                     mp->moves[mp->current_idx] = best_move;
                     mp->scores[mp->current_idx] = best_score;
-                    
                     mp->current_idx++;
-                    return best_move;
-                }
-                mp->stage = STAGE_GENERATE_BAD_NOISY;
-                break;
 
-            case STAGE_GENERATE_BAD_NOISY:
-                mp->count = 0;
-                mp->current_idx = 0;
-                for (int i = 0; i < mp->all_moves.count && mp->count < MAX_ORDERED_MOVES; ++i)
-                {
-                    Move m = mp->all_moves.moves[i];
-                    if (mp->used[i]) continue;
-                    if (move_is_in_list(m, mp->excluded_moves, mp->excluded_move_count)) continue;
-                    
-                    mp->moves[mp->count] = m;
-                    mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
-                    mp->used[i] = true;
-                    mp->count++;
+                    return best_move;
                 }
                 
+                mp->stage = STAGE_GENERATE_BAD_NOISY;
+                /* fallthrough */
+
+            case STAGE_GENERATE_BAD_NOISY:
+                mp->current_idx = 0;
                 mp->stage = STAGE_PLAY_BAD_NOISY;
-                break;
+                /* fallthrough */
 
             case STAGE_PLAY_BAD_NOISY:
-                if (mp->current_idx < mp->count)
+                while (mp->current_idx < mp->bad_noisy_count)
                 {
                     int best_idx = mp->current_idx;
-                    for (int i = mp->current_idx + 1; i < mp->count; ++i)
+                    for (int i = mp->current_idx + 1; i < mp->bad_noisy_count; ++i)
                     {
-                        if (mp->scores[i] > mp->scores[best_idx])
+                        if (mp->bad_scores[i] > mp->bad_scores[best_idx])
                         {
                             best_idx = i;
                         }
                     }
-                    Move best_move = mp->moves[best_idx];
-                    int best_score = mp->scores[best_idx];
+                    Move best_move = mp->bad_noisy[best_idx];
+                    int best_score = mp->bad_scores[best_idx];
                     
-                    mp->moves[best_idx] = mp->moves[mp->current_idx];
-                    mp->scores[best_idx] = mp->scores[mp->current_idx];
-                    mp->moves[mp->current_idx] = best_move;
-                    mp->scores[mp->current_idx] = best_score;
-                    
+                    mp->bad_noisy[best_idx] = mp->bad_noisy[mp->current_idx];
+                    mp->bad_scores[best_idx] = mp->bad_scores[mp->current_idx];
+                    mp->bad_noisy[mp->current_idx] = best_move;
+                    mp->bad_scores[mp->current_idx] = best_score;
                     mp->current_idx++;
+
                     return best_move;
                 }
+
                 mp->stage = STAGE_DONE;
                 break;
+
+            case STAGE_DONE:
+                return MOVE_NONE;
         }
     }
     return MOVE_NONE;
