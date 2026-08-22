@@ -661,7 +661,7 @@ void uci_loop(int argc, char *argv[]) {
                 {"pos20", "r2qkb1r/p2b1ppp/p4n2/2pp4/P3p3/RN2P3/1PPPQPPP/1NB1K2R w Kkq - 0 11"},
                 {"pos21", "r2qkb1r/p2b1ppp/p4n2/2pp4/P1P1p3/RN2P3/1P1PQPPP/1NB1K2R b Kkq - 0 11"},
                 {"pos22", "r2qkb1r/p2b1ppp/p4n2/2p5/P1Ppp3/RN2P3/1P1PQPPP/1NB1K2R w Kkq - 0 12"},
-                {"pos23", "r2qkb1r/p2b1ppp/p4n2/2p5/P1Ppp3/RN2PP3/1P2QPPP/1NB1K2R b Kkq - 0 12"},
+                {"pos23", "r2qkb1r/p2b1ppp/p4n2/2p5/P1Ppp3/RN1PP3/1P2QPPP/1NB1K2R b Kkq - 0 12"},
                 {"pos24", "r2qkb1r/p2b1ppp/p4n2/2p5/P1Pp4/RN1pP3/1P2QPPP/1NB1K2R w Kkq - 0 13"},
                 {"pos25", "r2qkb1r/p2b1ppp/p4n2/2p5/P1Pp4/RN1QP3/1P3PPP/1NB1K2R b Kkq - 0 13"},
                 {"pos26", "r2qkb1r/p4ppp/p1b2n2/2p5/P1Pp4/RN1QP3/1P3PPP/1NB1K2R w Kkq - 1 14"},
