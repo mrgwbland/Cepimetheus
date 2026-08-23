@@ -36,6 +36,7 @@ typedef struct
 
 bool transposition_table_init(TranspositionTable *table, size_t hash_power);
 void transposition_table_destroy(TranspositionTable *table);
+void transposition_table_clear(TranspositionTable *table);
 const TranspositionEntry *transposition_table_lookup(const TranspositionTable *table, U64 hash);
 bool transposition_table_probe(const TranspositionTable *table, U64 hash, int depth, int alpha, int beta, int ply, int *score);
 bool transposition_table_probe_exact(const TranspositionTable *table, U64 hash, int depth, int ply, int *score);

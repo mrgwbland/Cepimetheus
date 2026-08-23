@@ -106,6 +106,9 @@ extern int asp_growth_factor;
 
 SearchContext *search_context_create(size_t hash_power);
 void search_context_destroy(SearchContext *context);
+void search_context_clear(SearchContext *context);
+void search_context_reset_search(SearchContext *context);
+bool search_context_resize(SearchContext *context, size_t hash_power);
 
 SearchResult search_root(Board *board,
                          int depth,

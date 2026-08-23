@@ -236,3 +236,57 @@ void search_context_destroy(SearchContext *context)
     transposition_table_destroy(&context->table);
     free(context);
 }
+
+// Just reset search heuristics, not the TT
+void search_context_reset_search(SearchContext *context)
+{
+    if (context == NULL)
+    {
+        return;
+    }
+
+    for (int p = 0; p < MAX_PLY_DEPTH; ++p)
+    {
+        context->killer_moves[p][0] = MOVE_NONE;
+        context->killer_moves[p][1] = MOVE_NONE;
+    }
+    for (int f = 0; f < 64; ++f)
+    {
+        for (int t = 0; t < 64; ++t)
+        {
+            context->counter_moves[f][t][0] = MOVE_NONE;
+            context->counter_moves[f][t][1] = MOVE_NONE;
+        }
+    }
+    memset(context->hh_table, 0, sizeof(context->hh_table));
+    memset(&context->root_moves, 0, sizeof(context->root_moves));
+}
+
+// Clear TT and reset search heuristics
+void search_context_clear(SearchContext *context)
+{
+    if (context == NULL)
+    {
+        return;
+    }
+
+    search_context_reset_search(context);
+    transposition_table_clear(&context->table);
+}
+
+// Destroy and reinit TT with new size, reset search heuristics
+bool search_context_resize(SearchContext *context, size_t hash_power)
+{
+    if (context == NULL)
+    {
+        return false;
+    }
+
+    transposition_table_destroy(&context->table);
+    if (!transposition_table_init(&context->table, hash_power))
+    {
+        return false;
+    }
+    search_context_reset_search(context);
+    return true;
+}

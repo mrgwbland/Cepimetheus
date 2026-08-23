@@ -5,7 +5,12 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
 #include <sys/time.h>
+#endif
 
 int asp_min_depth = 5;
 int asp_initial_delta = 229;
@@ -68,6 +73,18 @@ static void print_move_info_callback(int depth,
 
 long long current_time_ms(void)
 {
+#if defined(_WIN32)
+    static LARGE_INTEGER frequency;
+    static BOOL initialized = FALSE;
+    if (!initialized)
+    {
+        QueryPerformanceFrequency(&frequency);
+        initialized = TRUE;
+    }
+    LARGE_INTEGER counter;
+    QueryPerformanceCounter(&counter);
+    return (long long)((counter.QuadPart * 1000LL) / frequency.QuadPart);
+#else
     struct timeval now;
     if (gettimeofday(&now, NULL) != 0)
     {
@@ -75,6 +92,7 @@ long long current_time_ms(void)
     }
 
     return (long long)now.tv_sec * 1000LL + (long long)now.tv_usec / 1000LL;
+#endif
 }
 
 static unsigned long long compute_nps(unsigned long long nodes, long long elapsed_ms)
@@ -215,7 +233,8 @@ Move think(Board *board,
            const RepetitionHistory *history,
            volatile bool *stop_signal,
            unsigned long long *out_nodes,
-           SearchResult *out_result)
+           SearchResult *out_result,
+           SearchContext *context)
 {
     if (board == NULL)
     {
@@ -312,13 +331,22 @@ Move think(Board *board,
         control.hard_stop_time_ms = start_time_ms + (long long)hard_time_limit_ms;
     }
 
-    size_t hash_power = 20;
-    if (options != NULL && options->hash_power >= 0)
+    SearchContext *search_context = context;
+    bool local_context = false;
+    if (search_context == NULL)
     {
-        hash_power = (size_t)options->hash_power;
+        size_t hash_power = 20;
+        if (options != NULL && options->hash_power >= 0)
+        {
+            hash_power = (size_t)options->hash_power;
+        }
+        search_context = search_context_create(hash_power);
+        local_context = true;
     }
-
-    SearchContext *search_context = search_context_create(hash_power);
+    else
+    {
+        search_context_reset_search(search_context);
+    }
 
     SearchResult best_result = {0, MOVE_NONE, {0}, 0};
 
@@ -521,12 +549,9 @@ Move think(Board *board,
         *out_result = best_result;
     }
 
-    if (best_result.move == MOVE_NONE)
+    if (local_context && search_context != NULL)
     {
         search_context_destroy(search_context);
-        return MOVE_NONE;
     }
-
-    search_context_destroy(search_context);
     return best_result.move;
 }

@@ -93,6 +93,7 @@ typedef struct {
     RepetitionHistory history;
     SearchLimits limits;
     SearchOptions options;
+    SearchContext *context;
     volatile bool *stop_requested;
     bool *searching;
     pthread_mutex_t *mutex;
@@ -216,7 +217,8 @@ static void *search_thread_main(void *arg) {
                       &task->history,
                       task->stop_requested,
                       NULL,
-                      NULL);
+                      NULL,
+                      task->context);
     print_bestmove(best, &task->board);
 
     pthread_mutex_lock(task->mutex);
@@ -266,7 +268,8 @@ static bool search_thread_start(SearchThreadState *state,
                                 const Board *board,
                                 const RepetitionHistory *history,
                                 const SearchLimits *limits,
-                                const SearchOptions *options) {
+                                const SearchOptions *options,
+                                SearchContext *context) {
     SearchTask *task = calloc(1, sizeof(*task));
     if (task == NULL) {
         return false;
@@ -276,6 +279,7 @@ static bool search_thread_start(SearchThreadState *state,
     task->history = *history;
     task->limits = *limits;
     task->options = *options;
+    task->context = context;
     task->stop_requested = &state->stop_requested;
     task->searching = &state->searching;
     task->mutex = &state->mutex;
@@ -403,6 +407,8 @@ void uci_loop(int argc, char *argv[]) {
     
     int max_hash = (1 << 30) / 16;
 
+    SearchContext *global_search_context = search_context_create((size_t)options.hash_power);
+
     SearchThreadState search_thread = {0};
     pthread_mutex_init(&search_thread.mutex, NULL);
 
@@ -438,6 +444,7 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Overhead type spin default 10 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
             printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
+            printf("option name Clear Hash type button\n");
             printf("option name Lichess_Draw_Rules type check default false\n");
             printf("option name Display_Currmove type check default false\n");
             printf("option name UCI_Chess960 type check default false\n");
@@ -507,16 +514,25 @@ void uci_loop(int argc, char *argv[]) {
                     if (parsed_multipv >= 1 && parsed_multipv <= 256) {
                         options.multipv = parsed_multipv;
                     }
+                } else if (strncmp(nametoken, "clear hash", 10) == 0 || strncmp(nametoken, "clear_hash", 10) == 0) {
+                    search_thread_stop_and_join(&search_thread);
+                    search_context_clear(global_search_context);
                 } else if (strncmp(nametoken, "hash", 4) == 0 && valuetoken != NULL) {
                     valuetoken += 5;
                     while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
                     int parsed_hash = atoi(valuetoken);
+                    int new_hash_power = options.hash_power;
                     if (parsed_hash > 0 && parsed_hash <= max_hash) {
                         long long bytes = (long long)parsed_hash << 20;
-                        options.hash_power = (int)floor(log2((double)bytes / 16));
+                        new_hash_power = (int)floor(log2((double)bytes / 16));
                     }
                     else if (parsed_hash == 0) {
-                        options.hash_power = 0;
+                        new_hash_power = 0;
+                    }
+                    if (new_hash_power != options.hash_power || global_search_context == NULL) {
+                        options.hash_power = new_hash_power;
+                        search_thread_stop_and_join(&search_thread);
+                        search_context_resize(global_search_context, (size_t)options.hash_power);
                     }
                 } else if (strncmp(nametoken, "lichess_draw_rules", 18) == 0) {
                     if (valuetoken != NULL) {
@@ -589,6 +605,7 @@ void uci_loop(int argc, char *argv[]) {
             search_thread_stop_and_join(&search_thread);
             board_set_startpos(&board);
             push_current_position(&board, &history);
+            search_context_clear(global_search_context);
             continue;
         }
 
@@ -736,7 +753,8 @@ void uci_loop(int argc, char *argv[]) {
                 volatile bool stop_signal = false;
                 SearchResult result = {0};
 
-                Move best = think(&bench_board, &limits, &options, &bench_history, &stop_signal, &nodes, &result);
+                search_context_clear(global_search_context);
+                Move best = think(&bench_board, &limits, &options, &bench_history, &stop_signal, &nodes, &result, global_search_context);
 
                 long long pos_time = current_time_ms() - pos_start;
                 if (pos_time < 0) {
@@ -791,7 +809,7 @@ void uci_loop(int argc, char *argv[]) {
 
             SearchLimits limits;
             parse_go_limits(&limits, line, &board);
-            if (!search_thread_start(&search_thread, &board, &history, &limits, &options)) {
+            if (!search_thread_start(&search_thread, &board, &history, &limits, &options, global_search_context)) {
                 print_bestmove(MOVE_NONE, &board);
             }
             continue;
@@ -811,4 +829,5 @@ void uci_loop(int argc, char *argv[]) {
     search_thread_stop_and_join(&search_thread);
     search_thread_join_if_finished(&search_thread);
     pthread_mutex_destroy(&search_thread.mutex);
+    search_context_destroy(global_search_context);
 }

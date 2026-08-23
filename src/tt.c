@@ -55,6 +55,17 @@ void transposition_table_destroy(TranspositionTable *table)
     }
 }
 
+// Reset all entries in the TT without freeing memory
+void transposition_table_clear(TranspositionTable *table)
+{
+    if (table != NULL && table->buckets != NULL && table->size > 0)
+    {
+        size_t bytes = table->size * sizeof(TranspositionBucket);
+        memset(table->buckets, 0, bytes);
+        table->count = 0;
+    }
+}
+
 // Get the index of the bucket for a given hash
 static size_t transposition_table_index(const TranspositionTable *table, U64 hash)
 {

@@ -35,7 +35,8 @@ Move think(Board *board,
            const RepetitionHistory *history,
            volatile bool *stop_signal,
            unsigned long long *out_nodes,
-           SearchResult *out_result);
+           SearchResult *out_result,
+           SearchContext *context);
 
 void get_score_string(int score, char *buffer, size_t size);
 long long current_time_ms(void);
