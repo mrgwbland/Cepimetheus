@@ -420,7 +420,7 @@ Move think(Board *board,
                                          &stats,
                                          search_context,
                                          &control,
-                                         (options != NULL && options->display_currmove) ? print_move_info_callback : NULL,
+                                         (options != NULL && options->display_currmove && !options->silent) ? print_move_info_callback : NULL,
                                          (void *)board,
                                          lichess_draw_rules,
                                          excluded_root_moves,
@@ -465,7 +465,7 @@ Move think(Board *board,
                                      &stats,
                                      search_context,
                                      &control,
-                                     (options != NULL && options->display_currmove) ? print_move_info_callback : NULL,
+                                     (options != NULL && options->display_currmove && !options->silent) ? print_move_info_callback : NULL,
                                      (void *)board,
                                      lichess_draw_rules,
                                      excluded_root_moves,
@@ -492,7 +492,10 @@ Move think(Board *board,
                 elapsed_ms = 0;
             }
 
-            print_depth_info(depth, multipv_index + 1, &result, &stats, elapsed_ms, board);
+            if (options == NULL || !options->silent)
+            {
+                print_depth_info(depth, multipv_index + 1, &result, &stats, elapsed_ms, board);
+            }
 
             if (multipv_index == 0)
             {

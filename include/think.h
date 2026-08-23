@@ -12,6 +12,7 @@ typedef struct SearchOptions {
     int hash_power;
     bool lichess_draw_rules;
     bool display_currmove;
+    bool silent;
 } SearchOptions;
 
 typedef struct SearchLimits {

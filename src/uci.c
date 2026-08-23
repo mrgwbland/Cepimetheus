@@ -646,9 +646,6 @@ void uci_loop(int argc, char *argv[]) {
                 }
             }
 
-            printf("Running benchmark at depth %d...\n", target_depth);
-            fflush(stdout);
-
             typedef struct {
                 const char *name;
                 const char *fen;
@@ -725,15 +722,17 @@ void uci_loop(int argc, char *argv[]) {
             };
 
             size_t num_positions = sizeof(bench_positions) / sizeof(bench_positions[0]);
+            printf("Searching %zu positions at depth %d...\n", num_positions, target_depth);
+            fflush(stdout);
+
             unsigned long long total_nodes = 0;
             unsigned long long bench_hash = 14695981039346656037ULL;
             long long start_time = current_time_ms();
 
-            for (size_t i = 0; i < num_positions; ++i) {
-                printf("\nPosition %zu/%zu: %s\n", i + 1, num_positions, bench_positions[i].name);
-                printf("FEN: %s\n", bench_positions[i].fen);
-                fflush(stdout);
+            SearchOptions bench_options = options;
+            bench_options.silent = true;
 
+            for (size_t i = 0; i < num_positions; ++i) {
                 Board bench_board;
                 board_init(&bench_board);
                 if (!board_set_fen(&bench_board, bench_positions[i].fen)) {
@@ -749,17 +748,11 @@ void uci_loop(int argc, char *argv[]) {
                 limits.depth = target_depth;
 
                 unsigned long long nodes = 0;
-                long long pos_start = current_time_ms();
                 volatile bool stop_signal = false;
                 SearchResult result = {0};
 
                 search_context_clear(global_search_context);
-                Move best = think(&bench_board, &limits, &options, &bench_history, &stop_signal, &nodes, &result, global_search_context);
-
-                long long pos_time = current_time_ms() - pos_start;
-                if (pos_time < 0) {
-                    pos_time = 0;
-                }
+                think(&bench_board, &limits, &bench_options, &bench_history, &stop_signal, &nodes, &result, global_search_context);
 
                 // Update benchmark hash with search result fields to verify correctness across edits
                 fnv1a_update(&bench_hash, &result.score, sizeof(result.score));
@@ -768,14 +761,6 @@ void uci_loop(int argc, char *argv[]) {
                 for (int j = 0; j < result.pv_length; ++j) {
                     fnv1a_update(&bench_hash, &result.pv[j], sizeof(result.pv[j]));
                 }
-
-                char move_str[6];
-                move_to_string(best, &bench_board, move_str);
-
-                unsigned long long nps = (nodes * 1000ULL) / (pos_time > 0 ? pos_time : 1);
-                printf("Position %s results: Bestmove: %s, Nodes: %llu, Time: %lld ms, NPS: %llu\n",
-                       bench_positions[i].name, move_str, nodes, pos_time, nps);
-                fflush(stdout);
 
                 total_nodes += nodes;
             }
@@ -786,7 +771,6 @@ void uci_loop(int argc, char *argv[]) {
             }
 
             unsigned long long overall_nps = (total_nodes * 1000ULL) / (total_time > 0 ? total_time : 1);
-            printf("\n==================================================\n");
             printf("%llu nodes %llu nps %lld ms 0x%016llx hash\n", total_nodes, overall_nps, total_time, bench_hash);
             fflush(stdout);
             continue;
