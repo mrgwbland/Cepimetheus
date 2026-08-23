@@ -288,19 +288,6 @@ static Score evaluate_piece(const Board *board,
             /* Passed pawns are further rewarded for advancement. */
             s.mg += passed_pawn_rank_bonus_mg[pawn_rank - 1];
             s.eg += passed_pawn_rank_bonus_eg[pawn_rank - 1];
-
-            // King proximity adjustments using Manhattan distance
-            int friendly_king = board->king_square[side];
-            int enemy_king = board->king_square[!side];
-
-            int friendly_dist = manhattan_distance(square, friendly_king);
-            int enemy_dist = manhattan_distance(square, enemy_king);
-
-            s.mg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_MG * friendly_dist;
-            s.eg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_EG * friendly_dist;
-
-            s.mg += PASSED_PAWN_ENEMY_KING_PROXIMITY_MG * enemy_dist;
-            s.eg += PASSED_PAWN_ENEMY_KING_PROXIMITY_EG * enemy_dist;
         }
 
         // --- Phalanx / Connected Pawn Bonus ---
@@ -822,6 +809,38 @@ int evaluate_position(Board *board)
         pawn_table[pawn_idx].eg = pawn_score.eg;
         pawn_table[pawn_idx].white_passed_pawns = white_passed_pawns;
         pawn_table[pawn_idx].black_passed_pawns = black_passed_pawns;
+    }
+
+    // Passed pawn king proximity adjustments
+    int white_king_sq = board->king_square[WHITE];
+    int black_king_sq = board->king_square[BLACK];
+
+    U64 w_pass = white_passed_pawns;
+    while (w_pass)
+    {
+        int square = bitboard_pop_lsb(&w_pass);
+        int friendly_dist = manhattan_distance(square, white_king_sq);
+        int enemy_dist = manhattan_distance(square, black_king_sq);
+
+        white_score.mg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_MG * friendly_dist;
+        white_score.eg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_EG * friendly_dist;
+
+        white_score.mg += PASSED_PAWN_ENEMY_KING_PROXIMITY_MG * enemy_dist;
+        white_score.eg += PASSED_PAWN_ENEMY_KING_PROXIMITY_EG * enemy_dist;
+    }
+
+    U64 b_pass = black_passed_pawns;
+    while (b_pass)
+    {
+        int square = bitboard_pop_lsb(&b_pass);
+        int friendly_dist = manhattan_distance(square, black_king_sq);
+        int enemy_dist = manhattan_distance(square, white_king_sq);
+
+        black_score.mg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_MG * friendly_dist;
+        black_score.eg -= PASSED_PAWN_FRIENDLY_KING_PROXIMITY_EG * friendly_dist;
+
+        black_score.mg += PASSED_PAWN_ENEMY_KING_PROXIMITY_MG * enemy_dist;
+        black_score.eg += PASSED_PAWN_ENEMY_KING_PROXIMITY_EG * enemy_dist;
     }
 
     U64 white_king_ring = bitboard_king_attacks(board->king_square[WHITE]);
