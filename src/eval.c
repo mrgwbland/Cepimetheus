@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2285, 2455, 3135, 10590, 0
+    1000, 2285, 2460, 3130, 10590, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 4220, 3495, 6220, 9640, 0
+    1000, 4220, 3490, 6230, 9640, 0
 };
 
-int eval_parameters_mg[22] = {
-    125, 336, 0, 21, 148, 0, 64, 80, 63, 192, 16, 9, 138, 95, 397, 90, 0, 1, 358, 144, 0, 0
+int eval_parameters_mg[23] = {
+    128, 328, 0, 23, 159, 1, 64, 79, 63, 195, 14, 9, 135, 93, 394, 90, 0, 4, 355, 143, 92, 0, 31
 };
 
-int eval_parameters_eg[22] = {
-    85, 0, 117, 27, 89, 98, 95, 56, 27, 0, 39, 0, 126, 64, 1021, 43, 37, 1153, 90, 0, 86, 117
+int eval_parameters_eg[23] = {
+    85, 0, 117, 27, 86, 102, 95, 57, 27, 0, 41, 0, 126, 65, 1023, 44, 38, 1153, 91, 0, 86, 118, 0
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 17, 336, 803, 1218
+    0, 0, 0, 316, 767, 1232
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 172, 348, 616, 1169
+    0, 0, 170, 348, 618, 1160
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 12, 83, 212, 542, 753
+    0, 15, 54, 162, 509, 764
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 27, 318, 511
+    0, 0, 0, 32, 321, 515
 };
 
 int piece_attack_weights_mg[5] = {
-    21, 81, 32, 34, 49
+    20, 81, 32, 34, 49
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 1, 0, 0
+    0, 1, 1, 0, 0
 };
 
 int piece_defense_weights_mg[5] = {
-    18, 21, 3, 0, 0
+    17, 21, 3, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    100, 51, 152, 151, 165
+    105, 50, 152, 166, 166
 };
 
 // Macros for parameters
@@ -104,6 +104,8 @@ int piece_defense_weights_eg[5] = {
 #define OCB_SCALE_EG eval_parameters_eg[20]
 #define PASSED_PAWN_SAFE_PATH_MG eval_parameters_mg[21]
 #define PASSED_PAWN_SAFE_PATH_EG eval_parameters_eg[21]
+#define SPACE_BONUS_MG eval_parameters_mg[22]
+#define SPACE_BONUS_EG eval_parameters_eg[22]
 
 static inline int manhattan_distance(int sq1, int sq2)
 {
@@ -772,6 +774,82 @@ static void calculate_hanging_piece_penalties(const Board *board, int *white_pen
     }
 }
 
+// Reward every square that is behind a friendly pawn, not attacked by an enemy pawn, C/D/E/F files, 2/3/4 respective rank
+static int evaluate_space_advantage(const Board *board, int side, U64 enemy_pawns)
+{
+    U64 own_pawns = board->pieces[side == WHITE ? WHITE_PAWN : BLACK_PAWN];
+    U64 enemy_pawn_attacks;
+
+    if (side == WHITE)
+    {
+        enemy_pawn_attacks = ((enemy_pawns & ~file_masks[0]) >> 9) | ((enemy_pawns & ~file_masks[7]) >> 7);
+    }
+    else
+    {
+        enemy_pawn_attacks = ((enemy_pawns & ~file_masks[0]) << 7) | ((enemy_pawns & ~file_masks[7]) << 9);
+    }
+
+    int safe_squares_count = 0;
+
+    for (int f = 2; f <= 5; ++f) // C/D/E/F files
+    {
+        U64 pawns_on_file = own_pawns & file_masks[f];
+        if (!pawns_on_file)
+            continue;
+
+        if (side == WHITE)
+        {
+            int max_rank = -1;
+            U64 tmp = pawns_on_file;
+            while (tmp)
+            {
+                int sq = bitboard_pop_lsb(&tmp);
+                int r = sq / 8;
+                if (r > max_rank)
+                    max_rank = r;
+            } // Find most advanced pawn on file
+
+            for (int r = 1; r <= 3; ++r) // 2/3/4 ranks
+            {
+                if (r < max_rank) // Behind pawn
+                {
+                    int sq = r * 8 + f;
+                    if (((1ULL << sq) & enemy_pawn_attacks) == 0) // Not attacked by enemy pawn
+                    {
+                        safe_squares_count++;
+                    }
+                }
+            }
+        }
+        else
+        {
+            int min_rank = 8;
+            U64 tmp = pawns_on_file;
+            while (tmp)
+            {
+                int sq = bitboard_pop_lsb(&tmp);
+                int r = sq / 8;
+                if (r < min_rank)
+                    min_rank = r;
+            }
+
+            for (int r = 6; r >= 4; --r)
+            {
+                if (r > min_rank)
+                {
+                    int sq = r * 8 + f;
+                    if (((1ULL << sq) & enemy_pawn_attacks) == 0)
+                    {
+                        safe_squares_count++;
+                    }
+                }
+            }
+        }
+    }
+
+    return safe_squares_count; // Will be multiplied by SPACE_BONUS
+}
+
 
 int evaluate_position(Board *board)
 {
@@ -844,6 +922,15 @@ int evaluate_position(Board *board)
         pawn_table[pawn_idx].black_passed_pawns = black_passed_pawns;
         pawn_table[pawn_idx].eval_version = current_eval_version;
     }
+
+    // Space advantage bonus
+    int white_space = evaluate_space_advantage(board, WHITE, black_pawns);
+    int black_space = evaluate_space_advantage(board, BLACK, white_pawns);
+
+    white_score.mg += white_space * SPACE_BONUS_MG;
+    white_score.eg += white_space * SPACE_BONUS_EG;
+    black_score.mg += black_space * SPACE_BONUS_MG;
+    black_score.eg += black_space * SPACE_BONUS_EG;
 
     // Passed pawn king proximity adjustments
     int white_king_sq = board->king_square[WHITE];
@@ -1214,14 +1301,14 @@ static void apply_evaluation_weights(const int *weights)
         offset++;
     }
 
-    for (int i = 0; i < 22; ++i) {
+    for (int i = 0; i < 23; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 22; ++i) {
+    for (int i = 0; i < 23; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
