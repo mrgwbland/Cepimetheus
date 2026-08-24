@@ -248,7 +248,7 @@ void transposition_table_store(TranspositionTable *table,
                                Move best_move,
                                int ply)
 {
-    if (table == NULL || table->buckets == NULL || table->size == 0 || best_move == MOVE_NONE)
+    if (table == NULL || table->buckets == NULL || table->size == 0)
     {
         return;
     }
@@ -257,6 +257,7 @@ void transposition_table_store(TranspositionTable *table,
 
     TranspositionBucket *bucket = &table->buckets[transposition_table_index(table, hash)];
     TranspositionEntry *entry = NULL;
+    bool same_pos = false;
 
     // 1. Check if hash already exists in this bucket
     for (int i = 0; i < 4; i++)
@@ -264,14 +265,20 @@ void transposition_table_store(TranspositionTable *table,
         if (bucket->entries[i].hash == hash)
         {
             entry = &bucket->entries[i];
+            same_pos = true;
             break;
         }
     }
 
-    if (entry != NULL)
+    if (same_pos)
     {
         if (!transposition_entry_should_replace_same_hash(entry, depth, tt_score, score_type))
         {
+            // If we don't replace score/depth, but found a best move while entry had none, preserve it
+            if (best_move != MOVE_NONE && entry->best_move == MOVE_NONE)
+            {
+                entry->best_move = best_move;
+            }
             return;
         }
     }
@@ -311,5 +318,10 @@ void transposition_table_store(TranspositionTable *table,
     entry->depth = depth;
     entry->score = tt_score;
     entry->score_type = score_type;
-    entry->best_move = best_move;
+
+    // Preserve existing best move if new move is MOVE_NONE on the same position
+    if (best_move != MOVE_NONE || !same_pos)
+    {
+        entry->best_move = best_move;
+    }
 }

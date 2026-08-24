@@ -139,7 +139,7 @@ static int quiescence(Board *board,
         }
     }
 
-    if (best_move != MOVE_NONE && context != NULL)
+    if (context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha, beta);
         transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, ply);
@@ -578,7 +578,7 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    if (result.move != MOVE_NONE && context != NULL)
+    if (context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
         transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, ply);
@@ -804,7 +804,7 @@ SearchResult search_root(Board *board,
         }
     }
 
-    if (result.move != MOVE_NONE && context != NULL)
+    if (context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
         transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, 0);
