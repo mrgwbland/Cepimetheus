@@ -2,10 +2,14 @@
 #include "eval_helpers.h"
 #include "endgame.h"
 #include "movegen.h"
+#include "zobrist.h"
+#include <stdio.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
+#include <omp.h>
 
 int piece_values_mg[6] = {
     1000, 2285, 2455, 3135, 10590, 0
@@ -153,10 +157,12 @@ typedef struct
     int eg;
     U64 white_passed_pawns;
     U64 black_passed_pawns;
+    int eval_version;
 } PawnEntry;
 
 #define PAWN_TABLE_SIZE 32768
-static PawnEntry pawn_table[PAWN_TABLE_SIZE];
+static _Thread_local PawnEntry pawn_table[PAWN_TABLE_SIZE];
+static int current_eval_version = 1;
 
 static inline U64 pawn_mix_u64(U64 value) {
     value ^= value >> 33;
@@ -259,7 +265,7 @@ void init_eval(void)
         }
     }
 
-    memset(pawn_table, 0, sizeof(pawn_table));
+    current_eval_version++;
     endgame_init();
     update_endgame_weight_reciprocal();
     eval_initialised = true;
@@ -812,7 +818,7 @@ int evaluate_position(Board *board)
     U64 white_passed_pawns;
     U64 black_passed_pawns;
 
-    if (pawn_table[pawn_idx].key == pawn_key)
+    if (pawn_table[pawn_idx].key == pawn_key && pawn_table[pawn_idx].eval_version == current_eval_version)
     {
         pawn_score.mg = pawn_table[pawn_idx].mg;
         pawn_score.eg = pawn_table[pawn_idx].eg;
@@ -836,6 +842,7 @@ int evaluate_position(Board *board)
         pawn_table[pawn_idx].eg = pawn_score.eg;
         pawn_table[pawn_idx].white_passed_pawns = white_passed_pawns;
         pawn_table[pawn_idx].black_passed_pawns = black_passed_pawns;
+        pawn_table[pawn_idx].eval_version = current_eval_version;
     }
 
     // Passed pawn king proximity adjustments
@@ -1177,111 +1184,262 @@ int evaluate_position(Board *board)
 /* ==============================================================================
  * PYTHON BRIDGE INTERFACE
  * ============================================================================== */
-int evaluate_position_with_weights(const char *fen, int *weights)
+
+static void apply_evaluation_weights(const int *weights)
 {
-    // 1. Overwrite global evaluation weights in RAM using a unified offset
+    if (weights == NULL)
+    {
+        if (!eval_initialised)
+        {
+            init_eval();
+        }
+        return;
+    }
+
     bool weights_changed = false;
     int offset = 0;
-    
-    if (weights != NULL)
-    {
-        for (int i = 0; i < 6; ++i) {
-            if (piece_values_mg[i] != weights[offset]) {
-                piece_values_mg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
-        }
-        for (int i = 0; i < 6; ++i) {
-            if (piece_values_eg[i] != weights[offset]) {
-                piece_values_eg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
-        }
-        
-        for (int i = 0; i < 22; ++i) {
-            if (eval_parameters_mg[i] != weights[offset]) {
-                eval_parameters_mg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
-        }
-        for (int i = 0; i < 22; ++i) {
-            if (eval_parameters_eg[i] != weights[offset]) {
-                eval_parameters_eg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
-        }
 
-        for (int i = 0; i < 6; ++i) {
-            if (passed_pawn_rank_bonus_mg[i] != weights[offset]) {
-                passed_pawn_rank_bonus_mg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+    for (int i = 0; i < 6; ++i) {
+        if (piece_values_mg[i] != weights[offset]) {
+            piece_values_mg[i] = weights[offset];
+            weights_changed = true;
         }
-        for (int i = 0; i < 6; ++i) {
-            if (passed_pawn_rank_bonus_eg[i] != weights[offset]) {
-                passed_pawn_rank_bonus_eg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+        offset++;
+    }
+    for (int i = 0; i < 6; ++i) {
+        if (piece_values_eg[i] != weights[offset]) {
+            piece_values_eg[i] = weights[offset];
+            weights_changed = true;
         }
+        offset++;
+    }
 
-        for (int i = 0; i < 6; ++i) {
-            if (phalanx_pawn_rank_bonus_mg[i] != weights[offset]) {
-                phalanx_pawn_rank_bonus_mg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+    for (int i = 0; i < 22; ++i) {
+        if (eval_parameters_mg[i] != weights[offset]) {
+            eval_parameters_mg[i] = weights[offset];
+            weights_changed = true;
         }
-        for (int i = 0; i < 6; ++i) {
-            if (phalanx_pawn_rank_bonus_eg[i] != weights[offset]) {
-                phalanx_pawn_rank_bonus_eg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+        offset++;
+    }
+    for (int i = 0; i < 22; ++i) {
+        if (eval_parameters_eg[i] != weights[offset]) {
+            eval_parameters_eg[i] = weights[offset];
+            weights_changed = true;
         }
+        offset++;
+    }
 
-        for (int i = 0; i < 5; ++i) {
-            if (piece_attack_weights_mg[i] != weights[offset]) {
-                piece_attack_weights_mg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+    for (int i = 0; i < 6; ++i) {
+        if (passed_pawn_rank_bonus_mg[i] != weights[offset]) {
+            passed_pawn_rank_bonus_mg[i] = weights[offset];
+            weights_changed = true;
         }
-        for (int i = 0; i < 5; ++i) {
-            if (piece_attack_weights_eg[i] != weights[offset]) {
-                piece_attack_weights_eg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+        offset++;
+    }
+    for (int i = 0; i < 6; ++i) {
+        if (passed_pawn_rank_bonus_eg[i] != weights[offset]) {
+            passed_pawn_rank_bonus_eg[i] = weights[offset];
+            weights_changed = true;
         }
+        offset++;
+    }
 
-        for (int i = 0; i < 5; ++i) {
-            if (piece_defense_weights_mg[i] != weights[offset]) {
-                piece_defense_weights_mg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+    for (int i = 0; i < 6; ++i) {
+        if (phalanx_pawn_rank_bonus_mg[i] != weights[offset]) {
+            phalanx_pawn_rank_bonus_mg[i] = weights[offset];
+            weights_changed = true;
         }
-        for (int i = 0; i < 5; ++i) {
-            if (piece_defense_weights_eg[i] != weights[offset]) {
-                piece_defense_weights_eg[i] = weights[offset];
-                weights_changed = true;
-            }
-            offset++;
+        offset++;
+    }
+    for (int i = 0; i < 6; ++i) {
+        if (phalanx_pawn_rank_bonus_eg[i] != weights[offset]) {
+            phalanx_pawn_rank_bonus_eg[i] = weights[offset];
+            weights_changed = true;
         }
+        offset++;
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        if (piece_attack_weights_mg[i] != weights[offset]) {
+            piece_attack_weights_mg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
+    }
+    for (int i = 0; i < 5; ++i) {
+        if (piece_attack_weights_eg[i] != weights[offset]) {
+            piece_attack_weights_eg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        if (piece_defense_weights_mg[i] != weights[offset]) {
+            piece_defense_weights_mg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
+    }
+    for (int i = 0; i < 5; ++i) {
+        if (piece_defense_weights_eg[i] != weights[offset]) {
+            piece_defense_weights_eg[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
     }
 
     if (weights_changed || !eval_initialised)
     {
         init_eval();
     }
+}
 
-    // 2. Initialise the board architecture and parse FEN
+static Board *tuning_boards = NULL;
+static double *tuning_targets = NULL;
+static int tuning_dataset_size = 0;
+
+void free_tuning_dataset(void)
+{
+    if (tuning_boards != NULL)
+    {
+        free(tuning_boards);
+        tuning_boards = NULL;
+    }
+    if (tuning_targets != NULL)
+    {
+        free(tuning_targets);
+        tuning_targets = NULL;
+    }
+    tuning_dataset_size = 0;
+}
+
+int get_tuning_dataset_size(void)
+{
+    return tuning_dataset_size;
+}
+
+int init_tuning_dataset(const char *dataset_path)
+{
+    free_tuning_dataset();
+
+    bitboard_init_tables();
+    zobrist_init();
+    if (!eval_initialised) {
+        init_eval();
+    }
+
+    FILE *f = fopen(dataset_path, "r");
+    if (!f) {
+        return -1;
+    }
+
+    int capacity = 100000;
+    tuning_boards = (Board *)malloc(capacity * sizeof(Board));
+    tuning_targets = (double *)malloc(capacity * sizeof(double));
+    if (!tuning_boards || !tuning_targets) {
+        fclose(f);
+        free_tuning_dataset();
+        return -1;
+    }
+
+    char line[512];
+    int count = 0;
+
+    while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r' || line[len - 1] == ' ')) {
+            line[--len] = '\0';
+        }
+        if (len == 0) continue;
+
+        char *first_comma = strchr(line, ',');
+        if (!first_comma) continue;
+        *first_comma = '\0';
+        char *fen = line;
+
+        char *second_comma = strchr(first_comma + 1, ',');
+        double target_cp = 0.0;
+        if (second_comma) {
+            target_cp = atof(second_comma + 1);
+        } else {
+            target_cp = atof(first_comma + 1);
+        }
+
+        if (count >= capacity) {
+            capacity *= 2;
+            Board *nb = (Board *)realloc(tuning_boards, capacity * sizeof(Board));
+            double *nt = (double *)realloc(tuning_targets, capacity * sizeof(double));
+            if (!nb || !nt) {
+                if (nb) tuning_boards = nb;
+                if (nt) tuning_targets = nt;
+                break;
+            }
+            tuning_boards = nb;
+            tuning_targets = nt;
+        }
+
+        board_clear(&tuning_boards[count]);
+        if (board_set_fen(&tuning_boards[count], fen)) {
+            tuning_targets[count] = 1.0 / (1.0 + pow(10.0, -target_cp / 400.0));
+            count++;
+        }
+    }
+
+    fclose(f);
+    tuning_dataset_size = count;
+    return count;
+}
+
+double calculate_tuning_mse(const int *weights)
+{
+    if (tuning_dataset_size <= 0 || tuning_boards == NULL)
+    {
+        return 0.0;
+    }
+
+    apply_evaluation_weights(weights);
+
+    double total_loss = 0.0;
+    #pragma omp parallel for reduction(+:total_loss) schedule(static)
+    for (int i = 0; i < tuning_dataset_size; ++i)
+    {
+        Board b = tuning_boards[i];
+        int relative_score = evaluate_position(&b);
+        int white_score = (b.side == WHITE) ? relative_score : -relative_score;
+        double cp = (double)white_score / 10.0;
+        double pred_wp = 1.0 / (1.0 + pow(10.0, -cp / 400.0));
+        double err = pred_wp - tuning_targets[i];
+        total_loss += err * err;
+    }
+
+    return total_loss / (double)tuning_dataset_size;
+}
+
+void get_tuning_evaluations(const int *weights, double *out_cep_wp)
+{
+    if (tuning_dataset_size <= 0 || tuning_boards == NULL || out_cep_wp == NULL)
+    {
+        return;
+    }
+
+    apply_evaluation_weights(weights);
+
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < tuning_dataset_size; ++i)
+    {
+        Board b = tuning_boards[i];
+        int relative_score = evaluate_position(&b);
+        int white_score = (b.side == WHITE) ? relative_score : -relative_score;
+        double cp = (double)white_score / 10.0;
+        out_cep_wp[i] = 1.0 / (1.0 + pow(10.0, -cp / 400.0));
+    }
+}
+
+int evaluate_position_with_weights(const char *fen, const int *weights)
+{
+    apply_evaluation_weights(weights);
+
     Board board;
     board_init(&board); 
 

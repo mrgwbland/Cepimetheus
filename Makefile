@@ -1,6 +1,6 @@
 VERSION ?= Dev
 CC ?= gcc
-THREAD_FLAGS ?= -pthread
+THREAD_FLAGS ?= -pthread -fopenmp
 CFLAGS ?= -Ofast -march=native -flto=auto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\" -g -fno-omit-frame-pointer #(last two for profiling)
 RELEASE_FLAGS ?= -Ofast -flto=auto -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\"
 WIN_CC ?= x86_64-w64-mingw32-gcc
