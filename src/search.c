@@ -350,7 +350,7 @@ static SearchResult negamax(Board *board,
     {
         depth++; // Check extension to ensure forcing lines are fully explored
     }
-    else
+    else // The following pruning doesn't occur when in check so we can reuse this is_in_check to save compute
     {
         int static_eval = evaluate_position(board);
         ss->static_eval = static_eval;

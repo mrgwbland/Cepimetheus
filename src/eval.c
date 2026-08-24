@@ -8,39 +8,39 @@
 #include <stdlib.h>
 
 int piece_values_mg[6] = {
-    1000, 2285, 2460, 3130, 10590, 0
+    1000, 2285, 2455, 3135, 10590, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 4215, 3490, 6225, 9630, 0
+    1000, 4220, 3495, 6220, 9640, 0
 };
 
 int eval_parameters_mg[22] = {
-    124, 323, 0, 22, 151, 0, 63, 79, 64, 189, 16, 9, 135, 95, 399, 89, 0, 2, 352, 141, 0, 0
+    125, 336, 0, 21, 148, 0, 64, 80, 63, 192, 16, 9, 138, 95, 397, 90, 0, 1, 358, 144, 0, 0
 };
 
 int eval_parameters_eg[22] = {
-    86, 0, 116, 27, 88, 98, 95, 57, 27, 0, 40, 0, 128, 62, 1020, 42, 35, 1151, 90, 0, 86, 119
+    85, 0, 117, 27, 89, 98, 95, 56, 27, 0, 39, 0, 126, 64, 1021, 43, 37, 1153, 90, 0, 86, 117
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 20, 338, 806, 1212
+    0, 0, 17, 336, 803, 1218
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 173, 350, 618, 1173
+    0, 0, 172, 348, 616, 1169
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 11, 84, 212, 543, 778
+    0, 12, 83, 212, 542, 753
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 0, 0, 27, 317, 509
+    0, 0, 0, 27, 318, 511
 };
 
 int piece_attack_weights_mg[5] = {
-    21, 82, 32, 34, 49
+    21, 81, 32, 34, 49
 };
 
 int piece_attack_weights_eg[5] = {
@@ -105,6 +105,34 @@ static inline int manhattan_distance(int sq1, int sq2)
 {
     return abs(file_of(sq1) - file_of(sq2)) + abs(rank_of(sq1) - rank_of(sq2));
 }
+
+/* Central 3 files on the opposite side of the king (files D,E,F for queenside king; C,D,E for kingside king) */
+static const U64 king_sq_central_files[64] = {
+    // Rank 1 (a1-d1: Queenside -> D,E,F; e1-h1: Kingside -> C,D,E)
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
+    // Rank 2
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
+    // Rank 3
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
+    // Rank 4
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
+    // Rank 5
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
+    // Rank 6
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
+    // Rank 7
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
+    // Rank 8
+    0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL
+};
 
 typedef struct
 {
@@ -248,7 +276,7 @@ static inline bool is_outpost_square(const Board *board, int square, int side)
     return (enemy_pawns & outpost_mask[side][square]) == 0;
 }
 
-// Evaluats MG and EG logic distinctly, without passing phase weight
+// Evaluates MG and EG logic distinctly, without passing phase weight
 static Score evaluate_piece(const Board *board,
                             int piece,
                             int square,
@@ -285,12 +313,12 @@ static Score evaluate_piece(const Board *board,
         int pawn_rank = is_white ? rank : (7 - rank);
         if (passed_pawns & (1ULL << square))
         {
-            /* Passed pawns are further rewarded for advancement. */
+            // Passed pawns get a rank based bonus
             s.mg += passed_pawn_rank_bonus_mg[pawn_rank - 1];
             s.eg += passed_pawn_rank_bonus_eg[pawn_rank - 1];
         }
 
-        // --- Phalanx / Connected Pawn Bonus ---
+        // Phalanx pawns get a rank based bonus
         U64 connected_mask = 0;
         if (file > 0)
         {
@@ -316,7 +344,7 @@ static Score evaluate_piece(const Board *board,
 
         if (this_file_count > 1)
         {
-            /* Doubled pawn penalty */
+            // Doubled pawn penalty
             s.mg -= DOUBLED_PAWN_PENALTY_MG * (this_file_count - 1);
             s.eg -= DOUBLED_PAWN_PENALTY_EG * (this_file_count - 1);
         }
@@ -325,7 +353,7 @@ static Score evaluate_piece(const Board *board,
         bool has_right = (file < 7) && (pawns_per_file[file + 1] > 0);
         if (!has_left && !has_right)
         {
-            /* Isolated pawn penalty */
+            // Isolated pawn penalty
             s.mg -= ISOLATED_PAWN_PENALTY_MG;
             s.eg -= ISOLATED_PAWN_PENALTY_EG;
         }
@@ -371,7 +399,7 @@ static Score evaluate_piece(const Board *board,
     }
     case WHITE_BISHOP:
     {
-        /* Reward bishops with mobility through pawn occupancy only. */
+        // Reward bishops with mobility through pawn occupancy only
         int mobility = __builtin_popcountll(bitboard_bishop_attacks(square, all_pawns));
         s.mg += BISHOP_MOBILITY_BONUS_MG * mobility;
         s.eg += BISHOP_MOBILITY_BONUS_EG * mobility;
@@ -430,14 +458,14 @@ static Score evaluate_piece(const Board *board,
     }
     case WHITE_ROOK:
     {
-        /* Reward squares controlled. */
+        // Reward squares controlled
         U64 attacks = bitboard_rook_attacks(square, all_pieces);
         int control = __builtin_popcountll(attacks);
         s.mg += ROOK_CONTROL_BONUS_MG * control;
         s.eg += ROOK_CONTROL_BONUS_EG * control;
 
         U64 file_mask = file_masks[file];
-        /* Open file bonus: + points if no pawns on the file. */
+        // Open file bonus: + points if no pawns on the file
         	if ((all_pawns & file_mask) == 0)
         {
             s.mg += ROOK_OPEN_FILE_BONUS_MG;
@@ -768,9 +796,8 @@ int evaluate_position(Board *board)
     U64 black_pawns = board->pieces[BLACK_PAWN];
     U64 all_pawns = white_pawns | black_pawns;
 
-    U64 central_files = file_masks[2] | file_masks[3] | file_masks[4]; // C, D, E files
-    U64 white_central_blocked_mask = (white_pawns & central_files) << 8;
-    U64 black_central_blocked_mask = (black_pawns & central_files) >> 8;
+    U64 white_central_blocked_mask = (white_pawns & king_sq_central_files[board->king_square[WHITE]]) << 8;
+    U64 black_central_blocked_mask = (black_pawns & king_sq_central_files[board->king_square[BLACK]]) >> 8;
 
     U64 all_pieces = board->occupancy[BOTH];
 
