@@ -245,6 +245,8 @@ void search_context_reset_search(SearchContext *context)
         return;
     }
 
+    transposition_table_new_search(&context->table);
+
     for (int p = 0; p < MAX_PLY_DEPTH; ++p)
     {
         context->killer_moves[p][0] = MOVE_NONE;

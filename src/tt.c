@@ -63,6 +63,16 @@ void transposition_table_clear(TranspositionTable *table)
         size_t bytes = table->size * sizeof(TranspositionBucket);
         memset(table->buckets, 0, bytes);
         table->count = 0;
+        table->generation = 0;
+    }
+}
+
+// Increment search generation counter for age-based replacement
+void transposition_table_new_search(TranspositionTable *table)
+{
+    if (table != NULL)
+    {
+        table->generation += TT_GEN_INC;
     }
 }
 
@@ -133,8 +143,9 @@ bool transposition_table_probe(const TranspositionTable *table,
     }
 
     int entry_score = score_from_tt(entry->score, ply);
+    TranspositionScoreType score_type = tt_entry_bound(entry);
 
-    switch (entry->score_type)
+    switch (score_type)
     {
     case TT_SCORE_EXACT:
         *score = entry_score;
@@ -173,7 +184,7 @@ bool transposition_table_probe_exact(const TranspositionTable *table,
         return false;
     }
 
-    if (entry->score_type == TT_SCORE_EXACT)
+    if (tt_entry_bound(entry) == TT_SCORE_EXACT)
     {
         *score = score_from_tt(entry->score, ply);
         return true;
@@ -197,47 +208,10 @@ TranspositionScoreType transposition_score_type(int score, int alpha, int beta)
     return TT_SCORE_EXACT;
 }
 
-static bool transposition_entry_should_replace_same_hash(const TranspositionEntry *entry,
-                                                         int depth,
-                                                         int score,
-                                                         TranspositionScoreType score_type)
+static int tt_entry_quality(const TranspositionEntry *entry, uint8_t current_gen)
 {
-    if (depth > entry->depth)
-    {
-        return true;
-    }
-
-    if (depth < entry->depth)
-    {
-        return false;
-    }
-
-    if (score_type == TT_SCORE_EXACT)
-    {
-        return entry->score_type != TT_SCORE_EXACT;
-    }
-
-    if (entry->score_type == TT_SCORE_EXACT)
-    {
-        return false;
-    }
-
-    if (score_type != entry->score_type)
-    {
-        return false;
-    }
-
-    if (score_type == TT_SCORE_LOWER)
-    {
-        return score > entry->score;
-    }
-
-    if (score_type == TT_SCORE_UPPER)
-    {
-        return score < entry->score;
-    }
-
-    return false;
+    int age_diff = (TT_GEN_CYCLE + current_gen - entry->gen_bound) & TT_GEN_MASK;
+    return (int)entry->depth - age_diff;
 }
 
 void transposition_table_store(TranspositionTable *table,
@@ -254,74 +228,81 @@ void transposition_table_store(TranspositionTable *table,
     }
 
     int tt_score = score_to_tt(score, ply);
-
     TranspositionBucket *bucket = &table->buckets[transposition_table_index(table, hash)];
-    TranspositionEntry *entry = NULL;
+
+    // Find the target slot
+
+    TranspositionEntry *target = NULL;
     bool same_pos = false;
 
-    // 1. Check if hash already exists in this bucket
+    // (a) Look for a hash match first
     for (int i = 0; i < 4; i++)
     {
         if (bucket->entries[i].hash == hash)
         {
-            entry = &bucket->entries[i];
+            target = &bucket->entries[i];
             same_pos = true;
-            break;
         }
     }
 
-    if (same_pos)
+    // (b) If no match, look for an empty slot
+    if (target == NULL)
     {
-        if (!transposition_entry_should_replace_same_hash(entry, depth, tt_score, score_type))
-        {
-            // If we don't replace score/depth, but found a best move while entry had none, preserve it
-            if (best_move != MOVE_NONE && entry->best_move == MOVE_NONE)
-            {
-                entry->best_move = best_move;
-            }
-            return;
-        }
-    }
-    else
-    {
-        // 2. Look for an empty slot
         for (int i = 0; i < 4; i++)
         {
             if (bucket->entries[i].hash == 0)
             {
-                entry = &bucket->entries[i];
+                target = &bucket->entries[i];
                 table->count++;
                 break;
             }
         }
+    }
 
-        // 3. If no empty slot, find the slot with the smallest depth (least valuable)
-        if (entry == NULL)
+    // (c) If no empty slot either, evict the lowest-quality entry
+    // We never don't store a value, as the current search tree is almost certainly more relevant
+    if (target == NULL)
+    {
+        target = &bucket->entries[0];
+        int worst_quality = tt_entry_quality(target, table->generation);
+
+        for (int i = 1; i < 4; i++)
         {
-            entry = &bucket->entries[0];
-            for (int i = 1; i < 4; i++)
+            int quality = tt_entry_quality(&bucket->entries[i], table->generation);
+            if (quality < worst_quality)
             {
-                if (bucket->entries[i].depth < entry->depth)
-                {
-                    entry = &bucket->entries[i];
-                }
-            }
-            // Evict if the new search depth is strictly greater
-            if (depth <= entry->depth)
-            {
-                return;
+                worst_quality = quality;
+                target = &bucket->entries[i];
             }
         }
     }
 
-    entry->hash = hash;
-    entry->depth = depth;
-    entry->score = tt_score;
-    entry->score_type = score_type;
+    // Overwrite protection for same position
+    if (same_pos)
+    {
+        // Allow the overwrite if any of these are true:
+        bool is_better = ((score_type == TT_SCORE_EXACT && (target->gen_bound & TT_BOUND_MASK) != TT_SCORE_EXACT) || (score_type == TT_SCORE_EXACT && depth > target->depth)); // The new result has a better EXACT score (most valuable bound type)
+        bool is_stale = (tt_entry_gen(target) != table->generation); // The existing entry is from a previous search (stale generation)
+        bool is_deeper = (depth >= (int)target->depth); // The new depth is deeper than the existing depth
 
-    // Preserve existing best move if new move is MOVE_NONE on the same position
+        if (!is_better && !is_stale && !is_deeper) // Replacement rejected
+        {            
+            if (best_move != MOVE_NONE && target->best_move == MOVE_NONE) // Store in a missing best move if we have one and one is not stored
+            {
+                target->best_move = best_move;
+            }
+            return;
+        }
+    }
+
+    // Store best move if we have one or if we're overwriting (even move=none should be stored when overwriting)
     if (best_move != MOVE_NONE || !same_pos)
     {
-        entry->best_move = best_move;
+        target->best_move = best_move;
     }
+
+    target->hash = hash;
+    target->depth = (int8_t)depth;
+    target->score = (int16_t)tt_score;
+    target->gen_bound = (uint8_t)(table->generation | (score_type & TT_BOUND_MASK));
 }
