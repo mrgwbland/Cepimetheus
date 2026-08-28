@@ -242,6 +242,7 @@ void transposition_table_store(TranspositionTable *table,
         {
             target = &bucket->entries[i];
             same_pos = true;
+            break;
         }
     }
 
