@@ -288,7 +288,7 @@ void transposition_table_store(TranspositionTable *table,
 
         if (!is_better && !is_stale && !is_deeper) // Replacement rejected
         {            
-            if (best_move != MOVE_NONE && target->best_move == MOVE_NONE) // Store in a missing best move if we have one and one is not stored
+            if (best_move != MOVE_NONE && target->best_move == MOVE_NONE) // Despite rejection, store a best move if we have one and one is not already present
             {
                 target->best_move = best_move;
             }
