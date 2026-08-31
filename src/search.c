@@ -616,40 +616,27 @@ SearchResult search_root(Board *board,
     ss->move = MOVE_NONE;
     ss->static_eval = -32000;
 
-
-    Move tt_move = MOVE_NONE;
-    if (context != NULL)
+    if (context != NULL && context->root_moves.count == 0)
     {
-        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board->hash);
-        if (entry != NULL)
-        {
-            tt_move = entry->best_move;
-        }
+        root_moves_init(&context->root_moves, board, search_moves, search_move_count, context);
     }
-
-    MovePicker picker;
-    movepicker_init(&picker, board, context, ss, tt_move, excluded_moves, excluded_move_count, false);
 
     if (board_is_draw(board, history, 0, lichess_draw_rules))
     {
         result.score = 0;
-        MoveList root_list;
-        movegen_generate_pseudo_legal(board, &root_list);
-        for (int i = 0; i < root_list.count; ++i)
+        if (context != NULL && context->root_moves.count > 0)
         {
-            Move m = root_list.moves[i];
-            if (move_is_in_list(m, excluded_moves, excluded_move_count))
+            for (int i = 0; i < context->root_moves.count; ++i)
             {
-                continue;
-            }
-            if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(m, search_moves, search_move_count))
-            {
-                continue;
-            }
-            Undo undo;
-            if (board_make_move(board, m, &undo))
-            {
-                board_unmake_move(board, &undo);
+                Move m = context->root_moves.entries[i].move;
+                if (move_is_in_list(m, excluded_moves, excluded_move_count))
+                {
+                    continue;
+                }
+                if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(m, search_moves, search_move_count))
+                {
+                    continue;
+                }
                 result.move = m;
                 result.pv[0] = m;
                 result.pv_length = 1;
@@ -659,14 +646,22 @@ SearchResult search_root(Board *board,
         return result;
     }
 
-    Move move;
     int move_index = 0;
     int legal_moves_searched = 0;
-    while ((move = movepicker_next_move(&picker)) != MOVE_NONE)
+    int total_root_moves = (context != NULL) ? context->root_moves.count : 0;
+
+    for (int i = 0; i < total_root_moves; ++i)
     {
+        Move move = context->root_moves.entries[i].move;
+
         if (search_should_stop(control, stats->nodes))
         {
             break;
+        }
+
+        if (move_is_in_list(move, excluded_moves, excluded_move_count))
+        {
+            continue;
         }
 
         if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(move, search_moves, search_move_count))
@@ -694,7 +689,6 @@ SearchResult search_root(Board *board,
         (ss + 1)->ply = 1;
         (ss + 1)->move = move;
         (ss + 1)->static_eval = -32000;
-
 
         SearchResult child;
         if (legal_moves_searched == 0)
@@ -730,8 +724,6 @@ SearchResult search_root(Board *board,
             int score = -child.score;
 
             // If the null-window search fails high, re-search with the full window.
-            // If score >= beta, skip the re-search: the aspiration window loop will
-            // widen the bounds and re-search the position from scratch.
             if (score > alpha && score < beta)
             {
                 child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
@@ -741,27 +733,22 @@ SearchResult search_root(Board *board,
         legal_moves_searched++;
 
         --history->count;
-
         board_unmake_move(board, &undo);
 
         unsigned long long nodes_spent = stats->nodes - nodes_before;
         if (context != NULL)
         {
-            bool found = false;
-            for (int i = 0; i < context->root_moves.count; ++i)
+            context->root_moves.entries[i].nodes += nodes_spent;
+            context->root_moves.entries[i].score = score;
+
+            if (legal_moves_searched == 1 || score > alpha)
             {
-                if (context->root_moves.entries[i].move == move)
+                context->root_moves.entries[i].pv[0] = move;
+                context->root_moves.entries[i].pv_length = 1;
+                for (int j = 0; j < child.pv_length && context->root_moves.entries[i].pv_length < MAX_PV_MOVES; ++j)
                 {
-                    context->root_moves.entries[i].nodes += nodes_spent;
-                    found = true;
-                    break;
+                    context->root_moves.entries[i].pv[context->root_moves.entries[i].pv_length++] = child.pv[j];
                 }
-            }
-            if (!found && context->root_moves.count < MAX_QUIET_TRACKED)
-            {
-                context->root_moves.entries[context->root_moves.count].move = move;
-                context->root_moves.entries[context->root_moves.count].nodes = nodes_spent;
-                context->root_moves.count++;
             }
         }
 
@@ -792,8 +779,14 @@ SearchResult search_root(Board *board,
             break;
         }
     }
-    // hashfull of 0 means empty TT, 1000 means full TT
-    stats->hashfull = (int)((context->table.count * 1000) / (context->table.size * 4));
+
+    if (context != NULL)
+    {
+        root_moves_sort(&context->root_moves, excluded_move_count);
+        // hashfull of 0 means empty TT, 1000 means full TT
+        stats->hashfull = (int)((context->table.count * 1000) / (context->table.size * 4));
+    }
+
     if (legal_moves_searched == 0)
     {
         EvalTerminalState terminal_state = eval_terminal_state(board, false);

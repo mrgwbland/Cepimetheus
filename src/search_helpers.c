@@ -292,3 +292,96 @@ bool search_context_resize(SearchContext *context, size_t hash_power)
     search_context_reset_search(context);
     return true;
 }
+
+static int compare_root_moves(const RootMoveEntry *a, const RootMoveEntry *b)
+{
+    if (a->score != b->score)
+    {
+        return a->score > b->score ? -1 : 1;
+    }
+    if (a->previous_score != b->previous_score)
+    {
+        return a->previous_score > b->previous_score ? -1 : 1;
+    }
+    return 0;
+}
+
+void root_moves_sort(RootMoveTable *table, int start_index)
+{
+    if (table == NULL || start_index >= table->count)
+    {
+        return;
+    }
+
+    for (int i = start_index + 1; i < table->count; ++i)
+    {
+        RootMoveEntry tmp = table->entries[i];
+        int j = i - 1;
+        while (j >= start_index && compare_root_moves(&tmp, &table->entries[j]) < 0)
+        {
+            table->entries[j + 1] = table->entries[j];
+            --j;
+        }
+        table->entries[j + 1] = tmp;
+    }
+}
+
+void root_moves_init(RootMoveTable *table, Board *board, const Move *search_moves, int search_move_count, const SearchContext *context)
+{
+    if (table == NULL || board == NULL)
+    {
+        return;
+    }
+
+    table->count = 0;
+
+    MoveList list;
+    movegen_generate_pseudo_legal(board, &list);
+
+    for (int i = 0; i < list.count; ++i)
+    {
+        Move m = list.moves[i];
+
+        if (search_moves != NULL && search_move_count > 0 && !move_is_in_list(m, search_moves, search_move_count))
+        {
+            continue;
+        }
+
+        Undo undo;
+        if (!board_make_move(board, m, &undo))
+        {
+            continue;
+        }
+        board_unmake_move(board, &undo);
+
+        if (table->count < MAX_QUIET_TRACKED)
+        {
+            RootMoveEntry *entry = &table->entries[table->count++];
+            entry->move = m;
+            entry->score = -MATE_SCORE - 1;
+            entry->previous_score = estimate_move_score(board, m, context, 0);
+            entry->nodes = 0;
+            entry->pv_length = 0;
+            entry->pv[0] = MOVE_NONE;
+        }
+    }
+
+    root_moves_sort(table, 0);
+}
+
+void root_moves_seed_iteration(RootMoveTable *table)
+{
+    if (table == NULL)
+    {
+        return;
+    }
+
+    for (int i = 0; i < table->count; ++i)
+    {
+        table->entries[i].previous_score = table->entries[i].score;
+        table->entries[i].score = -MATE_SCORE - 1;
+    }
+
+    root_moves_sort(table, 0);
+}
+

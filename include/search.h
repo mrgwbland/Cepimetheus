@@ -38,7 +38,11 @@ typedef struct {
 
 typedef struct {
     Move move;
+    int score;
+    int previous_score;
     unsigned long long nodes;
+    Move pv[MAX_PV_MOVES];
+    int pv_length;
 } RootMoveEntry;
 
 typedef struct {
@@ -109,6 +113,10 @@ void search_context_destroy(SearchContext *context);
 void search_context_clear(SearchContext *context);
 void search_context_reset_search(SearchContext *context);
 bool search_context_resize(SearchContext *context, size_t hash_power);
+
+void root_moves_init(RootMoveTable *table, Board *board, const Move *search_moves, int search_move_count, const SearchContext *context);
+void root_moves_seed_iteration(RootMoveTable *table);
+void root_moves_sort(RootMoveTable *table, int start_index);
 
 SearchResult search_root(Board *board,
                          int depth,

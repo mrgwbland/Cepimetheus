@@ -348,6 +348,31 @@ Move think(Board *board,
         search_context_reset_search(search_context);
     }
 
+    const Move *search_moves = (limits != NULL && limits->has_search_moves) ? limits->search_moves : NULL;
+    int search_move_count = (limits != NULL && limits->has_search_moves) ? limits->search_move_count : 0;
+    root_moves_init(&search_context->root_moves, board, search_moves, search_move_count, search_context);
+
+    if (search_context->root_moves.count == 0)
+    {
+        EvalTerminalState terminal_state = eval_terminal_state(board, false);
+        if (out_result != NULL)
+        {
+            out_result->score = (terminal_state != EVAL_TERMINAL_NONE) ? eval_terminal_score(terminal_state, 0) : 0;
+            out_result->move = MOVE_NONE;
+            out_result->pv_length = 0;
+        }
+        if (local_context && search_context != NULL)
+        {
+            search_context_destroy(search_context);
+        }
+        return MOVE_NONE;
+    }
+
+    if (multipv > search_context->root_moves.count)
+    {
+        multipv = search_context->root_moves.count;
+    }
+
     SearchResult best_result = {0, MOVE_NONE, {0}, 0};
 
     /* Iterative deepening: search depths 1 through target_depth. */
@@ -362,6 +387,11 @@ Move think(Board *board,
         if (stop_signal != NULL && *stop_signal)
         {
             break;
+        }
+
+        if (depth > 1)
+        {
+            root_moves_seed_iteration(&search_context->root_moves);
         }
 
         if (time_limited)
@@ -399,11 +429,14 @@ Move think(Board *board,
             control.stop = false;
 
             SearchResult result;
-            if (depth >= asp_min_depth && best_result.move != MOVE_NONE && multipv_index == 0) // Use aspiration window search around the best score from the previous depth
+            int prev_score = search_context->root_moves.entries[multipv_index].previous_score;
+            bool use_aspiration = (depth >= asp_min_depth && prev_score > -MATE_SCORE && prev_score < MATE_SCORE);
+
+            if (use_aspiration)
             {
-                int delta = asp_initial_delta; //0.25 pawn equivalent default
-                int alpha = best_result.score - delta;
-                int beta = best_result.score + delta;
+                int delta = asp_initial_delta;
+                int alpha = prev_score - delta;
+                int beta = prev_score + delta;
 
                 if (alpha < -MATE_SCORE)
                     alpha = -MATE_SCORE;
@@ -425,8 +458,8 @@ Move think(Board *board,
                                          lichess_draw_rules,
                                          excluded_root_moves,
                                          excluded_root_move_count,
-                                         (limits != NULL && limits->has_search_moves) ? limits->search_moves : NULL,
-                                         (limits != NULL && limits->has_search_moves) ? limits->search_move_count : 0);
+                                         search_moves,
+                                         search_move_count);
 
                     if (control.stop || result.move == MOVE_NONE)
                     {
@@ -442,7 +475,6 @@ Move think(Board *board,
                     }
                     else if (result.score >= beta && beta < MATE_SCORE)
                     {
-                        // Future optimisation: consider fail-high depth reduction here
                         beta = beta + delta;
                         if (beta > MATE_SCORE)
                             beta = MATE_SCORE;
@@ -452,7 +484,7 @@ Move think(Board *board,
                         break;
                     }
 
-                    delta = (int)(delta * (double)asp_growth_factor / 100.0); // Increase the window size for the next iteration
+                    delta = (int)(delta * (double)asp_growth_factor / 100.0);
                 }
             }
             else
@@ -470,11 +502,9 @@ Move think(Board *board,
                                      lichess_draw_rules,
                                      excluded_root_moves,
                                      excluded_root_move_count,
-                                     (limits != NULL && limits->has_search_moves) ? limits->search_moves : NULL,
-                                     (limits != NULL && limits->has_search_moves) ? limits->search_move_count : 0);
+                                     search_moves,
+                                     search_move_count);
             }
-
-
 
             if (control.stop)
             {
@@ -519,7 +549,19 @@ Move think(Board *board,
             }
         }
 
-        if (depth_best_result.move != MOVE_NONE)
+        root_moves_sort(&search_context->root_moves, 0);
+
+        if (search_context->root_moves.count > 0 && search_context->root_moves.entries[0].move != MOVE_NONE && search_context->root_moves.entries[0].score > -MATE_SCORE)
+        {
+            best_result.score = search_context->root_moves.entries[0].score;
+            best_result.move = search_context->root_moves.entries[0].move;
+            best_result.pv_length = search_context->root_moves.entries[0].pv_length;
+            for (int j = 0; j < search_context->root_moves.entries[0].pv_length && j < MAX_PV_MOVES; ++j)
+            {
+                best_result.pv[j] = search_context->root_moves.entries[0].pv[j];
+            }
+        }
+        else if (depth_best_result.move != MOVE_NONE)
         {
             best_result = depth_best_result;
         }
