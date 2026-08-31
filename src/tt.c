@@ -101,32 +101,6 @@ const TranspositionEntry *transposition_table_lookup(const TranspositionTable *t
     return NULL;
 }
 
-static inline int score_to_tt(int score, int ply)
-{
-    if (score > MATE_SCORE - MAX_PLY_DEPTH)
-    {
-        return score + ply;
-    }
-    if (score < -MATE_SCORE + MAX_PLY_DEPTH)
-    {
-        return score - ply;
-    }
-    return score;
-}
-
-static inline int score_from_tt(int score, int ply)
-{
-    if (score > MATE_SCORE - MAX_PLY_DEPTH)
-    {
-        return score - ply;
-    }
-    if (score < -MATE_SCORE + MAX_PLY_DEPTH)
-    {
-        return score + ply;
-    }
-    return score;
-}
-
 // Test whether a position exists and can cause a cutoff
 bool transposition_table_probe(const TranspositionTable *table,
                                U64 hash,

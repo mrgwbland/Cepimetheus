@@ -2,6 +2,7 @@
 #define TT_H
 
 #include "board.h"
+#include "eval.h"
 #include "move.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -48,6 +49,33 @@ static inline TranspositionScoreType tt_entry_bound(const TranspositionEntry *en
 static inline uint8_t tt_entry_gen(const TranspositionEntry *entry)
 {
     return (uint8_t)(entry->gen_bound & TT_GEN_MASK);
+}
+
+// 
+static inline int score_to_tt(int score, int ply)
+{
+    if (score > MATE_SCORE - MAX_PLY_DEPTH)
+    {
+        return score + ply;
+    }
+    if (score < -MATE_SCORE + MAX_PLY_DEPTH)
+    {
+        return score - ply;
+    }
+    return score;
+}
+
+static inline int score_from_tt(int score, int ply)
+{
+    if (score > MATE_SCORE - MAX_PLY_DEPTH)
+    {
+        return score - ply;
+    }
+    if (score < -MATE_SCORE + MAX_PLY_DEPTH)
+    {
+        return score + ply;
+    }
+    return score;
 }
 
 bool transposition_table_init(TranspositionTable *table, size_t hash_power);

@@ -22,6 +22,9 @@ int lmr_min_depth = 1;
 int lmr_offset = -32;
 int lmr_divisor = 189;
 int lmr_move_multiplier = 234;
+int se_min_depth = 7;
+int se_depth_margin = 3;
+int se_margin = 500;
 
 int lmp_base = 300;
 int lmp_multiplier = 80;

@@ -102,6 +102,7 @@ static int quiescence(Board *board,
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = move;
         (ss + 1)->static_eval = -32000;
+        (ss + 1)->excluded_move = MOVE_NONE;
 
         int score = -quiescence(board, -beta, -alpha, history, stats, ss + 1, qply + 1, context, control, lichess_draw_rules);
 
@@ -189,7 +190,7 @@ static SearchResult negamax(Board *board,
     }
 
     int tt_score = 0;
-    if (context != NULL)
+    if (context != NULL && ss->excluded_move == MOVE_NONE)
     {
         // (Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed)
         bool tt_cutoff = pv_node
@@ -306,6 +307,7 @@ static SearchResult negamax(Board *board,
     /* Null-move pruning */
     if (!pv_node && // Disallowed in PV nodes- PV must be a legal continuation
         previous_move != MOVE_NONE && //Disallow null move immediately after a null move
+        ss->excluded_move == MOVE_NONE && // Disallowed in singular verification search
         depth >= nmp_min_depth &&// NMP not done near leaves as tree is already small, and NMP has overhead
         beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
         !board_is_in_check(board, board->side) && // In check passing is illegal
@@ -322,6 +324,7 @@ static SearchResult negamax(Board *board,
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = MOVE_NONE;
         (ss + 1)->static_eval = -32000;
+        (ss + 1)->excluded_move = MOVE_NONE;
 
         SearchResult null_child = negamax(board,
                                           child_depth,
@@ -354,32 +357,33 @@ static SearchResult negamax(Board *board,
     {
         int static_eval = evaluate_position(board);
         ss->static_eval = static_eval;
-        // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node.
+        // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node (the position is so good it's already winning)
         if (!pv_node && depth <= rfp_max_depth
             && abs(static_eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
-            && static_eval - rfp_margin * depth > beta)
+            && static_eval - rfp_margin * depth > beta) 
         {
             result.score = static_eval;
             return result;
         }                    
-        // Futility Pruning: At depth 1, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves
-        if (depth == 1 && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH)
+        // Futility Pruning: At depth 1, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves (a quiet move cannot save eval)
+        if (depth == 1 && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH
+            && static_eval + futility_margin < alpha)
         {
-            if (static_eval + futility_margin < alpha)
-            {
-                futility_prune = true;
-            }
+            futility_prune = true;
         }
     }  
 
     // Extract the best move from the transposition table if it exists for move ordering
     Move tt_move = MOVE_NONE;
+    tt_score = 0;
+    const TranspositionEntry *entry = NULL;
     if (context != NULL)
     {
-        const TranspositionEntry *entry = transposition_table_lookup(&context->table, board->hash);
+        entry = transposition_table_lookup(&context->table, board->hash);
         if (entry != NULL)
         {
             tt_move = entry->best_move;
+            tt_score = score_from_tt(entry->score, ply);
         }
         else if (depth >= 4 && !pv_node) // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
         {
@@ -387,8 +391,47 @@ static SearchResult negamax(Board *board,
         }
     }
 
+    // Singular Extension: If a TT move exists and is significantly better than all alternative moves, extend its search depth by 1 to explore it deeper.
+    int extension = 0;
+    if (ss->excluded_move == MOVE_NONE // Prevent an infinite loop
+        && depth > se_min_depth // Don't extend near leaves
+        && tt_move != MOVE_NONE
+        && entry != NULL
+        && entry->depth >= depth - se_depth_margin // Only use good TT moves
+        && tt_entry_bound(entry) != TT_SCORE_UPPER
+        && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
+    {
+        // If all other moves are below beta_target then node is considered singular
+        int beta_target = tt_score - se_margin * depth;
+        if (beta_target < -MATE_SCORE + MAX_PLY_DEPTH)
+        {
+            beta_target = -MATE_SCORE + MAX_PLY_DEPTH;
+        }
+
+        // Perform singular verification search at reduced depth
+        int se_depth = (depth - 1) / 2;
+
+        ss->excluded_move = tt_move;
+        SearchResult se_child = negamax(board,
+                                        se_depth,
+                                        beta_target - 1,
+                                        beta_target,
+                                        history,
+                                        stats,
+                                        ss,
+                                        context,
+                                        control,
+                                        lichess_draw_rules);
+        ss->excluded_move = MOVE_NONE;
+
+        if (se_child.score < beta_target)
+        {
+            extension = 1;
+        }
+    }
+
     MovePicker picker;
-    movepicker_init(&picker, board, context, ss, tt_move, NULL, 0, false);
+    movepicker_init(&picker, board, context, ss, tt_move, (ss->excluded_move != MOVE_NONE) ? &ss->excluded_move : NULL, (ss->excluded_move != MOVE_NONE) ? 1 : 0, false);
 
     bool has_legal_move = false;
     Move quiet_searched[MAX_QUIET_TRACKED];
@@ -405,14 +448,16 @@ static SearchResult negamax(Board *board,
             break;
         }
 
+        if (move == ss->excluded_move)
+        {
+            continue;
+        }
+
         bool is_quiet = !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE;
 
-        if (futility_prune)
+        if (futility_prune && is_quiet && !move_ischeck(board, move))
         {
-            if (is_quiet && !move_ischeck(board, move))
-            {
-                continue;
-            }
+            continue;
         }
 
         // Late Move Pruning (LMP) - Quiet only pruning when remaining depth < 11
@@ -433,7 +478,7 @@ static SearchResult negamax(Board *board,
 
         has_legal_move = true;
 
-        /* Track searched quiet moves for history malus on cutoff. */
+        // Track searched quiet moves for history malus on cutoff.
         if (!move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE
             && quiet_searched_count < MAX_QUIET_TRACKED)
         {
@@ -450,12 +495,14 @@ static SearchResult negamax(Board *board,
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = move;
         (ss + 1)->static_eval = -32000;
+        (ss + 1)->excluded_move = MOVE_NONE;
 
+        int ext = (move == tt_move) ? extension : 0;
         SearchResult child;
         if (legal_moves_searched == 0)
         {
-            // First move is searched with the full window
-            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+            // First move is searched with the full window (plus extension if singular)
+            child = negamax(board, depth - 1 + ext, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
         }
         else
         {
@@ -517,7 +564,7 @@ static SearchResult negamax(Board *board,
 
         if (alpha >= beta)
         {
-            /* record killer and update history if quiet move */
+            // Record killer and update history if quiet move
             if (context != NULL && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
             {
                 if (ply >= 0 && ply < MAX_PLY_DEPTH)
@@ -544,10 +591,10 @@ static SearchResult negamax(Board *board,
                 int bonus = history_bonus(depth);
                 int side = board->side;
 
-                /* Bonus for the cutoff move. */
+                // Bonus for the cutoff move.
                 update_history_entry(&context->hh_table[side][move_from(move)][move_to(move)], bonus);
 
-                /* Malus for all quiet moves searched before the cutoff. */
+                // Malus for all quiet moves searched before the cutoff.
                 for (int q = 0; q < quiet_searched_count; ++q)
                 {
                     Move qm = quiet_searched[q];
@@ -564,6 +611,12 @@ static SearchResult negamax(Board *board,
 
     if (!has_legal_move)
     {
+        if (ss->excluded_move != MOVE_NONE)
+        {
+            result.score = alpha;
+            return result;
+        }
+
         if (!in_check && board_has_any_legal_move(board))
         {
             result.score = alpha;
@@ -578,7 +631,7 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    if (context != NULL)
+    if (context != NULL && ss->excluded_move == MOVE_NONE)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
         transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, ply);
@@ -689,6 +742,7 @@ SearchResult search_root(Board *board,
         (ss + 1)->ply = 1;
         (ss + 1)->move = move;
         (ss + 1)->static_eval = -32000;
+        (ss + 1)->excluded_move = MOVE_NONE;
 
         SearchResult child;
         if (legal_moves_searched == 0)

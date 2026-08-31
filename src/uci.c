@@ -477,6 +477,9 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Asp_MinDepth type spin default %d min 1 max 32\n", asp_min_depth);
             printf("option name Asp_InitialDelta type spin default %d min 1 max 2000\n", asp_initial_delta);
             printf("option name Asp_GrowthFactor type spin default %d min 100 max 500\n", asp_growth_factor);
+            printf("option name SE_MinDepth type spin default %d min 1 max 16\n", se_min_depth);
+            printf("option name SE_DepthMargin type spin default %d min 1 max 10\n", se_depth_margin);
+            printf("option name SE_Margin type spin default %d min 0 max 2000\n", se_margin);
 #endif
             printf("uciok\n");
             fflush(stdout);
@@ -595,6 +598,9 @@ void uci_loop(int argc, char *argv[]) {
                     else if (strncmp(nametoken, "asp_mindepth", 12) == 0) asp_min_depth = val;
                     else if (strncmp(nametoken, "asp_initialdelta", 16) == 0) asp_initial_delta = val;
                     else if (strncmp(nametoken, "asp_growthfactor", 16) == 0) asp_growth_factor = val;
+                    else if (strncmp(nametoken, "se_mindepth", 11) == 0) se_min_depth = val;
+                    else if (strncmp(nametoken, "se_depthmargin", 14) == 0) se_depth_margin = val;
+                    else if (strncmp(nametoken, "se_margin", 9) == 0) se_margin = val;
                 }
 #endif
             }

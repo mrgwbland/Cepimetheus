@@ -14,6 +14,7 @@ typedef struct SearchStack {
     int ply;
     int static_eval;
     Move move;
+    Move excluded_move;
 } SearchStack;
 
 typedef struct {
@@ -89,6 +90,9 @@ extern int lmr_move_multiplier;
 extern int lmp_base;
 extern int lmp_multiplier;
 extern int lmp_quiet_limits[11];
+extern int se_min_depth;
+extern int se_depth_margin;
+extern int se_margin;
 
 /* Move picker & history parameters */
 extern int history_bonus_cap;
