@@ -53,6 +53,7 @@ My testing games include several third party "anchor engines", these are engines
 * Killer Move Heuristic
 * Counter Move Heuristic
 * History Heuristic
+* Root Move Ordering
 
 ### Selectivity
 * Check Extensions
@@ -64,6 +65,8 @@ My testing games include several third party "anchor engines", these are engines
 * Futility Pruning
 * Reverse Futility Pruning
 * Late Move Pruning
+* Singular Extensions
+* Multi Cut
 
 ### Evaluation
 * No PST Hand Crafted Evaluation
