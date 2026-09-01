@@ -67,6 +67,7 @@ My testing games include several third party "anchor engines", these are engines
 * Late Move Pruning
 * Singular Extensions
 * Multi Cut
+* Negative Extensions
 
 ### Evaluation
 * No PST Hand Crafted Evaluation

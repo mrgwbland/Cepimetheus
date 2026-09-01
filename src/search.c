@@ -428,12 +428,16 @@ static SearchResult negamax(Board *board,
         {
             extension = 1;
         }
-        else if (beta_target >= beta)
+        else if (beta_target >= beta) // Not Singular
         {
             // Multicut: if another move beats beta_target at reduced depth and beta_target >= beta then
             // multiple moves failed high, therefore TT move is not special so we can prune this subtree immediately.
             result.score = beta_target;
             return result;
+        }
+        else if (tt_score >= beta)  // Expected fail high so negative extension
+        {
+            extension = -1;
         }
     }
 
