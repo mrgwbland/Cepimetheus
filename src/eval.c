@@ -1586,11 +1586,10 @@ double calculate_tuning_mse(const int *weights)
     #pragma omp parallel for reduction(+:total_loss) schedule(static)
     for (int i = 0; i < tuning_dataset_size; ++i)
     {
-        Board b = tuning_boards[i];
-        int relative_score = evaluate_position(&b);
-        int white_score = (b.side == WHITE) ? relative_score : -relative_score;
+        int relative_score = evaluate_position(&tuning_boards[i]);
+        int white_score = (tuning_boards[i].side == WHITE) ? relative_score : -relative_score;
         double cp = (double)white_score / 10.0;
-        double pred_wp = 1.0 / (1.0 + pow(10.0, -cp / 400.0));
+        double pred_wp = 1.0 / (1.0 + exp(-cp * 0.00575646273248511421));
         double err = pred_wp - tuning_targets[i];
         total_loss += err * err;
     }
@@ -1610,11 +1609,10 @@ void get_tuning_evaluations(const int *weights, double *out_cep_wp)
     #pragma omp parallel for schedule(static)
     for (int i = 0; i < tuning_dataset_size; ++i)
     {
-        Board b = tuning_boards[i];
-        int relative_score = evaluate_position(&b);
-        int white_score = (b.side == WHITE) ? relative_score : -relative_score;
+        int relative_score = evaluate_position(&tuning_boards[i]);
+        int white_score = (tuning_boards[i].side == WHITE) ? relative_score : -relative_score;
         double cp = (double)white_score / 10.0;
-        out_cep_wp[i] = 1.0 / (1.0 + pow(10.0, -cp / 400.0));
+        out_cep_wp[i] = 1.0 / (1.0 + exp(-cp * 0.00575646273248511421));
     }
 }
 
