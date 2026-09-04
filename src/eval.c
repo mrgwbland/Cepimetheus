@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2240, 2545, 3195, 7430, 0
+    1000, 2250, 2485, 3170, 7270, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3875, 3430, 6540, 11920, 0
+    1000, 3890, 3460, 6570, 12080, 0
 };
 
 int eval_parameters_mg[24] = {
-    192, 243, 0, 19, 152, 0, 69, 70, 56, 275, 15, 10, 153, 77, 508, 73, 0, 22, 309, 183, 454, 0, 35, 42
+    192, 239, 3, 20, 152, 0, 66, 73, 56, 275, 15, 10, 152, 77, 506, 74, 0, 68, 292, 202, 30, 0, 38, 78
 };
 
 int eval_parameters_eg[24] = {
-    109, 0, 86, 36, 54, 133, 92, 72, 33, 6, 56, 0, 199, 79, 1019, 51, 37, 850, 123, 0, 114, 166, 0, 20
+    110, 0, 92, 36, 54, 134, 90, 78, 32, 8, 54, 0, 200, 80, 1017, 50, 38, 791, 94, 0, 114, 166, 0, 57
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 379, 600, 569
+    0, 0, 0, 384, 605, 588
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 1, 377, 594, 1016, 1944
+    0, 0, 371, 585, 1007, 1934
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 23, 40, 130, 531, 1106
+    0, 17, 38, 125, 523, 1045
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 2, 0, 107, 287, 505
+    0, 4, 0, 106, 294, 526
 };
 
 int piece_attack_weights_mg[5] = {
-    38, 68, 27, 28, 48
+    37, 67, 29, 29, 48
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 13, 21, 47
+    0, 0, 13, 20, 46
 };
 
 int piece_defense_weights_mg[5] = {
-    0, 24, 11, 0, 0
+    0, 25, 12, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    761, 73, 73, 0, 896
+    816, 71, 70, 0, 767
 };
 
 // Macros for parameters
@@ -515,9 +515,6 @@ static Score evaluate_piece(const Board *board,
         }
 
         U64 attacks = bitboard_bishop_attacks(square, all_pieces);
-        U64 legal_moves = attacks & ~board->occupancy[side];
-        int outpost_moves = __builtin_popcountll(legal_moves & outposts);
-        score_param(&s, trace, 23, outpost_moves, is_white);
 
         int direct_count = __builtin_popcountll(attacks & enemy_king_ring);
         record_king_ring_attacks(type, direct_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
