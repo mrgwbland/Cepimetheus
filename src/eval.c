@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2250, 2485, 3170, 7270, 0
+    1000, 2240, 2465, 3120, 7140, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3890, 3460, 6570, 12080, 0
+    1000, 3935, 3495, 6620, 11520, 0
 };
 
-int eval_parameters_mg[24] = {
-    192, 239, 3, 20, 152, 0, 66, 73, 56, 275, 15, 10, 152, 77, 506, 74, 0, 68, 292, 202, 30, 0, 38, 78
+int eval_parameters_mg[25] = {
+    193, 242, 4, 20, 152, 0, 66, 74, 56, 276, 14, 10, 144, 77, 500, 74, 0, 73, 291, 200, 118, 0, 37, 77, 0
 };
 
-int eval_parameters_eg[24] = {
-    110, 0, 92, 36, 54, 134, 90, 78, 32, 8, 54, 0, 200, 80, 1017, 50, 38, 791, 94, 0, 114, 166, 0, 57
+int eval_parameters_eg[25] = {
+    111, 0, 95, 36, 54, 131, 88, 76, 30, 13, 41, 0, 200, 87, 1025, 52, 38, 771, 95, 0, 114, 167, 0, 61, 93
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 384, 605, 588
+    0, 0, 0, 384, 600, 582
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 371, 585, 1007, 1934
+    0, 0, 380, 594, 1022, 1951
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 17, 38, 125, 523, 1045
+    0, 16, 40, 125, 524, 1072
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 4, 0, 106, 294, 526
+    0, 8, 0, 112, 298, 516
 };
 
 int piece_attack_weights_mg[5] = {
-    37, 67, 29, 29, 48
+    37, 66, 29, 29, 45
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 13, 20, 46
+    0, 0, 13, 21, 39
 };
 
 int piece_defense_weights_mg[5] = {
-    0, 25, 12, 0, 0
+    1, 24, 12, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    816, 71, 70, 0, 767
+    341, 97, 89, 0, 636
 };
 
 // Macros for parameters
@@ -108,11 +108,8 @@ int piece_defense_weights_eg[5] = {
 #define SPACE_BONUS_EG eval_parameters_eg[22]
 #define OUTPOST_MOVE_BONUS_MG eval_parameters_mg[23]
 #define OUTPOST_MOVE_BONUS_EG eval_parameters_eg[23]
-
-static inline int manhattan_distance(int sq1, int sq2)
-{
-    return abs(file_of(sq1) - file_of(sq2)) + abs(rank_of(sq1) - rank_of(sq2));
-}
+#define QUEEN_TROPISM_BONUS_MG eval_parameters_mg[24]
+#define QUEEN_TROPISM_BONUS_EG eval_parameters_eg[24]
 
 /* Central 3 files on the opposite side of the king (files D,E,F for queenside king; C,D,E for kingside king) */
 static const U64 king_sq_central_files[64] = {
@@ -246,8 +243,10 @@ static inline U64 board_pawn_key(U64 white_pawns, U64 black_pawns) {
     key = pawn_hash_combine(key, black_pawns);
     return key;
 }
-
-static int king_corner_pst[64];
+// Table to store the distance between two squares
+// There exists many choices that trade off compute or memory overhead (that should be experimented with at some point)
+// This is a middle ground, usable for king corner distances, queen tropism and king-pp distance
+static int manhattan_distance[64][64];
 static U64 outpost_mask[2][64];
 static bool outpost_eligible[2][64];
 static bool eval_initialised = false;
@@ -276,22 +275,12 @@ static const U64 ranks_lt[8] = {
 
 void init_eval(void)
 {
-    for (int sq = 0; sq < 64; ++sq)
+    for (int sq1 = 0; sq1 < 64; ++sq1)
     {
-        int distance_a1 = manhattan_distance(sq, 0);
-        int distance_h1 = manhattan_distance(sq, 7);
-        int distance_a8 = manhattan_distance(sq, 56);
-        int distance_h8 = manhattan_distance(sq, 63);
-
-        int corner_distance = distance_a1;
-        if (distance_h1 < corner_distance)
-            corner_distance = distance_h1;
-        if (distance_a8 < corner_distance)
-            corner_distance = distance_a8;
-        if (distance_h8 < corner_distance)
-            corner_distance = distance_h8;
-
-        king_corner_pst[sq] = corner_distance;
+        for (int sq2 = 0; sq2 < 64; ++sq2)
+        {
+            manhattan_distance[sq1][sq2] = abs(file_of(sq1) - file_of(sq2)) + abs(rank_of(sq1) - rank_of(sq2));
+        }
     }
 
     for (int side = 0; side < 2; ++side)
@@ -586,6 +575,13 @@ static Score evaluate_piece(const Board *board,
         int mobility = __builtin_popcountll(attacks);
         score_param(&s, trace, 10, mobility, is_white);
 
+        int enemy_king_sq = board->king_square[side ^ 1];
+        if (enemy_king_sq >= 0)
+        {
+            int dist = manhattan_distance[square][enemy_king_sq];
+            score_param(&s, trace, 24, 16 - dist, is_white);
+        }
+
         // Diagonal direct & X-ray attacks
         int bishop_direct = __builtin_popcountll(bishop_atk & enemy_king_ring);
         record_king_ring_attacks(type, bishop_direct, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
@@ -641,8 +637,16 @@ static Score evaluate_piece(const Board *board,
         score_param(&s, trace, 11, -attacks_all, is_white);
         score_param(&s, trace, 3, -attacks_pawns, is_white);
 
-        /* Use precalculated King corner distance PST */
-        score_param_diff(&s, trace, 12, -king_corner_pst[square], +king_corner_pst[square], is_white);
+        // Calculate shortest King corner distance
+        int corner_distance = manhattan_distance[square][0];
+        if (manhattan_distance[square][7] < corner_distance)
+            corner_distance = manhattan_distance[square][7];
+        if (manhattan_distance[square][56] < corner_distance)
+            corner_distance = manhattan_distance[square][56];
+        if (manhattan_distance[square][63] < corner_distance)
+            corner_distance = manhattan_distance[square][63];
+
+        score_param_diff(&s, trace, 12, -corner_distance, +corner_distance, is_white);
         break;
     }
     default:
@@ -1070,8 +1074,8 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     while (w_pass)
     {
         int square = bitboard_pop_lsb(&w_pass);
-        int friendly_dist = manhattan_distance(square, white_king_sq);
-        int enemy_dist = manhattan_distance(square, black_king_sq);
+        int friendly_dist = manhattan_distance[square][white_king_sq];
+        int enemy_dist = manhattan_distance[square][black_king_sq];
 
         score_param(&white_score, trace, 15, -friendly_dist, true);
         score_param(&white_score, trace, 16, enemy_dist, true);
@@ -1081,8 +1085,8 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     while (b_pass)
     {
         int square = bitboard_pop_lsb(&b_pass);
-        int friendly_dist = manhattan_distance(square, black_king_sq);
-        int enemy_dist = manhattan_distance(square, white_king_sq);
+        int friendly_dist = manhattan_distance[square][black_king_sq];
+        int enemy_dist = manhattan_distance[square][white_king_sq];
 
         score_param(&black_score, trace, 15, -friendly_dist, false);
         score_param(&black_score, trace, 16, enemy_dist, false);
@@ -1425,14 +1429,14 @@ static void apply_evaluation_weights(const int *weights)
         offset++;
     }
 
-    for (int i = 0; i < 24; ++i) {
+    for (int i = 0; i < 25; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 24; ++i) {
+    for (int i = 0; i < 25; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
@@ -1527,15 +1531,15 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *pw_mg = &weights[0];
     const int *pw_eg = &weights[6];
     const int *ep_mg = &weights[12];
-    const int *ep_eg = &weights[36];
-    const int *pp_mg = &weights[60];
-    const int *pp_eg = &weights[66];
-    const int *px_mg = &weights[72];
-    const int *px_eg = &weights[78];
-    const int *at_mg = &weights[84];
-    const int *at_eg = &weights[89];
-    const int *df_mg = &weights[94];
-    const int *df_eg = &weights[99];
+    const int *ep_eg = &weights[37];
+    const int *pp_mg = &weights[62];
+    const int *pp_eg = &weights[68];
+    const int *px_mg = &weights[74];
+    const int *px_eg = &weights[80];
+    const int *at_mg = &weights[86];
+    const int *at_eg = &weights[91];
+    const int *df_mg = &weights[96];
+    const int *df_eg = &weights[101];
 
     int total_piece_value =
         feat->total_pieces[0] * pw_mg[1] +
@@ -1577,7 +1581,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     // 4. General evaluation parameters
-    for (int p = 0; p < 24; ++p)
+    for (int p = 0; p < 25; ++p)
     {
         mg_total += ep_mg[p] * feat->eval_param_counts_mg[p];
         eg_total += ep_eg[p] * feat->eval_param_counts_eg[p];
