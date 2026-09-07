@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2240, 2465, 3120, 7140, 0
+    1000, 2245, 2495, 3150, 7330, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3935, 3495, 6620, 11520, 0
+    1000, 3935, 3470, 6540, 11350, 0
 };
 
-int eval_parameters_mg[25] = {
-    193, 242, 4, 20, 152, 0, 66, 74, 56, 276, 14, 10, 144, 77, 500, 74, 0, 73, 291, 200, 118, 0, 37, 77, 0
+int eval_parameters_mg[26] = {
+    194, 238, 4, 18, 155, 0, 69, 74, 47, 349, 15, 11, 140, 77, 510, 78, 0, 64, 294, 204, 64, 0, 36, 78, 0, 233
 };
 
-int eval_parameters_eg[25] = {
-    111, 0, 95, 36, 54, 131, 88, 76, 30, 13, 41, 0, 200, 87, 1025, 52, 38, 771, 95, 0, 114, 167, 0, 61, 93
+int eval_parameters_eg[26] = {
+    115, 0, 95, 37, 57, 131, 87, 77, 29, 89, 41, 0, 202, 89, 1018, 49, 38, 792, 93, 0, 114, 165, 0, 58, 97, 59
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 384, 600, 582
+    0, 0, 19, 399, 617, 602
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 380, 594, 1022, 1951
+    0, 0, 366, 580, 1004, 1935
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 16, 40, 125, 524, 1072
+    0, 24, 45, 136, 547, 1056
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 8, 0, 112, 298, 516
+    0, 9, 0, 114, 293, 512
 };
 
 int piece_attack_weights_mg[5] = {
-    37, 66, 29, 29, 45
+    37, 67, 30, 30, 45
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 13, 21, 39
+    0, 0, 2, 6, 27
 };
 
 int piece_defense_weights_mg[5] = {
-    1, 24, 12, 0, 0
+    6, 26, 13, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    341, 97, 89, 0, 636
+    430, 31, 0, 311, 450
 };
 
 // Macros for parameters
@@ -110,6 +110,8 @@ int piece_defense_weights_eg[5] = {
 #define OUTPOST_MOVE_BONUS_EG eval_parameters_eg[23]
 #define QUEEN_TROPISM_BONUS_MG eval_parameters_mg[24]
 #define QUEEN_TROPISM_BONUS_EG eval_parameters_eg[24]
+#define ROOK_SEMI_OPEN_FILE_BONUS_MG eval_parameters_mg[25]
+#define ROOK_SEMI_OPEN_FILE_BONUS_EG eval_parameters_eg[25]
 
 /* Central 3 files on the opposite side of the king (files D,E,F for queenside king; C,D,E for kingside king) */
 static const U64 king_sq_central_files[64] = {
@@ -151,18 +153,21 @@ static inline Score make_score(int mg, int eg)
     return s;
 }
 
+// Apply a tunable parameter to the score
+// Trace & Count are for tuning
 static inline void score_param(Score *s, EvalTrace *trace, int param_idx, int count, bool is_white)
 {
     int sign = is_white ? 1 : -1;
     s->mg += count * eval_parameters_mg[param_idx];
     s->eg += count * eval_parameters_eg[param_idx];
-    if (__builtin_expect(trace != NULL, 0))
+    if (__builtin_expect(trace != NULL, 0)) // "Expect" is a hint that trace == NULL (only used for tuning), good for branch prediction
     {
         trace->eval_param_counts_mg[param_idx] += (int16_t)(count * sign);
         trace->eval_param_counts_eg[param_idx] += (int16_t)(count * sign);
     }
 }
 
+// For when a feature parameter is a bonus in one phase and a penalty in the other
 static inline void score_param_diff(Score *s, EvalTrace *trace, int param_idx, int count_mg, int count_eg, bool is_white)
 {
     int sign = is_white ? 1 : -1;
@@ -244,8 +249,8 @@ static inline U64 board_pawn_key(U64 white_pawns, U64 black_pawns) {
     return key;
 }
 // Table to store the distance between two squares
-// There exists many choices that trade off compute or memory overhead (that should be experimented with at some point)
-// This is a middle ground, usable for king corner distances, queen tropism and king-pp distance
+// There exists many design choices that trade off compute or memory overhead (that should be experimented with at some point)
+// This is a generic middle ground, usable for king corner distances, queen tropism and king-pp distance
 static int manhattan_distance[64][64];
 static U64 outpost_mask[2][64];
 static bool outpost_eligible[2][64];
@@ -537,10 +542,13 @@ static Score evaluate_piece(const Board *board,
         score_param(&s, trace, 8, control, is_white);
 
         U64 file_mask = file_masks[file];
-        // Open file bonus: + points if no pawns on the file
-        if ((all_pawns & file_mask) == 0)
+        if ((all_pawns & file_mask) == 0)// Open file bonus: + points if no pawns on the file
         {
             score_param(&s, trace, 9, 1, is_white);
+        }
+        else if (__builtin_popcountll(all_pawns & file_mask) == 1)// Semi-open file
+        {
+            score_param(&s, trace, 25, 1, is_white);
         }
 
         int direct_count = __builtin_popcountll(attacks & enemy_king_ring);
@@ -941,7 +949,7 @@ static int evaluate_space_advantage(const Board *board, int side, U64 enemy_pawn
     return safe_squares_count; // Will be multiplied by SPACE_BONUS
 }
 
-
+// Eval entrypoint, position to static score (perspective side to move)
 static int evaluate_internal(Board *board, EvalTrace *trace)
 {
     if (!eval_initialised)
@@ -1375,7 +1383,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
         eg_total = (eg_total * eg_scale) >> 8;
     }
 
-    /* Phase Interpolation */
+    // Phase Interpolation, >> 10 lets us do /1024 very quickly, hence why 1024 is used instead of 1000
     int final_score = ((1024 - phase) * mg_total + phase * eg_total) >> 10;
 
     // Cap evaluation to avoid overlap with mate scores
@@ -1429,14 +1437,14 @@ static void apply_evaluation_weights(const int *weights)
         offset++;
     }
 
-    for (int i = 0; i < 25; ++i) {
+    for (int i = 0; i < 26; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 25; ++i) {
+    for (int i = 0; i < 26; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
@@ -1531,15 +1539,15 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *pw_mg = &weights[0];
     const int *pw_eg = &weights[6];
     const int *ep_mg = &weights[12];
-    const int *ep_eg = &weights[37];
-    const int *pp_mg = &weights[62];
-    const int *pp_eg = &weights[68];
-    const int *px_mg = &weights[74];
-    const int *px_eg = &weights[80];
-    const int *at_mg = &weights[86];
-    const int *at_eg = &weights[91];
-    const int *df_mg = &weights[96];
-    const int *df_eg = &weights[101];
+    const int *ep_eg = &weights[38];
+    const int *pp_mg = &weights[64];
+    const int *pp_eg = &weights[70];
+    const int *px_mg = &weights[76];
+    const int *px_eg = &weights[82];
+    const int *at_mg = &weights[88];
+    const int *at_eg = &weights[93];
+    const int *df_mg = &weights[98];
+    const int *df_eg = &weights[103];
 
     int total_piece_value =
         feat->total_pieces[0] * pw_mg[1] +
@@ -1581,7 +1589,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     // 4. General evaluation parameters
-    for (int p = 0; p < 25; ++p)
+    for (int p = 0; p < 26; ++p)
     {
         mg_total += ep_mg[p] * feat->eval_param_counts_mg[p];
         eg_total += ep_eg[p] * feat->eval_param_counts_eg[p];

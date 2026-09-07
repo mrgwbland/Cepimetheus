@@ -16,8 +16,8 @@ typedef struct {
     int8_t  piece_counts[5];        // [0]=Pawn, [1]=N, [2]=B, [3]=R, [4]=Q (White - Black)
     int8_t  passed_pawn_counts[6];  // Rank 2 to 7 -> index 0 to 5
     int8_t  phalanx_pawn_counts[6]; // Rank 2 to 7 -> index 0 to 5
-    int16_t eval_param_counts_mg[25]; // 24 general evaluation parameters for MG
-    int16_t eval_param_counts_eg[25]; // 24 general evaluation parameters for EG
+    int16_t eval_param_counts_mg[26]; // 24 general evaluation parameters for MG
+    int16_t eval_param_counts_eg[26]; // 24 general evaluation parameters for EG
 
     int16_t white_attackers[5];     // [0]=Pawn, [1]=N, [2]=B, [3]=R, [4]=Q
     int16_t white_defenders[5];
