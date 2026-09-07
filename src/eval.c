@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2245, 2495, 3150, 7330, 0
+    1000, 2135, 2790, 3070, 7100, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3935, 3470, 6540, 11350, 0
+    1000, 3940, 3490, 6580, 11450, 0
 };
 
-int eval_parameters_mg[26] = {
-    194, 238, 4, 18, 155, 0, 69, 74, 47, 349, 15, 11, 140, 77, 510, 78, 0, 64, 294, 204, 64, 0, 36, 78, 0, 233
+int eval_parameters_mg[27] = {
+    191, 229, 0, 21, 142, 8, 70, 68, 44, 351, 15, 8, 141, 77, 489, 69, 0, 40, 300, 218, 116, 0, 42, 88, 0, 230, 92
 };
 
-int eval_parameters_eg[26] = {
-    115, 0, 95, 37, 57, 131, 87, 77, 29, 89, 41, 0, 202, 89, 1018, 49, 38, 792, 93, 0, 114, 165, 0, 58, 97, 59
+int eval_parameters_eg[27] = {
+    117, 2, 89, 38, 63, 131, 87, 74, 30, 92, 40, 0, 202, 88, 1030, 53, 39, 772, 89, 0, 114, 165, 0, 48, 100, 61, 0
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 19, 399, 617, 602
+    0, 0, 3, 363, 565, 543
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 366, 580, 1004, 1935
+    0, 0, 375, 595, 1027, 1964
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 24, 45, 136, 547, 1056
+    0, 26, 48, 141, 544, 994
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 9, 0, 114, 293, 512
+    0, 9, 0, 113, 293, 537
 };
 
 int piece_attack_weights_mg[5] = {
-    37, 67, 30, 30, 45
+    37, 67, 29, 30, 45
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 2, 6, 27
+    0, 0, 0, 3, 14
 };
 
 int piece_defense_weights_mg[5] = {
-    6, 26, 13, 0, 0
+    6, 26, 11, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    430, 31, 0, 311, 450
+    230, 15, 218, 174, 227
 };
 
 // Macros for parameters
@@ -112,6 +112,10 @@ int piece_defense_weights_eg[5] = {
 #define QUEEN_TROPISM_BONUS_EG eval_parameters_eg[24]
 #define ROOK_SEMI_OPEN_FILE_BONUS_MG eval_parameters_mg[25]
 #define ROOK_SEMI_OPEN_FILE_BONUS_EG eval_parameters_eg[25]
+#define BAD_BISHOP_PENALTY_MG eval_parameters_mg[26]
+#define BAD_BISHOP_PENALTY_EG eval_parameters_eg[26]
+
+#define DARK_SQUARES 0xAA55AA55AA55AA55ULL
 
 /* Central 3 files on the opposite side of the king (files D,E,F for queenside king; C,D,E for kingside king) */
 static const U64 king_sq_central_files[64] = {
@@ -496,6 +500,11 @@ static Score evaluate_piece(const Board *board,
         // Reward bishops with mobility through pawn occupancy only
         int mobility = __builtin_popcountll(bitboard_bishop_attacks(square, all_pawns));
         score_param(&s, trace, 7, mobility, is_white);
+
+        // Deduct penalty for each friendly pawn on its square colour
+        U64 color_mask = ((1ULL << square) & DARK_SQUARES) ? DARK_SQUARES : ~DARK_SQUARES;
+        int pawns_on_color = __builtin_popcountll(own_pawns & color_mask);
+        score_param(&s, trace, 26, -pawns_on_color, is_white);
 
         U64 blocked_mask = is_white ? white_central_blocked_mask : black_central_blocked_mask;
         if (blocked_mask & (1ULL << square))
@@ -1437,14 +1446,14 @@ static void apply_evaluation_weights(const int *weights)
         offset++;
     }
 
-    for (int i = 0; i < 26; ++i) {
+    for (int i = 0; i < 27; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 26; ++i) {
+    for (int i = 0; i < 27; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
@@ -1539,15 +1548,15 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *pw_mg = &weights[0];
     const int *pw_eg = &weights[6];
     const int *ep_mg = &weights[12];
-    const int *ep_eg = &weights[38];
-    const int *pp_mg = &weights[64];
-    const int *pp_eg = &weights[70];
-    const int *px_mg = &weights[76];
-    const int *px_eg = &weights[82];
-    const int *at_mg = &weights[88];
-    const int *at_eg = &weights[93];
-    const int *df_mg = &weights[98];
-    const int *df_eg = &weights[103];
+    const int *ep_eg = &weights[39];
+    const int *pp_mg = &weights[66];
+    const int *pp_eg = &weights[72];
+    const int *px_mg = &weights[78];
+    const int *px_eg = &weights[84];
+    const int *at_mg = &weights[90];
+    const int *at_eg = &weights[95];
+    const int *df_mg = &weights[100];
+    const int *df_eg = &weights[105];
 
     int total_piece_value =
         feat->total_pieces[0] * pw_mg[1] +
@@ -1589,7 +1598,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     // 4. General evaluation parameters
-    for (int p = 0; p < 26; ++p)
+    for (int p = 0; p < 27; ++p)
     {
         mg_total += ep_mg[p] * feat->eval_param_counts_mg[p];
         eg_total += ep_eg[p] * feat->eval_param_counts_eg[p];
