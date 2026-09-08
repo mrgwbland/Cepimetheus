@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2135, 2790, 3070, 7100, 0
+    1000, 2090, 2715, 3055, 7030, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3940, 3490, 6580, 11450, 0
+    1000, 3990, 3565, 6595, 11540, 0
 };
 
-int eval_parameters_mg[27] = {
-    191, 229, 0, 21, 142, 8, 70, 68, 44, 351, 15, 8, 141, 77, 489, 69, 0, 40, 300, 218, 116, 0, 42, 88, 0, 230, 92
+int eval_parameters_mg[28] = {
+    188, 229, 0, 21, 145, 16, 96, 69, 45, 355, 14, 12, 138, 77, 492, 69, 0, 71, 290, 212, 125, 0, 36, 60, 0, 234, 85, 45
 };
 
-int eval_parameters_eg[27] = {
-    117, 2, 89, 38, 63, 131, 87, 74, 30, 92, 40, 0, 202, 88, 1030, 53, 39, 772, 89, 0, 114, 165, 0, 48, 100, 61, 0
+int eval_parameters_eg[28] = {
+    118, 11, 95, 37, 61, 128, 100, 71, 30, 86, 41, 0, 201, 86, 1026, 53, 39, 758, 89, 0, 114, 165, 0, 36, 98, 55, 6, 39
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 3, 363, 565, 543
+    0, 0, 10, 365, 561, 532
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 375, 595, 1027, 1964
+    0, 3, 377, 594, 1030, 1971
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 26, 48, 141, 544, 994
+    0, 10, 38, 121, 528, 976
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 9, 0, 113, 293, 537
+    0, 18, 0, 127, 294, 554
 };
 
 int piece_attack_weights_mg[5] = {
-    37, 67, 29, 30, 45
+    37, 63, 30, 31, 45
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 0, 3, 14
+    0, 1, 1, 0, 7
 };
 
 int piece_defense_weights_mg[5] = {
-    6, 26, 11, 0, 0
+    7, 28, 13, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    230, 15, 218, 174, 227
+    142, 148, 188, 151, 159
 };
 
 // Macros for parameters
@@ -114,6 +114,8 @@ int piece_defense_weights_eg[5] = {
 #define ROOK_SEMI_OPEN_FILE_BONUS_EG eval_parameters_eg[25]
 #define BAD_BISHOP_PENALTY_MG eval_parameters_mg[26]
 #define BAD_BISHOP_PENALTY_EG eval_parameters_eg[26]
+#define KNIGHT_BAD_MOVE_PENALTY_MG eval_parameters_mg[27]
+#define KNIGHT_BAD_MOVE_PENALTY_EG eval_parameters_eg[27]
 
 #define DARK_SQUARES 0xAA55AA55AA55AA55ULL
 
@@ -330,6 +332,16 @@ void init_eval(void)
     eval_initialised = true;
 }
 
+static inline U64 pawn_attacks_white(U64 pawns)
+{
+    return ((pawns & ~file_masks[0]) << 7) | ((pawns & ~file_masks[7]) << 9);
+}
+
+static inline U64 pawn_attacks_black(U64 pawns)
+{
+    return ((pawns & ~file_masks[0]) >> 9) | ((pawns & ~file_masks[7]) >> 7);
+}
+
 static inline U64 compute_outposts(U64 enemy_pawns, int side)
 {
     U64 outposts = 0ULL;
@@ -382,6 +394,7 @@ static Score evaluate_piece(const Board *board,
                             int *king_ring_defenders_eg,
                             bool is_hanging,
                             U64 outposts,
+                            U64 enemy_pawn_attacks,
                             EvalTrace *trace)
 {
     (void)knight_open_position_penalty_mg;
@@ -472,6 +485,11 @@ static Score evaluate_piece(const Board *board,
         U64 attacks = bitboard_knight_attacks(square);
         int mobility = __builtin_popcountll(attacks);
         score_param(&s, trace, 6, mobility, is_white);
+
+        // Penalty for moves to squares attacked by enemy pawns or occupied by friendly pieces
+        U64 bad_targets = attacks & (enemy_pawn_attacks | board->occupancy[side]);
+        int bad_moves = __builtin_popcountll(bad_targets);
+        score_param(&s, trace, 27, -bad_moves, is_white);
 
         U64 blocked_mask = is_white ? white_central_blocked_mask : black_central_blocked_mask;
         if (blocked_mask & (1ULL << square))
@@ -689,7 +707,7 @@ static Score evaluate_pawn_structure(const Board *board,
     while (wp)
     {
         int square = bitboard_pop_lsb(&wp);
-        Score val = evaluate_piece(board, WHITE_PAWN, square, white_passed_pawns, white_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, NULL, NULL, false, 0ULL, trace);
+        Score val = evaluate_piece(board, WHITE_PAWN, square, white_passed_pawns, white_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, NULL, NULL, false, 0ULL, 0ULL, trace);
         s.mg += val.mg;
         s.eg += val.eg;
     }
@@ -699,7 +717,7 @@ static Score evaluate_pawn_structure(const Board *board,
     while (bp)
     {
         int square = bitboard_pop_lsb(&bp);
-        Score val = evaluate_piece(board, BLACK_PAWN, square, black_passed_pawns, black_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, NULL, NULL, false, 0ULL, trace);
+        Score val = evaluate_piece(board, BLACK_PAWN, square, black_passed_pawns, black_pawns, white_pawns_per_file, black_pawns_per_file, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, 0, NULL, NULL, false, 0ULL, 0ULL, trace);
         s.mg -= val.mg;
         s.eg -= val.eg;
     }
@@ -883,20 +901,9 @@ static void calculate_hanging_piece_penalties(const Board *board,
 }
 
 // Reward every square that is behind a friendly pawn, not attacked by an enemy pawn, C/D/E/F files, 2/3/4 respective rank
-static int evaluate_space_advantage(const Board *board, int side, U64 enemy_pawns)
+static int evaluate_space_advantage(const Board *board, int side, U64 enemy_pawn_attacks)
 {
     U64 own_pawns = board->pieces[side == WHITE ? WHITE_PAWN : BLACK_PAWN];
-    U64 enemy_pawn_attacks;
-
-    if (side == WHITE)
-    {
-        enemy_pawn_attacks = ((enemy_pawns & ~file_masks[0]) >> 9) | ((enemy_pawns & ~file_masks[7]) >> 7);
-    }
-    else
-    {
-        enemy_pawn_attacks = ((enemy_pawns & ~file_masks[0]) << 7) | ((enemy_pawns & ~file_masks[7]) << 9);
-    }
-
     int safe_squares_count = 0;
 
     for (int f = 2; f <= 5; ++f) // C/D/E/F files
@@ -1021,6 +1028,9 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     U64 black_pawns = board->pieces[BLACK_PAWN];
     U64 all_pawns = white_pawns | black_pawns;
 
+    U64 white_pawn_attacks = pawn_attacks_white(white_pawns);
+    U64 black_pawn_attacks = pawn_attacks_black(black_pawns);
+
     U64 white_central_blocked_mask = (white_pawns & king_sq_central_files[board->king_square[WHITE]]) << 8;
     U64 black_central_blocked_mask = (black_pawns & king_sq_central_files[board->king_square[BLACK]]) >> 8;
 
@@ -1077,8 +1087,8 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     }
 
     // Space advantage bonus
-    int white_space = evaluate_space_advantage(board, WHITE, black_pawns);
-    int black_space = evaluate_space_advantage(board, BLACK, white_pawns);
+    int white_space = evaluate_space_advantage(board, WHITE, black_pawn_attacks);
+    int black_space = evaluate_space_advantage(board, BLACK, white_pawn_attacks);
 
     score_param(&white_score, trace, 22, white_space, true);
     score_param(&black_score, trace, 22, black_space, false);
@@ -1112,49 +1122,42 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     U64 white_king_ring = bitboard_king_attacks(board->king_square[WHITE]);
     U64 black_king_ring = bitboard_king_attacks(board->king_square[BLACK]);
 
-    U64 black_pawn_attacks = __builtin_popcountll((((black_pawns & ~file_masks[0]) >> 9) & white_king_ring)|
-                                                  (((black_pawns & ~file_masks[7]) >> 7) & white_king_ring));
-
-    U64 white_pawn_attacks = __builtin_popcountll((((white_pawns & ~file_masks[0]) << 7) & black_king_ring)|
-                                                  (((white_pawns & ~file_masks[7]) << 9) & black_king_ring));
-
-    U64 white_pawn_defenses = __builtin_popcountll((((white_pawns & ~file_masks[0]) << 7) & white_king_ring)|
-                                                   (((white_pawns & ~file_masks[7]) << 9) & white_king_ring));
-
-    U64 black_pawn_defenses = __builtin_popcountll((((black_pawns & ~file_masks[0]) >> 9) & black_king_ring)|
-                                                   (((black_pawns & ~file_masks[7]) >> 7) & black_king_ring));
+    int black_pawn_attacks_count = __builtin_popcountll(black_pawn_attacks & white_king_ring);
+    int white_pawn_attacks_count = __builtin_popcountll(white_pawn_attacks & black_king_ring);
+    int white_pawn_defenses_count = __builtin_popcountll(white_pawn_attacks & white_king_ring);
+    int black_pawn_defenses_count = __builtin_popcountll(black_pawn_attacks & black_king_ring);
 
     if (trace != NULL)
     {
-        trace->white_attackers[0] = (int16_t)black_pawn_attacks;
-        trace->black_attackers[0] = (int16_t)white_pawn_attacks;
-        trace->white_defenders[0] = (int16_t)white_pawn_defenses;
-        trace->black_defenders[0] = (int16_t)black_pawn_defenses;
+        trace->white_attackers[0] = (int16_t)black_pawn_attacks_count;
+        trace->black_attackers[0] = (int16_t)white_pawn_attacks_count;
+        trace->white_defenders[0] = (int16_t)white_pawn_defenses_count;
+        trace->black_defenders[0] = (int16_t)black_pawn_defenses_count;
     }
 
     int white_king_ring_attackers_mg =
-        piece_attack_weights_mg[0] * black_pawn_attacks;
+        piece_attack_weights_mg[0] * black_pawn_attacks_count;
 
     int white_king_ring_attackers_eg =
-        piece_attack_weights_eg[0] * black_pawn_attacks;
+        piece_attack_weights_eg[0] * black_pawn_attacks_count;
 
     int black_king_ring_attackers_mg =
-        piece_attack_weights_mg[0] * white_pawn_attacks;
+        piece_attack_weights_mg[0] * white_pawn_attacks_count;
 
     int black_king_ring_attackers_eg =
-        piece_attack_weights_eg[0] * white_pawn_attacks;
+        piece_attack_weights_eg[0] * white_pawn_attacks_count;
 
     int white_king_ring_defenders_mg =
-        piece_defense_weights_mg[0] * white_pawn_defenses;
+        piece_defense_weights_mg[0] * white_pawn_defenses_count;
 
     int white_king_ring_defenders_eg =
-        piece_defense_weights_eg[0] * white_pawn_defenses;
+        piece_defense_weights_eg[0] * white_pawn_defenses_count;
 
     int black_king_ring_defenders_mg =
-        piece_defense_weights_mg[0] * black_pawn_defenses;
+        piece_defense_weights_mg[0] * black_pawn_defenses_count;
 
     int black_king_ring_defenders_eg =
-        piece_defense_weights_eg[0] * black_pawn_defenses;
+        piece_defense_weights_eg[0] * black_pawn_defenses_count;
 
     int white_hanging_penalty_sum = 0;
     int black_hanging_penalty_sum = 0;
@@ -1182,8 +1185,9 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
             int *king_ring_defenders_eg = (side == WHITE) ? &white_king_ring_defenders_eg : &black_king_ring_defenders_eg;
             bool is_hanging = (((side == WHITE) ? white_hanging_mask : black_hanging_mask) & (1ULL << square)) != 0;
             U64 outposts = (side == WHITE) ? white_outposts : black_outposts;
+            U64 enemy_pawn_attacks = (side == WHITE) ? black_pawn_attacks : white_pawn_attacks;
 
-            Score value = evaluate_piece(board, piece, square, passed, own_pawns, NULL, NULL, all_pieces, all_pawns, white_central_blocked_mask, black_central_blocked_mask, knight_open_position_penalty_mg, knight_open_position_penalty_eg, enemy_king_ring, king_ring_attackers_mg, king_ring_attackers_eg, own_king_ring, king_ring_defenders_mg, king_ring_defenders_eg, is_hanging, outposts, trace);
+            Score value = evaluate_piece(board, piece, square, passed, own_pawns, NULL, NULL, all_pieces, all_pawns, white_central_blocked_mask, black_central_blocked_mask, knight_open_position_penalty_mg, knight_open_position_penalty_eg, enemy_king_ring, king_ring_attackers_mg, king_ring_attackers_eg, own_king_ring, king_ring_defenders_mg, king_ring_defenders_eg, is_hanging, outposts, enemy_pawn_attacks, trace);
 
             if (side == WHITE)
             {
@@ -1206,7 +1210,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
         U64 w_passers = white_passed_pawns;
         if (w_passers)
         {
-            U64 bp_attacks = (((black_pawns & ~file_masks[0]) >> 9) | ((black_pawns & ~file_masks[7]) >> 7));
+            U64 bp_attacks = black_pawn_attacks;
             U64 bk_attacks = bitboard_king_attacks(board->king_square[BLACK]);
             U64 b_knights = board->pieces[BLACK_KNIGHT];
             U64 b_diag = board->pieces[BLACK_BISHOP] | board->pieces[BLACK_QUEEN];
@@ -1264,7 +1268,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
         U64 b_passers = black_passed_pawns;
         if (b_passers)
         {
-            U64 wp_attacks = (((white_pawns & ~file_masks[0]) << 7) | ((white_pawns & ~file_masks[7]) << 9));
+            U64 wp_attacks = white_pawn_attacks;
             U64 wk_attacks = bitboard_king_attacks(board->king_square[WHITE]);
             U64 w_knights = board->pieces[WHITE_KNIGHT];
             U64 w_diag = board->pieces[WHITE_BISHOP] | board->pieces[WHITE_QUEEN];
@@ -1446,14 +1450,14 @@ static void apply_evaluation_weights(const int *weights)
         offset++;
     }
 
-    for (int i = 0; i < 27; ++i) {
+    for (int i = 0; i < 28; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 27; ++i) {
+    for (int i = 0; i < 28; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
@@ -1548,15 +1552,15 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *pw_mg = &weights[0];
     const int *pw_eg = &weights[6];
     const int *ep_mg = &weights[12];
-    const int *ep_eg = &weights[39];
-    const int *pp_mg = &weights[66];
-    const int *pp_eg = &weights[72];
-    const int *px_mg = &weights[78];
-    const int *px_eg = &weights[84];
-    const int *at_mg = &weights[90];
-    const int *at_eg = &weights[95];
-    const int *df_mg = &weights[100];
-    const int *df_eg = &weights[105];
+    const int *ep_eg = &weights[40];
+    const int *pp_mg = &weights[68];
+    const int *pp_eg = &weights[74];
+    const int *px_mg = &weights[80];
+    const int *px_eg = &weights[86];
+    const int *at_mg = &weights[92];
+    const int *at_eg = &weights[97];
+    const int *df_mg = &weights[102];
+    const int *df_eg = &weights[107];
 
     int total_piece_value =
         feat->total_pieces[0] * pw_mg[1] +
@@ -1598,7 +1602,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     // 4. General evaluation parameters
-    for (int p = 0; p < 27; ++p)
+    for (int p = 0; p < 28; ++p)
     {
         mg_total += ep_mg[p] * feat->eval_param_counts_mg[p];
         eg_total += ep_eg[p] * feat->eval_param_counts_eg[p];
