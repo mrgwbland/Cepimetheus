@@ -211,12 +211,12 @@ SearchContext *search_context_create(size_t hash_power)
         context->killer_moves[p][0] = MOVE_NONE;
         context->killer_moves[p][1] = MOVE_NONE;
     }
-    for (int f = 0; f < 64; ++f)
+    for (int p = 0; p < 12; ++p)
     {
         for (int t = 0; t < 64; ++t)
         {
-            context->counter_moves[f][t][0] = MOVE_NONE;
-            context->counter_moves[f][t][1] = MOVE_NONE;
+            context->counter_moves[p][t][0] = MOVE_NONE;
+            context->counter_moves[p][t][1] = MOVE_NONE;
         }
     }
 
@@ -255,12 +255,12 @@ void search_context_reset_search(SearchContext *context)
         context->killer_moves[p][0] = MOVE_NONE;
         context->killer_moves[p][1] = MOVE_NONE;
     }
-    for (int f = 0; f < 64; ++f)
+    for (int p = 0; p < 12; ++p)
     {
         for (int t = 0; t < 64; ++t)
         {
-            context->counter_moves[f][t][0] = MOVE_NONE;
-            context->counter_moves[f][t][1] = MOVE_NONE;
+            context->counter_moves[p][t][0] = MOVE_NONE;
+            context->counter_moves[p][t][1] = MOVE_NONE;
         }
     }
     memset(context->hh_table, 0, sizeof(context->hh_table));

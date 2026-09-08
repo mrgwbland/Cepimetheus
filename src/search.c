@@ -590,20 +590,26 @@ static SearchResult negamax(Board *board,
 
                 if (previous_move != MOVE_NONE)
                 {
-                    int prev_from = move_from(previous_move);
                     int prev_to = move_to(previous_move);
-                    if (context->counter_moves[prev_from][prev_to][0] != move)
+                    int prev_piece = board_piece_at(board, prev_to);
+                    if (prev_piece >= 0 && prev_piece < PIECE_NB)
                     {
-                        context->counter_moves[prev_from][prev_to][1] = context->counter_moves[prev_from][prev_to][0];
-                        context->counter_moves[prev_from][prev_to][0] = move;
+                        if (context->counter_moves[prev_piece][prev_to][0] != move)
+                        {
+                            context->counter_moves[prev_piece][prev_to][1] = context->counter_moves[prev_piece][prev_to][0];
+                            context->counter_moves[prev_piece][prev_to][0] = move;
+                        }
                     }
                 }
 
                 int bonus = history_bonus(depth);
-                int side = board->side;
+                int move_piece = board_piece_at(board, move_from(move));
 
                 // Bonus for the cutoff move.
-                update_history_entry(&context->hh_table[side][move_from(move)][move_to(move)], bonus);
+                if (move_piece >= 0 && move_piece < PIECE_NB)
+                {
+                    update_history_entry(&context->hh_table[move_piece][move_to(move)], bonus);
+                }
 
                 // Malus for all quiet moves searched before the cutoff.
                 for (int q = 0; q < quiet_searched_count; ++q)
@@ -611,7 +617,11 @@ static SearchResult negamax(Board *board,
                     Move qm = quiet_searched[q];
                     if (qm != move)
                     {
-                        update_history_entry(&context->hh_table[side][move_from(qm)][move_to(qm)], -bonus);
+                        int qm_piece = board_piece_at(board, move_from(qm));
+                        if (qm_piece >= 0 && qm_piece < PIECE_NB)
+                        {
+                            update_history_entry(&context->hh_table[qm_piece][move_to(qm)], -bonus);
+                        }
                     }
                 }
             }

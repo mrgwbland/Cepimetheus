@@ -118,7 +118,12 @@ int estimate_move_score(const Board *board, Move move, const SearchContext *cont
     /* History */
     if (context != NULL)
     {
-        return context->hh_table[board->side][move_from(move)][move_to(move)];
+        int piece = board_piece_at(board, move_from(move));
+        if (piece >= 0 && piece < PIECE_NB)
+        {
+            return context->hh_table[piece][move_to(move)];
+        }
+        return 0;
     }
 
     return 0;
@@ -151,10 +156,13 @@ void movepicker_init(MovePicker *mp,
     Move previous_move = (ss != NULL) ? (ss - 1)->move : MOVE_NONE;
     if (context != NULL && previous_move != MOVE_NONE)
     {
-        int prev_from = move_from(previous_move);
         int prev_to = move_to(previous_move);
-        mp->counter1 = context->counter_moves[prev_from][prev_to][0];
-        mp->counter2 = context->counter_moves[prev_from][prev_to][1];
+        int prev_piece = board_piece_at(board, prev_to);
+        if (prev_piece >= 0 && prev_piece < PIECE_NB)
+        {
+            mp->counter1 = context->counter_moves[prev_piece][prev_to][0];
+            mp->counter2 = context->counter_moves[prev_piece][prev_to][1];
+        }
     }
     
     mp->excluded_moves = excluded_moves;

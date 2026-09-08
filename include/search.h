@@ -56,9 +56,13 @@ typedef struct SearchContext SearchContext;
 struct SearchContext
 {
     TranspositionTable table;
+    // For a ply the move that caused the most recent beta cutoff, and the second most recent move that caused a beta cutoff
     Move killer_moves[MAX_PLY_DEPTH][2];
-    Move counter_moves[64][64][2];
-    int16_t hh_table[2][64][64];
+    // Functions like a per move killer instead of a per ply killer, stores two moves for each piece/to pair
+    Move counter_moves[12][64][2]; // [piece][to][slot]
+    // Scores how good a move is based on performance across the tree
+    int16_t hh_table[12][64]; // [piece][to]
+    // Ordered list of root moves for root ordering
     RootMoveTable root_moves;
 };
 

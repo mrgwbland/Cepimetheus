@@ -665,8 +665,9 @@ static Score evaluate_piece(const Board *board,
     }
     case WHITE_KING:
     {
-        /* In opening/middlegame, king safety is important. */
+        // Test Queen rays to determine how open king is
         int attacks_all = __builtin_popcountll(bitboard_queen_attacks(square, all_pieces));
+        // Test Queen rays through pawns as a proxy for pawn shield (ignoring back rank)
         int attacks_pawns = __builtin_popcountll(bitboard_queen_attacks(square, all_pawns));
 
         score_param(&s, trace, 11, -attacks_all, is_white);
