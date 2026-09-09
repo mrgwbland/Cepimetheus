@@ -240,7 +240,7 @@ void search_context_destroy(SearchContext *context)
     free(context);
 }
 
-// Just reset search heuristics, not the TT
+// Reset per-search state: age TT, shift killers by -1 ply, and reset root moves; preserve counter moves and history
 void search_context_reset_search(SearchContext *context)
 {
     if (context == NULL)
@@ -249,6 +249,25 @@ void search_context_reset_search(SearchContext *context)
     }
 
     transposition_table_new_search(&context->table);
+
+    for (int p = 0; p < MAX_PLY_DEPTH - 1; ++p)
+    {
+        context->killer_moves[p][0] = context->killer_moves[p + 1][0];
+        context->killer_moves[p][1] = context->killer_moves[p + 1][1];
+    }
+    context->killer_moves[MAX_PLY_DEPTH - 1][0] = MOVE_NONE;
+    context->killer_moves[MAX_PLY_DEPTH - 1][1] = MOVE_NONE;
+
+    memset(&context->root_moves, 0, sizeof(context->root_moves));
+}
+
+// Clear TT and reset all search heuristics (killers, counter moves, history, root moves)
+void search_context_clear(SearchContext *context)
+{
+    if (context == NULL)
+    {
+        return;
+    }
 
     for (int p = 0; p < MAX_PLY_DEPTH; ++p)
     {
@@ -265,21 +284,10 @@ void search_context_reset_search(SearchContext *context)
     }
     memset(context->hh_table, 0, sizeof(context->hh_table));
     memset(&context->root_moves, 0, sizeof(context->root_moves));
-}
-
-// Clear TT and reset search heuristics
-void search_context_clear(SearchContext *context)
-{
-    if (context == NULL)
-    {
-        return;
-    }
-
-    search_context_reset_search(context);
     transposition_table_clear(&context->table);
 }
 
-// Destroy and reinit TT with new size, reset search heuristics
+// Destroy and reinit TT with new size, reset all search heuristics
 bool search_context_resize(SearchContext *context, size_t hash_power)
 {
     if (context == NULL)
@@ -292,7 +300,7 @@ bool search_context_resize(SearchContext *context, size_t hash_power)
     {
         return false;
     }
-    search_context_reset_search(context);
+    search_context_clear(context);
     return true;
 }
 
