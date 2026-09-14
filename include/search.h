@@ -79,6 +79,7 @@ void reinit_lmp(void);
 
 /* Search parameters */
 extern int futility_margin;
+extern int futility_max_depth;
 extern int rfp_margin;
 extern int rfp_max_depth;
 extern int nmp_min_depth;
@@ -93,10 +94,16 @@ extern int lmr_divisor;
 extern int lmr_move_multiplier;
 extern int lmp_base;
 extern int lmp_multiplier;
-extern int lmp_quiet_limits[11];
+extern int lmp_max_depth;
+extern int lmp_quiet_limits[33];
 extern int se_min_depth;
 extern int se_depth_margin;
 extern int se_margin;
+extern int se_depth_scale;
+extern int se_negative_extension;
+extern int iir_min_depth;
+extern int iir_reduction;
+extern int check_extension;
 
 /* Move picker & history parameters */
 extern int history_bonus_cap;
@@ -107,8 +114,6 @@ extern int order_bishop_promo;
 extern int order_rook_promo;
 extern int order_queen_promo;
 extern int order_victim_mult;
-extern int order_killer1;
-extern int order_killer2;
 extern int order_castle;
 
 /* Aspiration window parameters */

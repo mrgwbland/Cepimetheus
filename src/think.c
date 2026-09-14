@@ -14,7 +14,12 @@
 
 int asp_min_depth = 5;
 int asp_initial_delta = 229;
-int asp_growth_factor = 152;
+int asp_growth_factor = 153;
+
+int time_soft_divisor = 30;
+int time_hard_divisor = 5;
+int time_scale_min_depth = 8;
+int time_node_scale = 167;
 
 static int score_to_cp(int score)
 {
@@ -177,8 +182,10 @@ static bool compute_clock_budget(const Board *board,
     }
 
     int total_ms = base_ms + increment_ms;
-    int soft_ms = (total_ms / 30) - overhead_ms;
-    int hard_ms = (total_ms / 5) - overhead_ms;
+    int soft_div = time_soft_divisor > 0 ? time_soft_divisor : 1;
+    int hard_div = time_hard_divisor > 0 ? time_hard_divisor : 1;
+    int soft_ms = (total_ms / soft_div) - overhead_ms;
+    int hard_ms = (total_ms / hard_div) - overhead_ms;
 
     int limit_ms = base_ms - overhead_ms;
     if (hard_ms > limit_ms)
@@ -202,7 +209,7 @@ static int compute_scaled_soft_limit(int base_soft_limit_ms,
                                      unsigned long long total_nodes,
                                      const SearchContext *context)
 {
-    if (depth < 8 || best_move == MOVE_NONE || context == NULL || total_nodes == 0)
+    if (depth < time_scale_min_depth || best_move == MOVE_NONE || context == NULL || total_nodes == 0)
     {
         return base_soft_limit_ms;
     }
@@ -218,7 +225,7 @@ static int compute_scaled_soft_limit(int base_soft_limit_ms,
     }
 
     double node_frac = (double)best_move_nodes / (double)total_nodes;
-    double scale = 1.67 * (1.0 - node_frac); // Estimating that in a typical position the root node searches 1/3 of moves
+    double scale = ((double)time_node_scale / 100.0) * (1.0 - node_frac); // Estimating that in a typical position the root node searches 1/3 of moves
     if (scale < 0.0)
     {
         scale = 0.0;

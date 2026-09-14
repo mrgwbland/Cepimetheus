@@ -45,9 +45,8 @@ OBJ := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SRC))
 
 all: $(TARGET)
 
-spsa:
-	$(MAKE) clean
-	$(MAKE) CFLAGS="$(CFLAGS) -DSPSA_TUNING"
+spsa: CFLAGS += -DSPSA_TUNING
+spsa: clean $(TARGET)
 
 
 $(BUILD_DIR)/%.o: src/%.c

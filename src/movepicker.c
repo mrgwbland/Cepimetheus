@@ -3,17 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-int history_bonus_cap = 366;
-int history_gravity = 415;
+int history_bonus_cap = 382;
+int history_gravity = 416;
 int history_scale = 23;
-int order_knight_promo = 331;
-int order_bishop_promo = 313;
-int order_rook_promo = 530;
-int order_queen_promo = 844;
+int order_knight_promo = 311;
+int order_bishop_promo = 311;
+int order_rook_promo = 514;
+int order_queen_promo = 856;
 int order_victim_mult = 15;
-int order_killer1 = 88833;
-int order_killer2 = 75863;
-int order_castle = 145;
+int order_castle = 149;
 
 int history_bonus(int depth)
 {

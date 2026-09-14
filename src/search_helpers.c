@@ -9,33 +9,39 @@
 #include <stdlib.h>
 #include <string.h>
 
-int futility_margin = 1509;
-int rfp_margin = 969;
+int futility_margin = 1473;
+int futility_max_depth = 1;
+int rfp_margin = 974;
 int rfp_max_depth = 7;
-int nmp_min_depth = 2;
+int nmp_min_depth = 3;
 int nmp_base_reduction = 2;
 int nmp_reduction = 2;
 int nmp_depth_scale = 4;
 int nmp_min_pieces = 1;
-int qs_delta_margin = 3249;
-int lmr_min_depth = 1;
-int lmr_offset = -32;
-int lmr_divisor = 189;
-int lmr_move_multiplier = 234;
+int qs_delta_margin = 3206;
+int iir_min_depth = 4;
+int iir_reduction = 1;
 int se_min_depth = 7;
 int se_depth_margin = 3;
-int se_margin = 500;
-
-int lmp_base = 300;
-int lmp_multiplier = 80;
-int lmp_quiet_limits[11];
+int se_margin = 515;
+int se_depth_scale = 2;
+int se_negative_extension = 0;
+int check_extension = 1;
+int lmr_min_depth = 1;
+int lmr_offset = -28;
+int lmr_divisor = 183;
+int lmr_move_multiplier = 232;
+int lmp_base = 302;
+int lmp_multiplier = 79;
+int lmp_max_depth = 11;
+int lmp_quiet_limits[33];
 static bool lmp_initialised = false;
 
 void reinit_lmp(void)
 {
     double base = (double)lmp_base / 100.0;
     double mult = (double)lmp_multiplier / 100.0;
-    for (int depth = 0; depth < 11; ++depth)
+    for (int depth = 0; depth < 33; ++depth)
     {
         lmp_quiet_limits[depth] = (int)(base + mult * depth * depth);
     }

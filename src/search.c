@@ -351,7 +351,7 @@ static SearchResult negamax(Board *board,
     bool futility_prune = false; 
     if (in_check)
     {
-        depth++; // Check extension to ensure forcing lines are fully explored
+        depth += check_extension; // Check extension to ensure forcing lines are fully explored
     }
     else // The following pruning doesn't occur when in check so we can reuse this is_in_check to save compute
     {
@@ -365,9 +365,9 @@ static SearchResult negamax(Board *board,
             result.score = static_eval;
             return result;
         }                    
-        // Futility Pruning: At depth 1, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves (a quiet move cannot save eval)
-        if (depth == 1 && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH
-            && static_eval + futility_margin < alpha)
+        // Futility Pruning: At shallow depths, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves (a quiet move cannot save eval)
+        if (depth <= futility_max_depth && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH
+            && static_eval + futility_margin * depth < alpha)
         {
             futility_prune = true;
         }
@@ -385,9 +385,10 @@ static SearchResult negamax(Board *board,
             tt_move = entry->best_move;
             tt_score = score_from_tt(entry->score, ply);
         }
-        else if (depth >= 4 && !pv_node) // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
+        else if (depth >= iir_min_depth && !pv_node) // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
         {
-            depth--;
+            depth -= iir_reduction;
+            if (depth < 0) depth = 0;
         }
     }
 
@@ -409,7 +410,8 @@ static SearchResult negamax(Board *board,
         }
 
         // Perform singular verification search at reduced depth
-        int se_depth = (depth - 1) / 2;
+        int se_scale = se_depth_scale > 0 ? se_depth_scale : 1;
+        int se_depth = (depth - 1) / se_scale;
 
         ss->excluded_move = tt_move;
         SearchResult se_child = negamax(board,
@@ -437,7 +439,7 @@ static SearchResult negamax(Board *board,
         }
         else if (tt_score >= beta)  // Expected fail high so negative extension
         {
-            extension = -1;
+            extension = -se_negative_extension;
         }
     }
 
@@ -471,8 +473,8 @@ static SearchResult negamax(Board *board,
             continue;
         }
 
-        // Late Move Pruning (LMP) - Quiet only pruning when remaining depth < 11
-        if (depth < 11 && !in_check && is_quiet && !pv_node)
+        // Late Move Pruning (LMP) - Quiet only pruning when remaining depth <= lmp_max_depth
+        if (depth <= lmp_max_depth && depth < 33 && !in_check && is_quiet && !pv_node)
         {
             if (quiet_searched_count >= lmp_quiet_limits[depth])
             {

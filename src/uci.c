@@ -1,6 +1,7 @@
 #include "uci.h"
 #include "eval.h"
 #include "search.h"
+#include "think.h"
 
 #include <pthread.h>
 #include <stdio.h>
@@ -449,37 +450,53 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Display_Currmove type check default false\n");
             printf("option name UCI_Chess960 type check default false\n");
 #ifdef SPSA_TUNING
+            /* Pruning & reductions */
             printf("option name FutilityMargin type spin default %d min 0 max 10000\n", futility_margin);
-            printf("option name RFP_Margin type spin default %d min 0 max 5000\n", rfp_margin);
-            printf("option name RFP_MaxDepth type spin default %d min 1 max 32\n", rfp_max_depth);
-            printf("option name NMP_MinDepth type spin default %d min 1 max 10\n", nmp_min_depth);
-            printf("option name NMP_BaseReduction type spin default %d min 1 max 6\n", nmp_base_reduction);
-            printf("option name NMP_DepthScale type spin default %d min 1 max 16\n", nmp_depth_scale);
-            printf("option name NMP_MinPieces type spin default %d min 1 max 8\n", nmp_min_pieces);
+            printf("option name Futility_MaxDepth type spin default %d min 0 max 10\n", futility_max_depth);
+            printf("option name RFP_Margin type spin default %d min 0 max 10000\n", rfp_margin);
+            printf("option name RFP_MaxDepth type spin default %d min 0 max 32\n", rfp_max_depth);
+            printf("option name NMP_MinDepth type spin default %d min 0 max 32\n", nmp_min_depth);
+            printf("option name NMP_BaseReduction type spin default %d min 0 max 10\n", nmp_base_reduction);
+            printf("option name NMP_DepthScale type spin default %d min 0 max 32\n", nmp_depth_scale);
+            printf("option name NMP_MinPieces type spin default %d min 0 max 10\n", nmp_min_pieces);
             printf("option name QS_DeltaMargin type spin default %d min 0 max 10000\n", qs_delta_margin);
-            printf("option name LMR_MinDepth type spin default %d min 1 max 10\n", lmr_min_depth);
-            printf("option name LMR_Offset type spin default %d min -500 max 500\n", lmr_offset);
-            printf("option name LMR_Divisor type spin default %d min 10 max 1000\n", lmr_divisor);
-            printf("option name LMR_MoveMultiplier type spin default %d min 10 max 1000\n", lmr_move_multiplier);
+            printf("option name IIR_MinDepth type spin default %d min 0 max 32\n", iir_min_depth);
+            printf("option name IIR_Reduction type spin default %d min 0 max 10\n", iir_reduction);
+            printf("option name SE_MinDepth type spin default %d min 0 max 32\n", se_min_depth);
+            printf("option name SE_DepthMargin type spin default %d min 0 max 10\n", se_depth_margin);
+            printf("option name SE_Margin type spin default %d min 0 max 10000\n", se_margin);
+            printf("option name SE_DepthScale type spin default %d min 0 max 10\n", se_depth_scale);
+            printf("option name SE_NegativeExtension type spin default %d min 0 max 10\n", se_negative_extension);
+            printf("option name Check_Extension type spin default %d min 0 max 10\n", check_extension);
+            printf("option name LMR_MinDepth type spin default %d min 0 max 32\n", lmr_min_depth);
+            printf("option name LMR_Offset type spin default %d min -1000 max 1000\n", lmr_offset);
+            printf("option name LMR_Divisor type spin default %d min 0 max 1000\n", lmr_divisor);
+            printf("option name LMR_MoveMultiplier type spin default %d min 0 max 1000\n", lmr_move_multiplier);
             printf("option name LMP_Base type spin default %d min 0 max 1000\n", lmp_base);
             printf("option name LMP_Multiplier type spin default %d min 0 max 1000\n", lmp_multiplier);
-            printf("option name History_BonusCap type spin default %d min 1 max 5000\n", history_bonus_cap);
-            printf("option name History_Gravity type spin default %d min 1 max 4096\n", history_gravity);
-            printf("option name History_Scale type spin default %d min 1 max 256\n", history_scale);
+            printf("option name LMP_MaxDepth type spin default %d min 0 max 32\n", lmp_max_depth);
+
+            /* Move ordering & history */
+            printf("option name History_BonusCap type spin default %d min 0 max 1000\n", history_bonus_cap);
+            printf("option name History_Gravity type spin default %d min 0 max 10000\n", history_gravity);
+            printf("option name History_Scale type spin default %d min 0 max 1000\n", history_scale);
             printf("option name Order_KnightPromo type spin default %d min 0 max 10000\n", order_knight_promo);
             printf("option name Order_BishopPromo type spin default %d min 0 max 10000\n", order_bishop_promo);
             printf("option name Order_RookPromo type spin default %d min 0 max 10000\n", order_rook_promo);
             printf("option name Order_QueenPromo type spin default %d min 0 max 10000\n", order_queen_promo);
-            printf("option name Order_VictimMult type spin default %d min 1 max 100\n", order_victim_mult);
-            printf("option name Order_Killer1 type spin default %d min 0 max 500000\n", order_killer1);
-            printf("option name Order_Killer2 type spin default %d min 0 max 500000\n", order_killer2);
+            printf("option name Order_VictimMult type spin default %d min 0 max 1000\n", order_victim_mult);
             printf("option name Order_Castle type spin default %d min 0 max 10000\n", order_castle);
-            printf("option name Asp_MinDepth type spin default %d min 1 max 32\n", asp_min_depth);
-            printf("option name Asp_InitialDelta type spin default %d min 1 max 2000\n", asp_initial_delta);
-            printf("option name Asp_GrowthFactor type spin default %d min 100 max 500\n", asp_growth_factor);
-            printf("option name SE_MinDepth type spin default %d min 1 max 16\n", se_min_depth);
-            printf("option name SE_DepthMargin type spin default %d min 1 max 10\n", se_depth_margin);
-            printf("option name SE_Margin type spin default %d min 0 max 2000\n", se_margin);
+
+            /* Aspiration window */
+            printf("option name Asp_MinDepth type spin default %d min 0 max 32\n", asp_min_depth);
+            printf("option name Asp_InitialDelta type spin default %d min 0 max 10000\n", asp_initial_delta);
+            printf("option name Asp_GrowthFactor type spin default %d min 0 max 1000\n", asp_growth_factor);
+
+            /* Time management */
+            printf("option name Time_SoftDivisor type spin default %d min 0 max 1000\n", time_soft_divisor);
+            printf("option name Time_HardDivisor type spin default %d min 0 max 10\n", time_hard_divisor);
+            printf("option name Time_ScaleMinDepth type spin default %d min 0 max 32\n", time_scale_min_depth);
+            printf("option name Time_NodeScale type spin default %d min 0 max 1000\n", time_node_scale);
 #endif
             printf("uciok\n");
             fflush(stdout);
@@ -570,6 +587,7 @@ void uci_loop(int argc, char *argv[]) {
                     int val = atoi(val_ptr);
 
                     if (strncmp(nametoken, "futilitymargin", 14) == 0) futility_margin = val;
+                    else if (strncmp(nametoken, "futility_maxdepth", 17) == 0 || strncmp(nametoken, "futilitymaxdepth", 16) == 0) futility_max_depth = val;
                     else if (strncmp(nametoken, "rfp_margin", 10) == 0) rfp_margin = val;
                     else if (strncmp(nametoken, "rfp_maxdepth", 12) == 0) rfp_max_depth = val;
                     else if (strncmp(nametoken, "nmp_mindepth", 12) == 0) nmp_min_depth = val;
@@ -578,12 +596,21 @@ void uci_loop(int argc, char *argv[]) {
                     else if (strncmp(nametoken, "nmp_depthscale", 14) == 0) nmp_depth_scale = val;
                     else if (strncmp(nametoken, "nmp_minpieces", 13) == 0) nmp_min_pieces = val;
                     else if (strncmp(nametoken, "qs_deltamargin", 14) == 0) qs_delta_margin = val;
+                    else if (strncmp(nametoken, "iir_mindepth", 12) == 0) iir_min_depth = val;
+                    else if (strncmp(nametoken, "iir_reduction", 13) == 0) iir_reduction = val;
+                    else if (strncmp(nametoken, "se_mindepth", 11) == 0) se_min_depth = val;
+                    else if (strncmp(nametoken, "se_depthmargin", 14) == 0) se_depth_margin = val;
+                    else if (strncmp(nametoken, "se_margin", 9) == 0) se_margin = val;
+                    else if (strncmp(nametoken, "se_depthscale", 13) == 0) se_depth_scale = val;
+                    else if (strncmp(nametoken, "se_negativeextension", 20) == 0) se_negative_extension = val;
+                    else if (strncmp(nametoken, "check_extension", 15) == 0) check_extension = val;
                     else if (strncmp(nametoken, "lmr_mindepth", 12) == 0) lmr_min_depth = val;
                     else if (strncmp(nametoken, "lmr_offset", 10) == 0) { lmr_offset = val; reinit_lmr(); }
                     else if (strncmp(nametoken, "lmr_divisor", 11) == 0) { lmr_divisor = val; reinit_lmr(); }
                     else if (strncmp(nametoken, "lmr_movemultiplier", 18) == 0) { lmr_move_multiplier = val; reinit_lmr(); }
                     else if (strncmp(nametoken, "lmp_base", 8) == 0) { lmp_base = val; reinit_lmp(); }
                     else if (strncmp(nametoken, "lmp_multiplier", 14) == 0) { lmp_multiplier = val; reinit_lmp(); }
+                    else if (strncmp(nametoken, "lmp_maxdepth", 12) == 0) lmp_max_depth = val;
                     else if (strncmp(nametoken, "history_bonuscap", 16) == 0) history_bonus_cap = val;
                     else if (strncmp(nametoken, "history_gravity", 15) == 0) history_gravity = val;
                     else if (strncmp(nametoken, "history_scale", 13) == 0) history_scale = val;
@@ -592,15 +619,14 @@ void uci_loop(int argc, char *argv[]) {
                     else if (strncmp(nametoken, "order_rookpromo", 15) == 0) order_rook_promo = val;
                     else if (strncmp(nametoken, "order_queenpromo", 16) == 0) order_queen_promo = val;
                     else if (strncmp(nametoken, "order_victimmult", 16) == 0) order_victim_mult = val;
-                    else if (strncmp(nametoken, "order_killer1", 13) == 0) order_killer1 = val;
-                    else if (strncmp(nametoken, "order_killer2", 13) == 0) order_killer2 = val;
                     else if (strncmp(nametoken, "order_castle", 12) == 0) order_castle = val;
                     else if (strncmp(nametoken, "asp_mindepth", 12) == 0) asp_min_depth = val;
                     else if (strncmp(nametoken, "asp_initialdelta", 16) == 0) asp_initial_delta = val;
                     else if (strncmp(nametoken, "asp_growthfactor", 16) == 0) asp_growth_factor = val;
-                    else if (strncmp(nametoken, "se_mindepth", 11) == 0) se_min_depth = val;
-                    else if (strncmp(nametoken, "se_depthmargin", 14) == 0) se_depth_margin = val;
-                    else if (strncmp(nametoken, "se_margin", 9) == 0) se_margin = val;
+                    else if (strncmp(nametoken, "time_softdivisor", 16) == 0) time_soft_divisor = val;
+                    else if (strncmp(nametoken, "time_harddivisor", 16) == 0) time_hard_divisor = val;
+                    else if (strncmp(nametoken, "time_scalemindepth", 18) == 0) time_scale_min_depth = val;
+                    else if (strncmp(nametoken, "time_nodescale", 14) == 0) time_node_scale = val;
                 }
 #endif
             }
