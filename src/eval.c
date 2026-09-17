@@ -59,63 +59,35 @@ int piece_defense_weights_eg[5] = {
     142, 148, 188, 151, 159
 };
 
-// Macros for parameters
-#define TEMPO_BONUS_MG eval_parameters_mg[0]
-#define TEMPO_BONUS_EG eval_parameters_eg[0]
-#define PAWN_BLOCKING_PENALTY_MG eval_parameters_mg[1]
-#define PAWN_BLOCKING_PENALTY_EG eval_parameters_eg[1]
-#define KNIGHT_PAWN_COUNT_PENALTY_MG eval_parameters_mg[2]
-#define KNIGHT_PAWN_COUNT_PENALTY_EG eval_parameters_eg[2]
-#define PAWN_SHIELD_PENALTY_MG eval_parameters_mg[3]
-#define PAWN_SHIELD_PENALTY_EG eval_parameters_eg[3]
-#define DOUBLED_PAWN_PENALTY_MG eval_parameters_mg[4]
-#define DOUBLED_PAWN_PENALTY_EG eval_parameters_eg[4]
-#define ISOLATED_PAWN_PENALTY_MG eval_parameters_mg[5]
-#define ISOLATED_PAWN_PENALTY_EG eval_parameters_eg[5]
-#define KNIGHT_MOBILITY_BONUS_MG eval_parameters_mg[6]
-#define KNIGHT_MOBILITY_BONUS_EG eval_parameters_eg[6]
-#define BISHOP_MOBILITY_BONUS_MG eval_parameters_mg[7]
-#define BISHOP_MOBILITY_BONUS_EG eval_parameters_eg[7]
-#define ROOK_CONTROL_BONUS_MG eval_parameters_mg[8]
-#define ROOK_CONTROL_BONUS_EG eval_parameters_eg[8]
-#define ROOK_OPEN_FILE_BONUS_MG eval_parameters_mg[9]
-#define ROOK_OPEN_FILE_BONUS_EG eval_parameters_eg[9]
-#define QUEEN_MOBILITY_BONUS_MG eval_parameters_mg[10]
-#define QUEEN_MOBILITY_BONUS_EG eval_parameters_eg[10]
-#define KING_EXPOSURE_PENALTY_MG eval_parameters_mg[11]
-#define KING_EXPOSURE_PENALTY_EG eval_parameters_eg[11]
-#define KING_CORNER_DISTANCE_BONUS_MG eval_parameters_mg[12]
-#define KING_CORNER_DISTANCE_BONUS_EG eval_parameters_eg[12]
-#define HANGING_PIECE_STM_PENALTY_MG eval_parameters_mg[13]
-#define HANGING_PIECE_STM_PENALTY_EG eval_parameters_eg[13]
-#define HANGING_PIECE_NSTM_PENALTY_MG eval_parameters_mg[14]
-#define HANGING_PIECE_NSTM_PENALTY_EG eval_parameters_eg[14]
-#define PASSED_PAWN_FRIENDLY_KING_PROXIMITY_MG eval_parameters_mg[15]
-#define PASSED_PAWN_FRIENDLY_KING_PROXIMITY_EG eval_parameters_eg[15]
-#define PASSED_PAWN_ENEMY_KING_PROXIMITY_MG eval_parameters_mg[16]
-#define PASSED_PAWN_ENEMY_KING_PROXIMITY_EG eval_parameters_eg[16]
-#define BISHOP_PAIR_BONUS_MG eval_parameters_mg[17]
-#define BISHOP_PAIR_BONUS_EG eval_parameters_eg[17]
-#define KNIGHT_OUTPOST_BONUS_MG eval_parameters_mg[18]
-#define KNIGHT_OUTPOST_BONUS_EG eval_parameters_eg[18]
-#define BISHOP_OUTPOST_BONUS_MG eval_parameters_mg[19]
-#define BISHOP_OUTPOST_BONUS_EG eval_parameters_eg[19]
-#define OCB_SCALE_MG eval_parameters_mg[20]
-#define OCB_SCALE_EG eval_parameters_eg[20]
-#define PASSED_PAWN_SAFE_PATH_MG eval_parameters_mg[21]
-#define PASSED_PAWN_SAFE_PATH_EG eval_parameters_eg[21]
-#define SPACE_BONUS_MG eval_parameters_mg[22]
-#define SPACE_BONUS_EG eval_parameters_eg[22]
-#define OUTPOST_MOVE_BONUS_MG eval_parameters_mg[23]
-#define OUTPOST_MOVE_BONUS_EG eval_parameters_eg[23]
-#define QUEEN_TROPISM_BONUS_MG eval_parameters_mg[24]
-#define QUEEN_TROPISM_BONUS_EG eval_parameters_eg[24]
-#define ROOK_SEMI_OPEN_FILE_BONUS_MG eval_parameters_mg[25]
-#define ROOK_SEMI_OPEN_FILE_BONUS_EG eval_parameters_eg[25]
-#define BAD_BISHOP_PENALTY_MG eval_parameters_mg[26]
-#define BAD_BISHOP_PENALTY_EG eval_parameters_eg[26]
-#define KNIGHT_BAD_MOVE_PENALTY_MG eval_parameters_mg[27]
-#define KNIGHT_BAD_MOVE_PENALTY_EG eval_parameters_eg[27]
+// Macros for parameter indices
+#define TEMPO_BONUS 0
+#define PAWN_BLOCKING_PENALTY 1
+#define KNIGHT_PAWN_COUNT_PENALTY 2
+#define PAWN_SHIELD_PENALTY 3
+#define DOUBLED_PAWN_PENALTY 4
+#define ISOLATED_PAWN_PENALTY 5
+#define KNIGHT_MOBILITY_BONUS 6
+#define BISHOP_MOBILITY_BONUS 7
+#define ROOK_CONTROL_BONUS 8
+#define ROOK_OPEN_FILE_BONUS 9
+#define QUEEN_MOBILITY_BONUS 10
+#define KING_EXPOSURE_PENALTY 11
+#define KING_CORNER_DISTANCE_BONUS 12
+#define HANGING_PIECE_STM_PENALTY 13
+#define HANGING_PIECE_NSTM_PENALTY 14
+#define PASSED_PAWN_FRIENDLY_KING_PROXIMITY 15
+#define PASSED_PAWN_ENEMY_KING_PROXIMITY 16
+#define BISHOP_PAIR_BONUS 17
+#define KNIGHT_OUTPOST_BONUS 18
+#define BISHOP_OUTPOST_BONUS 19
+#define OCB_SCALE 20
+#define PASSED_PAWN_SAFE_PATH 21
+#define SPACE_BONUS 22
+#define OUTPOST_MOVE_BONUS 23
+#define QUEEN_TROPISM_BONUS 24
+#define ROOK_SEMI_OPEN_FILE_BONUS 25
+#define BAD_BISHOP_PENALTY 26
+#define KNIGHT_BAD_MOVE_PENALTY 27
 
 #define DARK_SQUARES 0xAA55AA55AA55AA55ULL
 
@@ -463,7 +435,7 @@ static Score evaluate_piece(const Board *board,
         if (this_file_count > 1)
         {
             // Doubled pawn penalty
-            score_param(&s, trace, 4, -(this_file_count - 1), is_white);
+            score_param(&s, trace, DOUBLED_PAWN_PENALTY, -(this_file_count - 1), is_white);
         }
 
         bool has_left = (file > 0) && (pawns_per_file[file - 1] > 0);
@@ -471,7 +443,7 @@ static Score evaluate_piece(const Board *board,
         if (!has_left && !has_right)
         {
             // Isolated pawn penalty
-            score_param(&s, trace, 5, -1, is_white);
+            score_param(&s, trace, ISOLATED_PAWN_PENALTY, -1, is_white);
         }
         break;
     }
@@ -479,32 +451,32 @@ static Score evaluate_piece(const Board *board,
     {
         // Knights reduce in value as pawns leave the board
         int pawns_lost = 16 - __builtin_popcountll(all_pawns);
-        score_param(&s, trace, 2, -pawns_lost, is_white);
+        score_param(&s, trace, KNIGHT_PAWN_COUNT_PENALTY, -pawns_lost, is_white);
 
         // Score knights based on mobility
         U64 attacks = bitboard_knight_attacks(square);
         int mobility = __builtin_popcountll(attacks);
-        score_param(&s, trace, 6, mobility, is_white);
+        score_param(&s, trace, KNIGHT_MOBILITY_BONUS, mobility, is_white);
 
         // Penalty for moves to squares attacked by enemy pawns or occupied by friendly pieces
         U64 bad_targets = attacks & (enemy_pawn_attacks | board->occupancy[side]);
         int bad_moves = __builtin_popcountll(bad_targets);
-        score_param(&s, trace, 27, -bad_moves, is_white);
+        score_param(&s, trace, KNIGHT_BAD_MOVE_PENALTY, -bad_moves, is_white);
 
         U64 blocked_mask = is_white ? white_central_blocked_mask : black_central_blocked_mask;
         if (blocked_mask & (1ULL << square))
         {
-            score_param(&s, trace, 1, -1, is_white);
+            score_param(&s, trace, PAWN_BLOCKING_PENALTY, -1, is_white);
         }
 
         if (outposts & (1ULL << square))
         {
-            score_param(&s, trace, 18, 1, is_white);
+            score_param(&s, trace, KNIGHT_OUTPOST_BONUS, 1, is_white);
         }
 
         U64 legal_moves = attacks & ~board->occupancy[side];
         int outpost_moves = __builtin_popcountll(legal_moves & outposts);
-        score_param(&s, trace, 23, outpost_moves, is_white);
+        score_param(&s, trace, OUTPOST_MOVE_BONUS, outpost_moves, is_white);
 
         int attacks_count = __builtin_popcountll(attacks & enemy_king_ring);
         record_king_ring_attacks(type, attacks_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
@@ -517,22 +489,22 @@ static Score evaluate_piece(const Board *board,
     {
         // Reward bishops with mobility through pawn occupancy only
         int mobility = __builtin_popcountll(bitboard_bishop_attacks(square, all_pawns));
-        score_param(&s, trace, 7, mobility, is_white);
+        score_param(&s, trace, BISHOP_MOBILITY_BONUS, mobility, is_white);
 
         // Deduct penalty for each friendly pawn on its square colour
         U64 color_mask = ((1ULL << square) & DARK_SQUARES) ? DARK_SQUARES : ~DARK_SQUARES;
         int pawns_on_color = __builtin_popcountll(own_pawns & color_mask);
-        score_param(&s, trace, 26, -pawns_on_color, is_white);
+        score_param(&s, trace, BAD_BISHOP_PENALTY, -pawns_on_color, is_white);
 
         U64 blocked_mask = is_white ? white_central_blocked_mask : black_central_blocked_mask;
         if (blocked_mask & (1ULL << square))
         {
-            score_param(&s, trace, 1, -1, is_white);
+            score_param(&s, trace, PAWN_BLOCKING_PENALTY, -1, is_white);
         }
 
         if (outposts & (1ULL << square))
         {
-            score_param(&s, trace, 19, 1, is_white);
+            score_param(&s, trace, BISHOP_OUTPOST_BONUS, 1, is_white);
         }
 
         U64 attacks = bitboard_bishop_attacks(square, all_pieces);
@@ -566,16 +538,16 @@ static Score evaluate_piece(const Board *board,
         // Reward squares controlled
         U64 attacks = bitboard_rook_attacks(square, all_pieces);
         int control = __builtin_popcountll(attacks);
-        score_param(&s, trace, 8, control, is_white);
+        score_param(&s, trace, ROOK_CONTROL_BONUS, control, is_white);
 
         U64 file_mask = file_masks[file];
         if ((all_pawns & file_mask) == 0)// Open file bonus: + points if no pawns on the file
         {
-            score_param(&s, trace, 9, 1, is_white);
+            score_param(&s, trace, ROOK_OPEN_FILE_BONUS, 1, is_white);
         }
         else if (__builtin_popcountll(all_pawns & file_mask) == 1)// Semi-open file
         {
-            score_param(&s, trace, 25, 1, is_white);
+            score_param(&s, trace, ROOK_SEMI_OPEN_FILE_BONUS, 1, is_white);
         }
 
         int direct_count = __builtin_popcountll(attacks & enemy_king_ring);
@@ -607,14 +579,15 @@ static Score evaluate_piece(const Board *board,
         U64 bishop_atk = bitboard_bishop_attacks(square, all_pieces);
         U64 rook_atk = bitboard_rook_attacks(square, all_pieces);
         U64 attacks = bishop_atk | rook_atk;
+        // Reward for each legal move
         int mobility = __builtin_popcountll(attacks);
-        score_param(&s, trace, 10, mobility, is_white);
-
+        score_param(&s, trace, QUEEN_MOBILITY_BONUS, mobility, is_white);
+        // Queen tropism: reward the queen for being close to the enemy king
         int enemy_king_sq = board->king_square[side ^ 1];
         if (enemy_king_sq >= 0)
         {
             int dist = manhattan_distance[square][enemy_king_sq];
-            score_param(&s, trace, 24, 16 - dist, is_white);
+            score_param(&s, trace, QUEEN_TROPISM_BONUS, 16 - dist, is_white);
         }
 
         // Diagonal direct & X-ray attacks
@@ -670,8 +643,8 @@ static Score evaluate_piece(const Board *board,
         // Test Queen rays through pawns as a proxy for pawn shield (ignoring back rank)
         int attacks_pawns = __builtin_popcountll(bitboard_queen_attacks(square, all_pawns));
 
-        score_param(&s, trace, 11, -attacks_all, is_white);
-        score_param(&s, trace, 3, -attacks_pawns, is_white);
+        score_param(&s, trace, KING_EXPOSURE_PENALTY, -attacks_all, is_white);
+        score_param(&s, trace, PAWN_SHIELD_PENALTY, -attacks_pawns, is_white);
 
         // Calculate shortest King corner distance
         int corner_distance = manhattan_distance[square][0];
@@ -682,7 +655,7 @@ static Score evaluate_piece(const Board *board,
         if (manhattan_distance[square][63] < corner_distance)
             corner_distance = manhattan_distance[square][63];
 
-        score_param_diff(&s, trace, 12, -corner_distance, +corner_distance, is_white);
+        score_param_diff(&s, trace, KING_CORNER_DISTANCE_BONUS, -corner_distance, +corner_distance, is_white);
         break;
     }
     default:
@@ -1038,8 +1011,8 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     U64 all_pieces = board->occupancy[BOTH];
 
     int pawns_lost = 16 - __builtin_popcountll(all_pawns);
-    int knight_open_position_penalty_mg = KNIGHT_PAWN_COUNT_PENALTY_MG * pawns_lost;
-    int knight_open_position_penalty_eg = KNIGHT_PAWN_COUNT_PENALTY_EG * pawns_lost;
+    int knight_open_position_penalty_mg = eval_parameters_mg[KNIGHT_PAWN_COUNT_PENALTY] * pawns_lost;
+    int knight_open_position_penalty_eg = eval_parameters_eg[KNIGHT_PAWN_COUNT_PENALTY] * pawns_lost;
     
     // Probe pawn structure cache
     U64 pawn_key = board_pawn_key(white_pawns, black_pawns);
@@ -1091,8 +1064,8 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     int white_space = evaluate_space_advantage(board, WHITE, black_pawn_attacks);
     int black_space = evaluate_space_advantage(board, BLACK, white_pawn_attacks);
 
-    score_param(&white_score, trace, 22, white_space, true);
-    score_param(&black_score, trace, 22, black_space, false);
+    score_param(&white_score, trace, SPACE_BONUS, white_space, true);
+    score_param(&black_score, trace, SPACE_BONUS, black_space, false);
 
     // Passed pawn king proximity adjustments
     int white_king_sq = board->king_square[WHITE];
@@ -1105,8 +1078,8 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
         int friendly_dist = manhattan_distance[square][white_king_sq];
         int enemy_dist = manhattan_distance[square][black_king_sq];
 
-        score_param(&white_score, trace, 15, -friendly_dist, true);
-        score_param(&white_score, trace, 16, enemy_dist, true);
+        score_param(&white_score, trace, PASSED_PAWN_FRIENDLY_KING_PROXIMITY, -friendly_dist, true);
+        score_param(&white_score, trace, PASSED_PAWN_ENEMY_KING_PROXIMITY, enemy_dist, true);
     }
 
     U64 b_pass = black_passed_pawns;
@@ -1116,8 +1089,8 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
         int friendly_dist = manhattan_distance[square][black_king_sq];
         int enemy_dist = manhattan_distance[square][white_king_sq];
 
-        score_param(&black_score, trace, 15, -friendly_dist, false);
-        score_param(&black_score, trace, 16, enemy_dist, false);
+        score_param(&black_score, trace, PASSED_PAWN_FRIENDLY_KING_PROXIMITY, -friendly_dist, false);
+        score_param(&black_score, trace, PASSED_PAWN_ENEMY_KING_PROXIMITY, enemy_dist, false);
     }
 
     U64 white_king_ring = bitboard_king_attacks(board->king_square[WHITE]);
@@ -1204,7 +1177,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     }
 
     // Safe Promotion Path for passed pawns
-    if ((PASSED_PAWN_SAFE_PATH_MG | PASSED_PAWN_SAFE_PATH_EG) != 0 || trace != NULL)
+    if ((eval_parameters_mg[PASSED_PAWN_SAFE_PATH] | eval_parameters_eg[PASSED_PAWN_SAFE_PATH]) != 0 || trace != NULL)
     {
         U64 occ = board->occupancy[BOTH];
 
@@ -1260,7 +1233,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
                     if (safe)
                     {
                         int scale = rank_of(square) + 1 - (board->side != WHITE);
-                        score_param(&white_score, trace, 21, scale, true);
+                        score_param(&white_score, trace, PASSED_PAWN_SAFE_PATH, scale, true);
                     }
                 }
             }
@@ -1318,7 +1291,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
                     if (safe)
                     {
                         int scale = 8 - rank_of(square) - (board->side != BLACK);
-                        score_param(&black_score, trace, 21, scale, false);
+                        score_param(&black_score, trace, PASSED_PAWN_SAFE_PATH, scale, false);
                     }
                 }
             }
@@ -1346,34 +1319,34 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     // Apply Hanging Piece Penalty
     if (board->side == WHITE)
     {
-        score_param(&white_score, trace, 13, -white_hanging_penalty_sum, true);
-        score_param(&black_score, trace, 14, -black_hanging_penalty_sum, false);
+        score_param(&white_score, trace, HANGING_PIECE_STM_PENALTY, -white_hanging_penalty_sum, true);
+        score_param(&black_score, trace, HANGING_PIECE_NSTM_PENALTY, -black_hanging_penalty_sum, false);
     }
     else
     {
-        score_param(&black_score, trace, 13, -black_hanging_penalty_sum, false);
-        score_param(&white_score, trace, 14, -white_hanging_penalty_sum, true);
+        score_param(&black_score, trace, HANGING_PIECE_STM_PENALTY, -black_hanging_penalty_sum, false);
+        score_param(&white_score, trace, HANGING_PIECE_NSTM_PENALTY, -white_hanging_penalty_sum, true);
     }
 
     // Bishop Pair Bonus
     U64 white_bishops = board->pieces[WHITE_BISHOP];
     int has_white_bishop_pair = (white_bishops & (white_bishops - 1)) != 0;
     if (has_white_bishop_pair)
-        score_param(&white_score, trace, 17, 1, true);
+        score_param(&white_score, trace, BISHOP_PAIR_BONUS, 1, true);
 
     U64 black_bishops = board->pieces[BLACK_BISHOP];
     int has_black_bishop_pair = (black_bishops & (black_bishops - 1)) != 0;
     if (has_black_bishop_pair)
-        score_param(&black_score, trace, 17, 1, false);
+        score_param(&black_score, trace, BISHOP_PAIR_BONUS, 1, false);
 
     /* Unless the position is zugzwang, having a move is often better. Zugzwang more likely in endgames */
     if (board->side == WHITE)
     {
-        score_param(&white_score, trace, 0, 1, true);
+        score_param(&white_score, trace, TEMPO_BONUS, 1, true);
     }
     else
     {
-        score_param(&black_score, trace, 0, 1, false);
+        score_param(&black_score, trace, TEMPO_BONUS, 1, false);
     }
 
     int mg_total = white_score.mg - black_score.mg + pawn_score.mg;
@@ -1388,7 +1361,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
         }
         else if (is_ocb(board))
         {
-            eg_scale = OCB_SCALE_EG;
+            eg_scale = eval_parameters_eg[OCB_SCALE];
         }
     }
 
