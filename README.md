@@ -19,19 +19,19 @@ My testing games include several third party "anchor engines", these are engines
 
 | Version | CCRL Blitz Rating | Estimated CCRL Blitz Rating | CCRL Rapid Rating | COPE Bullet Rating | COPE Rapid Rating
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Cepimetheus 16.0.0** | N/A | **2778.5** | N/A | N/A | N/A
-| **Cepimetheus 15.0.0** | N/A | **2642.9** | N/A | **2725** | **2922**
-| **Cepimetheus 14.0.1** | N/A | **2573.1** | **2517** | **2647** | **2771**
-| **Cepimetheus 13.0.0** | N/A | **2490.7** | N/A | N/A | N/A
-| **Cepimetheus 12.0.0** | N/A | **2336.4** | N/A | N/A | N/A
-| **Cepimetheus 11.0.0** | N/A | **2237.9** | N/A | N/A | N/A
-| **Cepimetheus 10.0.0** | **2173** | **2173.0** | N/A | N/A | N/A
-| **Cepimetheus 9.0.0** | N/A | **2124.2** | N/A | N/A | N/A
+| **Cepimetheus 16.0.0** | **2762** | **2762.0** | N/A | N/A | N/A
+| **Cepimetheus 15.0.0** | N/A | **2640.0** | **2617** | **2725** | **2922**
+| **Cepimetheus 14.0.1** | N/A | **2569.6** | **2517** | **2647** | **2771**
+| **Cepimetheus 13.0.0** | N/A | **2490.0** | N/A | N/A | N/A
+| **Cepimetheus 12.0.0** | N/A | **2335.5** | N/A | N/A | N/A
+| **Cepimetheus 11.0.0** | N/A | **2238.1** | N/A | N/A | N/A
+| **Cepimetheus 10.0.0** | **2165** | **2165.0** | N/A | N/A | N/A
+| **Cepimetheus 9.0.0** | N/A | **2125.1** | N/A | N/A | N/A
 | **Cepimetheus 8.0.0** | N/A | **2065.6** | N/A | N/A | N/A
-| **Cepimetheus 7.2.0** | N/A | **2003.9** | N/A | N/A | N/A
-| **Cepimetheus 6.4.1** | **1914** | **1914.0** | N/A | N/A | N/A
-| **Cepimetheus 5.1.0** | N/A | **1704.7** | N/A | N/A | N/A
-| **Cepimetheus 4.3.1** | N/A | **1626.2** | N/A | N/A | N/A
+| **Cepimetheus 7.2.0** | N/A | **2005.3** | N/A | N/A | N/A
+| **Cepimetheus 6.4.1** | **1916** | **1916.0** | N/A | N/A | N/A
+| **Cepimetheus 5.1.0** | N/A | **1706.2** | N/A | N/A | N/A
+| **Cepimetheus 4.3.1** | N/A | **1627.7** | N/A | N/A | N/A
 
 > **Note on Accuracy:** All estimated ratings are subject to change as I play more games or add additional CCRL anchor engines to my testing to further calibrate the results.
 
