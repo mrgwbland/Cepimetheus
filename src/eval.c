@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2090, 2715, 3055, 7030, 0
+    1000, 2090, 2720, 3070, 7100, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3990, 3565, 6595, 11540, 0
+    1000, 3945, 3510, 6560, 11390, 0
 };
 
-int eval_parameters_mg[28] = {
-    188, 229, 0, 21, 145, 16, 96, 69, 45, 355, 14, 12, 138, 77, 492, 69, 0, 71, 290, 212, 125, 0, 36, 60, 0, 234, 85, 45
+int eval_parameters_mg[29] = {
+    188, 230, 0, 22, 145, 16, 97, 68, 45, 358, 14, 12, 136, 77, 493, 69, 0, 77, 288, 210, 153, 0, 37, 58, 0, 234, 85, 45, 8
 };
 
-int eval_parameters_eg[28] = {
-    118, 11, 95, 37, 61, 128, 100, 71, 30, 86, 41, 0, 201, 86, 1026, 53, 39, 758, 89, 0, 114, 165, 0, 36, 98, 55, 6, 39
+int eval_parameters_eg[29] = {
+    115, 9, 92, 36, 72, 125, 100, 73, 29, 84, 42, 0, 200, 85, 1022, 52, 38, 769, 90, 0, 114, 166, 0, 34, 98, 55, 3, 38, 125
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 10, 365, 561, 532
+    0, 0, 11, 366, 560, 534
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 3, 377, 594, 1030, 1971
+    0, 0, 372, 589, 1027, 1963
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 10, 38, 121, 528, 976
+    0, 12, 39, 119, 528, 1000
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 18, 0, 127, 294, 554
+    0, 33, 4, 127, 293, 541
 };
 
 int piece_attack_weights_mg[5] = {
-    37, 63, 30, 31, 45
+    37, 62, 29, 28, 43
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 1, 1, 0, 7
+    0, 0, 14, 21, 39
 };
 
 int piece_defense_weights_mg[5] = {
-    7, 28, 13, 0, 0
+    0, 26, 11, 0, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    142, 148, 188, 151, 159
+    656, 72, 77, 0, 635
 };
 
 // Macros for parameter indices
@@ -88,6 +88,7 @@ int piece_defense_weights_eg[5] = {
 #define ROOK_SEMI_OPEN_FILE_BONUS 25
 #define BAD_BISHOP_PENALTY 26
 #define KNIGHT_BAD_MOVE_PENALTY 27
+#define BACKWARD_PAWN_PENALTY 28
 
 #define DARK_SQUARES 0xAA55AA55AA55AA55ULL
 
@@ -444,6 +445,25 @@ static Score evaluate_piece(const Board *board,
         {
             // Isolated pawn penalty
             score_param(&s, trace, ISOLATED_PAWN_PENALTY, -1, is_white);
+        }
+        else if (file > 0 && file < 7)
+        {
+            // Backwards pawn penalty: pawns whose adjacent friendly pawns are strictly more advanced
+            U64 ahead_mask = bitboard_passed_pawn_mask(side, square);
+            U64 ahead_left = ahead_mask & file_masks[file - 1];
+            U64 ahead_right = ahead_mask & file_masks[file + 1];
+            U64 same_or_lower_left = file_masks[file - 1] & ~ahead_left;
+            U64 same_or_lower_right = file_masks[file + 1] & ~ahead_right;
+
+            bool has_ahead_left = (own_pawns & ahead_left) != 0;
+            bool has_ahead_right = (own_pawns & ahead_right) != 0;
+            bool has_same_or_lower_left = (own_pawns & same_or_lower_left) != 0;
+            bool has_same_or_lower_right = (own_pawns & same_or_lower_right) != 0;
+
+            if (has_ahead_left && has_ahead_right && !has_same_or_lower_left && !has_same_or_lower_right)
+            {
+                score_param(&s, trace, BACKWARD_PAWN_PENALTY, -1, is_white);
+            }
         }
         break;
     }
@@ -1424,14 +1444,14 @@ static void apply_evaluation_weights(const int *weights)
         offset++;
     }
 
-    for (int i = 0; i < 28; ++i) {
+    for (int i = 0; i < 29; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 28; ++i) {
+    for (int i = 0; i < 29; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
@@ -1526,15 +1546,15 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *pw_mg = &weights[0];
     const int *pw_eg = &weights[6];
     const int *ep_mg = &weights[12];
-    const int *ep_eg = &weights[40];
-    const int *pp_mg = &weights[68];
-    const int *pp_eg = &weights[74];
-    const int *px_mg = &weights[80];
-    const int *px_eg = &weights[86];
-    const int *at_mg = &weights[92];
-    const int *at_eg = &weights[97];
-    const int *df_mg = &weights[102];
-    const int *df_eg = &weights[107];
+    const int *ep_eg = &weights[41];
+    const int *pp_mg = &weights[70];
+    const int *pp_eg = &weights[76];
+    const int *px_mg = &weights[82];
+    const int *px_eg = &weights[88];
+    const int *at_mg = &weights[94];
+    const int *at_eg = &weights[99];
+    const int *df_mg = &weights[104];
+    const int *df_eg = &weights[109];
 
     int total_piece_value =
         feat->total_pieces[0] * pw_mg[1] +
@@ -1576,7 +1596,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     // 4. General evaluation parameters
-    for (int p = 0; p < 28; ++p)
+    for (int p = 0; p < 29; ++p)
     {
         mg_total += ep_mg[p] * feat->eval_param_counts_mg[p];
         eg_total += ep_eg[p] * feat->eval_param_counts_eg[p];
