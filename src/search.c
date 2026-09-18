@@ -189,17 +189,57 @@ static SearchResult negamax(Board *board,
         return result;
     }
 
+    Move tt_move = MOVE_NONE;
     int tt_score = 0;
-    if (context != NULL && ss->excluded_move == MOVE_NONE)
+    int tt_depth = -1;
+    TranspositionScoreType tt_bound = TT_SCORE_UPPER;
+    const TranspositionEntry *entry = NULL;
+    if (context != NULL)
     {
-        // (Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed)
-        bool tt_cutoff = pv_node
-            ? transposition_table_probe_exact(&context->table, board->hash, depth, ply, &tt_score)// On PV nodes, only allow EXACT cutoffs — bound scores from null-window searches would return imprecise values and corrupt the PV.
-            : transposition_table_probe(&context->table, board->hash, depth, alpha, beta, ply, &tt_score);// On non-PV nodes, allow all TT cutoffs (EXACT, LOWER, UPPER).
+        entry = transposition_table_lookup(&context->table, board->hash);
+        bool tt_cutoff = false;
+
+        if (entry != NULL)
+        {
+            tt_move = entry->best_move;
+            tt_score = score_from_tt(entry->score, ply);
+            tt_depth = entry->depth;
+            tt_bound = tt_entry_bound(entry);
+
+            if (ss->excluded_move == MOVE_NONE && tt_depth >= depth)
+            {
+                TranspositionScoreType score_type = tt_bound;
+                // (Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed)
+                if (pv_node)
+                {
+                    // On PV nodes, only allow EXACT cutoffs — bound scores from null-window searches would return imprecise values and corrupt the PV.
+                    if (score_type == TT_SCORE_EXACT)
+                    {
+                        tt_cutoff = true;
+                    }
+                }
+                else
+                {
+                    // On non-PV nodes, allow all TT cutoffs (EXACT, LOWER, UPPER).
+                    if (score_type == TT_SCORE_EXACT)
+                    {
+                        tt_cutoff = true;
+                    }
+                    else if (score_type == TT_SCORE_LOWER && tt_score >= beta)
+                    {
+                        tt_cutoff = true;
+                    }
+                    else if (score_type == TT_SCORE_UPPER && tt_score <= alpha)
+                    {
+                        tt_cutoff = true;
+                    }
+                }
+            }
+        }
 
         bool is_repeated = false;
         // Check if the current position is a repeated position in the real game history
-        if (history != NULL && history->count > 1)
+        if (tt_cutoff && history != NULL && history->count > 1)
         {
             U64 current_key = board->hash;
             int start = 0;
@@ -251,18 +291,18 @@ static SearchResult negamax(Board *board,
                 }
 
                 pv_hashes[pv_depth] = hash;
-                const TranspositionEntry *entry = transposition_table_lookup(&context->table, hash);
-                if (entry == NULL || entry->best_move == MOVE_NONE)
+                const TranspositionEntry *pv_entry = (pv_depth == 0) ? entry : transposition_table_lookup(&context->table, hash);
+                if (pv_entry == NULL || pv_entry->best_move == MOVE_NONE)
                 {
                     break;
                 }
 
-                if (!board_is_move_pseudo_legal(board, entry->best_move))
+                if (!board_is_move_pseudo_legal(board, pv_entry->best_move))
                 {
                     break;
                 }
 
-                if (!board_make_move(board, entry->best_move, &undos[pv_depth]))
+                if (!board_make_move(board, pv_entry->best_move, &undos[pv_depth]))
                 {
                     break;
                 }
@@ -277,7 +317,7 @@ static SearchResult negamax(Board *board,
                     break;
                 }
 
-                result.pv[result.pv_length++] = entry->best_move;
+                result.pv[result.pv_length++] = pv_entry->best_move;
                 pv_depth++;
             }
             // Now unmake all the moves we made
@@ -373,23 +413,11 @@ static SearchResult negamax(Board *board,
         }
     }  
 
-    // Extract the best move from the transposition table if it exists for move ordering
-    Move tt_move = MOVE_NONE;
-    tt_score = 0;
-    const TranspositionEntry *entry = NULL;
-    if (context != NULL)
+    // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
+    if (context != NULL && entry == NULL && depth >= iir_min_depth && !pv_node)
     {
-        entry = transposition_table_lookup(&context->table, board->hash);
-        if (entry != NULL)
-        {
-            tt_move = entry->best_move;
-            tt_score = score_from_tt(entry->score, ply);
-        }
-        else if (depth >= iir_min_depth && !pv_node) // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
-        {
-            depth -= iir_reduction;
-            if (depth < 0) depth = 0;
-        }
+        depth -= iir_reduction;
+        if (depth < 0) depth = 0;
     }
 
     // Singular Extension: If a TT move exists and is significantly better than all alternative moves, extend its search depth by 1 to explore it deeper.
@@ -398,8 +426,8 @@ static SearchResult negamax(Board *board,
         && depth > se_min_depth // Don't extend near leaves
         && tt_move != MOVE_NONE
         && entry != NULL
-        && entry->depth >= depth - se_depth_margin // Only use good TT moves
-        && tt_entry_bound(entry) != TT_SCORE_UPPER
+        && tt_depth >= depth - se_depth_margin // Only use good TT moves
+        && tt_bound != TT_SCORE_UPPER
         && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
     {
         // If all other moves are below beta_target then node is considered singular
