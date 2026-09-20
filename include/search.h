@@ -69,7 +69,6 @@ struct SearchContext
 typedef void (*SearchMoveInfoCallback)(int depth,
                                        int move_number,
                                        Move move,
-                                       int score,
                                        void *user_data);
 
 void init_lmr(void);

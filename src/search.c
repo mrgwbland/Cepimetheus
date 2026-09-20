@@ -781,6 +781,11 @@ SearchResult search_root(Board *board,
             continue;
         }
 
+        if (on_move_info != NULL)
+        {
+            on_move_info(depth, curr_index + 1, move, user_data);
+        }
+
         unsigned long long nodes_before = stats->nodes;
 
         U64 key = board->hash;
@@ -855,11 +860,6 @@ SearchResult search_root(Board *board,
                     context->root_moves.entries[i].pv[context->root_moves.entries[i].pv_length++] = child.pv[j];
                 }
             }
-        }
-
-        if (on_move_info != NULL)
-        {
-            on_move_info(depth, curr_index + 1, move, score, user_data);
         }
 
         if (score > result.score || result.move == MOVE_NONE)

@@ -52,28 +52,24 @@ void get_score_string(int score, char *buffer, size_t size)
     }
 }
 
-static void print_move_info(int depth, int move_number, Move move, int score, const Board *board)
+static void print_move_info(int depth, int move_number, Move move, const Board *board)
 {
     char move_buffer[6];
     move_to_string(move, board, move_buffer);
-    char score_buffer[32];
-    get_score_string(score, score_buffer, sizeof(score_buffer));
-    printf("info depth %d currmove %s currmovenumber %d score %s\n",
+    printf("info depth %d currmove %s currmovenumber %d\n",
            depth,
            move_buffer,
-           move_number,
-           score_buffer);
+           move_number);
     fflush(stdout);
 }
 
 static void print_move_info_callback(int depth,
                                      int move_number,
                                      Move move,
-                                     int score,
                                      void *user_data)
 {
     const Board *board = (const Board *)user_data;
-    print_move_info(depth, move_number, move, score, board);
+    print_move_info(depth, move_number, move, board);
 }
 
 long long current_time_ms(void)
