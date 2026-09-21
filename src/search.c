@@ -34,9 +34,13 @@ static int quiescence(Board *board,
 
     bool in_check = board_is_in_check(board, board->side);
     Move best_move = MOVE_NONE;
-    int stand_pat = -32000;
+    int stand_pat = -MATE_SCORE + ply;
 
-    if (!in_check)
+    if (in_check)
+    {
+        ss->static_eval = EVAL_NONE;
+    }
+    else
     {
         stand_pat = evaluate_position(board);
         ss->static_eval = stand_pat;
@@ -100,7 +104,7 @@ static int quiescence(Board *board,
 
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = move;
-        (ss + 1)->static_eval = -32000;
+        (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
 
         int score = -quiescence(board, -beta, -alpha, history, stats, ss + 1, qply + 1, context, control, lichess_draw_rules);
@@ -142,7 +146,7 @@ static int quiescence(Board *board,
     if (context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha, beta);
-        transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, ply);
+        transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, ss->static_eval, ply);
     }
 
     return alpha;
@@ -362,7 +366,7 @@ static SearchResult negamax(Board *board,
 
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = MOVE_NONE;
-        (ss + 1)->static_eval = -32000;
+        (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
 
         SearchResult null_child = negamax(board,
@@ -391,10 +395,19 @@ static SearchResult negamax(Board *board,
     if (in_check)
     {
         depth += check_extension; // Check extension to ensure forcing lines are fully explored
+        ss->static_eval = EVAL_NONE;
     }
     else // The following pruning doesn't occur when in check so we can reuse this is_in_check to save compute
     {
-        int static_eval = evaluate_position(board);
+        int static_eval;
+        if (entry != NULL && entry->static_eval != EVAL_NONE)
+        {
+            static_eval = entry->static_eval; // Cached static eval
+        }
+        else
+        {
+            static_eval = evaluate_position(board);
+        }
         ss->static_eval = static_eval;
         // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node (the position is so good it's already winning)
         if (!pv_node && depth <= rfp_max_depth
@@ -533,7 +546,7 @@ static SearchResult negamax(Board *board,
 
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = move;
-        (ss + 1)->static_eval = -32000;
+        (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
 
         int ext = (move == tt_move) ? extension : 0;
@@ -683,7 +696,7 @@ static SearchResult negamax(Board *board,
     if (context != NULL && ss->excluded_move == MOVE_NONE)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, ply);
+        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : ss->static_eval, ply);
     }
 
     return result;
@@ -716,7 +729,22 @@ SearchResult search_root(Board *board,
     SearchStack *ss = stack + STACK_OFFSET;
     ss->ply = 0;
     ss->move = MOVE_NONE;
-    ss->static_eval = -32000;
+    if (!board_is_in_check(board, board->side))
+    {
+        const TranspositionEntry *root_entry = (context != NULL) ? transposition_table_lookup(&context->table, board->hash) : NULL;
+        if (root_entry != NULL && root_entry->static_eval != EVAL_NONE)
+        {
+            ss->static_eval = root_entry->static_eval;
+        }
+        else
+        {
+            ss->static_eval = evaluate_position(board);
+        }
+    }
+    else
+    {
+        ss->static_eval = EVAL_NONE;
+    }
 
     if (context != NULL && context->root_moves.count == 0)
     {
@@ -795,7 +823,7 @@ SearchResult search_root(Board *board,
 
         (ss + 1)->ply = 1;
         (ss + 1)->move = move;
-        (ss + 1)->static_eval = -32000;
+        (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
 
         SearchResult child;
@@ -903,7 +931,7 @@ SearchResult search_root(Board *board,
     if (context != NULL)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, 0);
+        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move,ss->static_eval, 0);
     }
 
     return result;

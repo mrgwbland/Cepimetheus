@@ -19,14 +19,16 @@ typedef uint8_t TranspositionScoreType;
 #define TT_GEN_INC    0x04 // TT increments by 4 because 2 bits are used for score type, so this can be thought of as an increment of 1
 #define TT_GEN_CYCLE  (256 + TT_GEN_INC)
 
+#define EVAL_NONE ((int16_t)32002)
+
 typedef struct
 {
     U64 hash; // 8 bytes
     Move best_move; // 2 bytes
     int16_t score; // 2 bytes
+    int16_t static_eval; // 2 bytes
     int8_t depth; // 1 byte
     uint8_t gen_bound; // 1 byte (first 6 bits = generation, last 2 bits = score_type)
-    uint16_t padding; // 2 bytes (to maintain 16 byte entries for cache alignement, to be replaced with static eval)
 } TranspositionEntry; // 16 bytes
 
 typedef struct
@@ -86,7 +88,7 @@ void transposition_table_new_search(TranspositionTable *table);
 const TranspositionEntry *transposition_table_lookup(const TranspositionTable *table, U64 hash);
 bool transposition_table_probe(const TranspositionTable *table, U64 hash, int depth, int alpha, int beta, int ply, int *score);
 bool transposition_table_probe_exact(const TranspositionTable *table, U64 hash, int depth, int ply, int *score);
-void transposition_table_store(TranspositionTable *table, U64 hash, int depth, int score, TranspositionScoreType score_type, Move best_move, int ply);
+void transposition_table_store(TranspositionTable *table, U64 hash, int depth, int score, TranspositionScoreType score_type, Move best_move, int static_eval, int ply);
 TranspositionScoreType transposition_score_type(int score, int alpha, int beta);
 
 #endif

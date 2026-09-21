@@ -194,6 +194,7 @@ void transposition_table_store(TranspositionTable *table,
                                int score,
                                TranspositionScoreType score_type,
                                Move best_move,
+                               int static_eval,
                                int ply)
 {
     if (table == NULL || table->buckets == NULL || table->size == 0)
@@ -266,6 +267,10 @@ void transposition_table_store(TranspositionTable *table,
             {
                 target->best_move = best_move;
             }
+            if (static_eval != EVAL_NONE && target->static_eval == EVAL_NONE)
+            {
+                target->static_eval = (int16_t)static_eval;
+            }
             return;
         }
     }
@@ -274,6 +279,12 @@ void transposition_table_store(TranspositionTable *table,
     if (best_move != MOVE_NONE || !same_pos)
     {
         target->best_move = best_move;
+    }
+
+    // Store static eval if we have one or if we're writing a new entry
+    if (static_eval != EVAL_NONE || !same_pos)
+    {
+        target->static_eval = (int16_t)static_eval;
     }
 
     target->hash = hash;
