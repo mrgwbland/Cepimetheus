@@ -418,6 +418,8 @@ Move think(Board *board,
         }
 
         bool lichess_draw_rules = (options != NULL) ? options->lichess_draw_rules : false;
+        bool display_currmove = (options != NULL && options->display_currmove && !options->silent) &&
+                                ((current_time_ms() - start_time_ms) >= 1000);
         Move excluded_root_moves[256] = {0};
         int excluded_root_move_count = 0;
         SearchResult depth_best_result = {0, MOVE_NONE, {0}, 0};
@@ -456,7 +458,7 @@ Move think(Board *board,
                                          &stats,
                                          search_context,
                                          &control,
-                                         (options != NULL && options->display_currmove && !options->silent) ? print_move_info_callback : NULL,
+                                         display_currmove ? print_move_info_callback : NULL,
                                          (void *)board,
                                          lichess_draw_rules,
                                          excluded_root_moves,
@@ -500,7 +502,7 @@ Move think(Board *board,
                                      &stats,
                                      search_context,
                                      &control,
-                                     (options != NULL && options->display_currmove && !options->silent) ? print_move_info_callback : NULL,
+                                     display_currmove ? print_move_info_callback : NULL,
                                      (void *)board,
                                      lichess_draw_rules,
                                      excluded_root_moves,
