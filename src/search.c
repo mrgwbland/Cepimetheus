@@ -70,11 +70,10 @@ static int quiescence(Board *board,
         if (!in_check)
         {
             int captured_val = get_captured_piece_value(board, move);
-            int promo = move_promotion(move);
             int gain = captured_val;
-            if (promo != MOVE_PROMO_NONE)
+            if (move_is_promotion(move))
             {
-                gain += piece_values[promo] - 1000;
+                gain += piece_values[move_promotion_piece_type(move)] - 1000;
             }
 
             if (stand_pat + gain + qs_delta_margin < alpha)
@@ -494,7 +493,7 @@ static SearchResult negamax(Board *board,
             continue;
         }
 
-        bool is_quiet = !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE;
+        bool is_quiet = move_is_quiet(move);
 
         if (futility_prune && is_quiet && !move_ischeck(board, move))
         {
@@ -520,8 +519,7 @@ static SearchResult negamax(Board *board,
         has_legal_move = true;
 
         // Track searched quiet moves for history malus on cutoff.
-        if (!move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE
-            && quiet_searched_count < MAX_QUIET_TRACKED)
+        if (is_quiet && quiet_searched_count < MAX_QUIET_TRACKED)
         {
             quiet_searched[quiet_searched_count++] = move;
         }
@@ -550,7 +548,7 @@ static SearchResult negamax(Board *board,
             // Subsequent moves use a null window
             // Late Move Reductions (LMR)
             int r = 0;
-            if (depth >= lmr_min_depth && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            if (depth >= lmr_min_depth && is_quiet)
             {
                 int d = depth > 63 ? 63 : depth;
                 int m = legal_moves_searched > 255 ? 255 : legal_moves_searched;
@@ -606,7 +604,7 @@ static SearchResult negamax(Board *board,
         if (alpha >= beta)
         {
             // Record killer and update history if quiet move
-            if (context != NULL && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            if (context != NULL && is_quiet)
             {
                 if (ply >= 0 && ply < MAX_PLY_DEPTH)
                 {
@@ -811,7 +809,7 @@ SearchResult search_root(Board *board,
             // Subsequent moves use a null window
             // Late Move Reductions (LMR)
             int r = 0;
-            if (depth >= lmr_min_depth && !move_iscapture(move) && move_promotion(move) == MOVE_PROMO_NONE)
+            if (depth >= lmr_min_depth && move_is_quiet(move))
             {
                 int d = depth > 63 ? 63 : depth;
                 int m = legal_moves_searched > 255 ? 255 : legal_moves_searched;

@@ -185,8 +185,7 @@ bool board_has_any_legal_move(Board *board)
 
 int get_captured_piece_value(const Board *board, Move move)
 {
-    int flags = move_flags(move);
-    if (flags & MOVE_FLAG_EN_PASSANT)
+    if (move_is_en_passant(move))
     {
         return 1000; // Pawn value
     }

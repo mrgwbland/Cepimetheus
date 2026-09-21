@@ -1,8 +1,8 @@
 VERSION ?= Dev
 CC ?= gcc
 THREAD_FLAGS ?= -pthread -fopenmp
-CFLAGS ?= -Ofast -march=native -flto=auto -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\" -g -fno-omit-frame-pointer #(last two for profiling)
-RELEASE_FLAGS ?= -Ofast -flto=auto -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\"
+CFLAGS ?= -Ofast -march=native -flto=auto -MMD -MP -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\" -g -fno-omit-frame-pointer #(last two for profiling)
+RELEASE_FLAGS ?= -Ofast -flto=auto -MMD -MP -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\"
 WIN_CC ?= x86_64-w64-mingw32-gcc
 WIN32_CC ?= i686-w64-mingw32-gcc
 BUILD_DIR ?= release
@@ -55,6 +55,8 @@ $(BUILD_DIR)/%.o: src/%.c
 
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ -lm
+
+-include $(OBJ:.o=.d)
 
 # Compiles the shared library directly from sources to safely inject -fPIC
 tuning: $(TUNING_TARGET)

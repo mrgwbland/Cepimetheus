@@ -33,7 +33,7 @@ static int try_add_castle_move(const Board *board, Move *moves, int count, int s
         }
     }
 
-    moves[count++] = move_make(king_from, king_to, MOVE_PROMO_NONE, MOVE_FLAG_CASTLE);
+    moves[count++] = move_make(king_from, king_to, MOVE_SPECIAL_CASTLE, false);
     return count;
 }
 
@@ -57,10 +57,10 @@ int movegen_generate_noisy(const Board *board, Move *moves) {
         int one = from + step;
 
         if (rank == promo_rank && one >= 0 && one < 64 && !(board->occupancy[BOTH] & (1ULL << one))) {
-            moves[count++] = move_make(from, one, MOVE_PROMO_KNIGHT, 0);
-            moves[count++] = move_make(from, one, MOVE_PROMO_BISHOP, 0);
-            moves[count++] = move_make(from, one, MOVE_PROMO_ROOK, 0);
-            moves[count++] = move_make(from, one, MOVE_PROMO_QUEEN, 0);
+            moves[count++] = move_make(from, one, MOVE_SPECIAL_PROMO_N, false);
+            moves[count++] = move_make(from, one, MOVE_SPECIAL_PROMO_B, false);
+            moves[count++] = move_make(from, one, MOVE_SPECIAL_PROMO_R, false);
+            moves[count++] = move_make(from, one, MOVE_SPECIAL_PROMO_Q, false);
         }
 
         const int capture_offsets[2] = {step + 1, step - 1};
@@ -73,20 +73,19 @@ int movegen_generate_noisy(const Board *board, Move *moves) {
             if ((i == 0 && target_file == 0) || (i == 1 && target_file == 7)) {
                 continue;
             }
-            int flags = (board_piece_at(board, target) >= 0 ? MOVE_FLAG_CAPTURE : 0);
             bool is_ep = (board->ep_square == target && board->ep_square >= 0);
-            if (is_ep) {
-                flags |= MOVE_FLAG_CAPTURE | MOVE_FLAG_EN_PASSANT;
-            } else if (!(enemy & (1ULL << target))) {
+            if (!is_ep && !(enemy & (1ULL << target))) {
                 continue;
             }
-            if (rank == promo_rank) {
-                moves[count++] = move_make(from, target, MOVE_PROMO_KNIGHT, flags);
-                moves[count++] = move_make(from, target, MOVE_PROMO_BISHOP, flags);
-                moves[count++] = move_make(from, target, MOVE_PROMO_ROOK, flags);
-                moves[count++] = move_make(from, target, MOVE_PROMO_QUEEN, flags);
+            if (is_ep) {
+                moves[count++] = move_make(from, target, MOVE_SPECIAL_EN_PASSANT, true);
+            } else if (rank == promo_rank) {
+                moves[count++] = move_make(from, target, MOVE_SPECIAL_PROMO_N, true);
+                moves[count++] = move_make(from, target, MOVE_SPECIAL_PROMO_B, true);
+                moves[count++] = move_make(from, target, MOVE_SPECIAL_PROMO_R, true);
+                moves[count++] = move_make(from, target, MOVE_SPECIAL_PROMO_Q, true);
             } else {
-                moves[count++] = move_make(from, target, MOVE_PROMO_NONE, flags | MOVE_FLAG_CAPTURE);
+                moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, true);
             }
         }
     }
@@ -98,7 +97,7 @@ int movegen_generate_noisy(const Board *board, Move *moves) {
         U64 targets = bitboard_knight_attacks(from) & enemy;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, MOVE_FLAG_CAPTURE);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, true);
         }
     }
 
@@ -109,7 +108,7 @@ int movegen_generate_noisy(const Board *board, Move *moves) {
         U64 targets = bitboard_bishop_attacks(from, board->occupancy[BOTH]) & enemy;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, MOVE_FLAG_CAPTURE);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, true);
         }
     }
 
@@ -120,7 +119,7 @@ int movegen_generate_noisy(const Board *board, Move *moves) {
         U64 targets = bitboard_rook_attacks(from, board->occupancy[BOTH]) & enemy;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, MOVE_FLAG_CAPTURE);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, true);
         }
     }
 
@@ -131,7 +130,7 @@ int movegen_generate_noisy(const Board *board, Move *moves) {
         U64 targets = bitboard_queen_attacks(from, board->occupancy[BOTH]) & enemy;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, MOVE_FLAG_CAPTURE);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, true);
         }
     }
 
@@ -142,7 +141,7 @@ int movegen_generate_noisy(const Board *board, Move *moves) {
         U64 targets = bitboard_king_attacks(from) & enemy;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, MOVE_FLAG_CAPTURE);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, true);
         }
     }
 
@@ -169,11 +168,11 @@ int movegen_generate_quiet(const Board *board, Move *moves) {
         int one = from + step;
 
         if (rank != promo_rank && one >= 0 && one < 64 && (empty & (1ULL << one))) {
-            moves[count++] = move_make(from, one, MOVE_PROMO_NONE, 0);
+            moves[count++] = move_make(from, one, MOVE_SPECIAL_NONE, false);
             if (rank == start_rank) {
                 int two = from + step * 2;
                 if (two >= 0 && two < 64 && (empty & (1ULL << two))) {
-                    moves[count++] = move_make(from, two, MOVE_PROMO_NONE, MOVE_FLAG_DOUBLE_PAWN);
+                    moves[count++] = move_make(from, two, MOVE_SPECIAL_DOUBLE_PAWN, false);
                 }
             }
         }
@@ -186,7 +185,7 @@ int movegen_generate_quiet(const Board *board, Move *moves) {
         U64 targets = bitboard_knight_attacks(from) & empty;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, 0);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, false);
         }
     }
 
@@ -197,7 +196,7 @@ int movegen_generate_quiet(const Board *board, Move *moves) {
         U64 targets = bitboard_bishop_attacks(from, board->occupancy[BOTH]) & empty;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, 0);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, false);
         }
     }
 
@@ -208,7 +207,7 @@ int movegen_generate_quiet(const Board *board, Move *moves) {
         U64 targets = bitboard_rook_attacks(from, board->occupancy[BOTH]) & empty;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, 0);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, false);
         }
     }
 
@@ -219,7 +218,7 @@ int movegen_generate_quiet(const Board *board, Move *moves) {
         U64 targets = bitboard_queen_attacks(from, board->occupancy[BOTH]) & empty;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, 0);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, false);
         }
     }
 
@@ -230,7 +229,7 @@ int movegen_generate_quiet(const Board *board, Move *moves) {
         U64 targets = bitboard_king_attacks(from) & empty;
         while (targets) {
             int target = bitboard_pop_lsb(&targets);
-            moves[count++] = move_make(from, target, MOVE_PROMO_NONE, 0);
+            moves[count++] = move_make(from, target, MOVE_SPECIAL_NONE, false);
         }
 
         if (side == WHITE) {
@@ -277,7 +276,7 @@ bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move)
         if (from >= 0 && to >= 0) {
             for (int i = 0; i < list.count; ++i) {
                 Move m = list.moves[i];
-                if (move_from(m) == from && (move_flags(m) & MOVE_FLAG_CASTLE)) {
+                if (move_from(m) == from && move_is_castle(m)) {
                     int k_to = move_to(m);
                     int r_idx = (board->side == WHITE) ? (k_to == 6 ? 0 : 1) : (k_to == 62 ? 2 : 3);
                     int r_sq = board->castling_rook_square[r_idx];

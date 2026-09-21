@@ -22,10 +22,11 @@ typedef uint8_t TranspositionScoreType;
 typedef struct
 {
     U64 hash; // 8 bytes
-    Move best_move; // 4 bytes
+    Move best_move; // 2 bytes
     int16_t score; // 2 bytes
     int8_t depth; // 1 byte
     uint8_t gen_bound; // 1 byte (first 6 bits = generation, last 2 bits = score_type)
+    uint16_t padding; // 2 bytes (to maintain 16 byte entries for cache alignement, to be replaced with static eval)
 } TranspositionEntry; // 16 bytes
 
 typedef struct

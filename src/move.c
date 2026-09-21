@@ -15,7 +15,7 @@ void move_to_string(Move move, const Board *board, char buffer[6]) {
     int from_sq = move_from(move);
     int to_sq = move_to(move);
 
-    if (option_chess960 && board != NULL && (move_flags(move) & MOVE_FLAG_CASTLE)) {
+    if (option_chess960 && board != NULL && move_is_castle(move)) {
         if (to_sq == 6) {
             to_sq = board->castling_rook_square[0];
         } else if (to_sq == 2) {
@@ -35,11 +35,11 @@ void move_to_string(Move move, const Board *board, char buffer[6]) {
     buffer[1] = from[1];
     buffer[2] = to[0];
     buffer[3] = to[1];
-    switch (move_promotion(move)) {
-        case MOVE_PROMO_KNIGHT: buffer[4] = 'n'; break;
-        case MOVE_PROMO_BISHOP: buffer[4] = 'b'; break;
-        case MOVE_PROMO_ROOK: buffer[4] = 'r'; break;
-        case MOVE_PROMO_QUEEN: buffer[4] = 'q'; break;
+    switch (move_special(move)) {
+        case MOVE_SPECIAL_PROMO_N: buffer[4] = 'n'; break;
+        case MOVE_SPECIAL_PROMO_B: buffer[4] = 'b'; break;
+        case MOVE_SPECIAL_PROMO_R: buffer[4] = 'r'; break;
+        case MOVE_SPECIAL_PROMO_Q: buffer[4] = 'q'; break;
         default: buffer[4] = '\0'; break;
     }
     buffer[5] = '\0';
@@ -68,12 +68,6 @@ bool zobrist_hash_from_string(const char *text, uint64_t *hash_out) {
     return true;
 }
 
-bool move_iscapture(Move move) {
-    if ((move_flags(move) & MOVE_FLAG_CAPTURE) != 0) {
-        return true;
-    }
-    return false;
-}
 
 bool move_ischeck(const struct Board *board, Move move) {
     if (board == NULL) {

@@ -27,17 +27,16 @@ void update_history_entry(int16_t *entry, int delta)
 
 static bool is_good_noisy(const Board *board, Move move)
 {
-    if (move_promotion(move) != MOVE_PROMO_NONE)
+    if (move_is_promotion(move))
     {
         return true;
     }
 
-    int flags = move_flags(move);
     int attacker_piece = board_piece_at(board, move_from(move));
     int attacker_value = piece_values[board_piece_type(attacker_piece)];
     int victim_value;
 
-    if ((flags & MOVE_FLAG_EN_PASSANT) != 0)
+    if (move_is_en_passant(move))
     {
         victim_value = piece_values[WHITE_PAWN];
     }
@@ -59,13 +58,12 @@ static bool is_good_noisy(const Board *board, Move move)
 int estimate_move_score(const Board *board, Move move, const SearchContext *context, int ply)
 {
     (void)ply;
-    int flags = move_flags(move);
 
     /* 1. Promotions */
-    if (move_promotion(move) != MOVE_PROMO_NONE)
+    if (move_is_promotion(move))
     {
         const int promo_bonus[5] = {0, order_knight_promo, order_bishop_promo, order_rook_promo, order_queen_promo};
-        int promo = move_promotion(move);
+        int promo = move_promotion_piece_type(move);
         if (promo >= 0 && promo <= 4)
         {
             return 2000000 + promo_bonus[promo];
@@ -80,7 +78,7 @@ int estimate_move_score(const Board *board, Move move, const SearchContext *cont
         int victim_piece = board_piece_at(board, move_to(move));
         int victim_value;
 
-        if ((flags & MOVE_FLAG_EN_PASSANT) != 0)
+        if (move_is_en_passant(move))
         {
             victim_value = piece_values[WHITE_PAWN];
         }
@@ -93,7 +91,7 @@ int estimate_move_score(const Board *board, Move move, const SearchContext *cont
     }
 
     /* 3. Quiet Moves (Castling, History) */
-    if ((flags & MOVE_FLAG_CASTLE) != 0)
+    if (move_is_castle(move))
     {
         return order_castle;
     }

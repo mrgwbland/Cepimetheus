@@ -40,12 +40,12 @@ static int piece_index_for_char(char piece_char) {
     }
 }
 
-static int promotion_piece(int side, int promotion) {
-    switch (promotion) {
-        case MOVE_PROMO_KNIGHT: return side == WHITE ? WHITE_KNIGHT : BLACK_KNIGHT;
-        case MOVE_PROMO_BISHOP: return side == WHITE ? WHITE_BISHOP : BLACK_BISHOP;
-        case MOVE_PROMO_ROOK: return side == WHITE ? WHITE_ROOK : BLACK_ROOK;
-        case MOVE_PROMO_QUEEN: return side == WHITE ? WHITE_QUEEN : BLACK_QUEEN;
+static int promotion_piece(int side, MoveSpecial special) {
+    switch (special) {
+        case MOVE_SPECIAL_PROMO_N: return side == WHITE ? WHITE_KNIGHT : BLACK_KNIGHT;
+        case MOVE_SPECIAL_PROMO_B: return side == WHITE ? WHITE_BISHOP : BLACK_BISHOP;
+        case MOVE_SPECIAL_PROMO_R: return side == WHITE ? WHITE_ROOK : BLACK_ROOK;
+        case MOVE_SPECIAL_PROMO_Q: return side == WHITE ? WHITE_QUEEN : BLACK_QUEEN;
         default: return -1;
     }
 }
@@ -592,11 +592,11 @@ bool board_is_move_legal(const Board *board, Move move, U64 pinned_mask, U64 che
         return false;
     }
     int piece_type = board_piece_type(mover_piece);
-    int flags = move_flags(move);
+    MoveSpecial special = move_special(move);
 
     // 1. King moves
     if (piece_type == 5) { // KING
-        if (flags & MOVE_FLAG_CASTLE) {
+        if (special == MOVE_SPECIAL_CASTLE) {
             if (checkers != 0) return false;
             int enemy = side ^ 1;
             int rook_from = board->castling_rook_square[castle_rook_index(side, to)];
@@ -624,7 +624,7 @@ bool board_is_move_legal(const Board *board, Move move, U64 pinned_mask, U64 che
     }
 
     // 2. En Passant moves (discover check risk and check evasion verification)
-    if (flags & MOVE_FLAG_EN_PASSANT) {
+    if (special == MOVE_SPECIAL_EN_PASSANT) {
         int captured_sq = side == WHITE ? to - 8 : to + 8;
         if (checkers != 0) {
             if (checkers & (checkers - 1)) {
@@ -690,20 +690,20 @@ bool board_is_move_pseudo_legal(const Board *board, Move move) {
     }
 
     int piece_type = board_piece_type(mover_piece);
-    int flags = move_flags(move);
-    int promo = move_promotion(move);
+    MoveSpecial special = move_special(move);
+    bool is_cap = move_iscapture(move);
     U64 own = board->occupancy[side];
     U64 enemy = board->occupancy[side ^ 1];
     U64 occupied = board->occupancy[BOTH];
 
     // 1. King moves & Castling
     if (piece_type == 5) { // KING
-        if (promo != MOVE_PROMO_NONE) {
+        if (move_is_promotion(move)) {
             return false;
         }
 
-        if (flags & MOVE_FLAG_CASTLE) {
-            if (flags != MOVE_FLAG_CASTLE) return false;
+        if (special == MOVE_SPECIAL_CASTLE) {
+            if (is_cap) return false;
             if (from != board->king_square[side]) return false;
             int castle_flag;
             int rook_idx;
@@ -754,9 +754,8 @@ bool board_is_move_pseudo_legal(const Board *board, Move move) {
         }
 
         if (own & (1ULL << to)) return false;
-        bool is_cap = (enemy & (1ULL << to)) != 0;
-        int expected_flags = is_cap ? MOVE_FLAG_CAPTURE : 0;
-        if (flags != expected_flags) return false;
+        bool expected_cap = (enemy & (1ULL << to)) != 0;
+        if (is_cap != expected_cap || special != MOVE_SPECIAL_NONE) return false;
         return (bitboard_king_attacks(from) & (1ULL << to)) != 0;
     }
 
@@ -774,22 +773,20 @@ bool board_is_move_pseudo_legal(const Board *board, Move move) {
         int from_rank = from >> 3;
         int to_rank = to >> 3;
 
-        if (promo != MOVE_PROMO_NONE) {
+        if (move_is_promotion(move)) {
             if (from_rank != promo_rank || to_rank != promo_target_rank) return false;
-            if (promo < MOVE_PROMO_KNIGHT || promo > MOVE_PROMO_QUEEN) return false;
         } else {
             if (to_rank == promo_target_rank) return false;
         }
 
-        if (flags & MOVE_FLAG_EN_PASSANT) {
-            if (flags != (MOVE_FLAG_CAPTURE | MOVE_FLAG_EN_PASSANT)) return false;
-            if (promo != MOVE_PROMO_NONE) return false;
+        if (special == MOVE_SPECIAL_EN_PASSANT) {
+            if (!is_cap) return false;
             if (to != board->ep_square || board->ep_square < 0) return false;
             return (bitboard_pawn_attacks(side, from) & (1ULL << to)) != 0;
         }
 
-        if (flags & MOVE_FLAG_CAPTURE) {
-            if (flags != MOVE_FLAG_CAPTURE) return false;
+        if (is_cap) {
+            if (special != MOVE_SPECIAL_NONE && !move_is_promotion(move)) return false;
             if (!(enemy & (1ULL << to))) return false;
             return (bitboard_pawn_attacks(side, from) & (1ULL << to)) != 0;
         }
@@ -798,21 +795,21 @@ bool board_is_move_pseudo_legal(const Board *board, Move move) {
         if (occupied & (1ULL << to)) return false;
 
         if (to == from + step) {
-            return flags == 0;
+            if (move_is_promotion(move)) return true;
+            return special == MOVE_SPECIAL_NONE;
         }
 
         if (from_rank == start_rank && to == from + 2 * step) {
-            return flags == MOVE_FLAG_DOUBLE_PAWN && !(occupied & (1ULL << (from + step)));
+            return special == MOVE_SPECIAL_DOUBLE_PAWN && !(occupied & (1ULL << (from + step)));
         }
 
         return false;
     }
 
     // 3. Knights, Bishops, Rooks, Queens
-    if (promo != MOVE_PROMO_NONE) return false;
-    bool is_cap = (enemy & (1ULL << to)) != 0;
-    int expected_flags = is_cap ? MOVE_FLAG_CAPTURE : 0;
-    if (flags != expected_flags) return false;
+    if (special != MOVE_SPECIAL_NONE) return false;
+    bool expected_cap = (enemy & (1ULL << to)) != 0;
+    if (is_cap != expected_cap) return false;
 
     // 3. Knights
     if (piece_type == 1) {
@@ -942,18 +939,17 @@ void board_unmake_move(Board *board, const Undo *undo) {
     Move move = undo->move;
     int from = move_from(move);
     int to = move_to(move);
-    int promotion = move_promotion(move);
-    int flags = move_flags(move);
+    MoveSpecial special = move_special(move);
     
     int original_side = board->side ^ 1;
     int moved_piece = board_piece_at(board, to);
 
     int original_piece = moved_piece;
-    if (board_piece_type(moved_piece) != 0 && promotion != MOVE_PROMO_NONE) {
+    if (board_piece_type(moved_piece) != 0 && special >= MOVE_SPECIAL_PROMO_N) {
         original_piece = piece_for_side_at_type(original_side, 0); // Pawn
     }
 
-    if (flags & MOVE_FLAG_CASTLE) {
+    if (special == MOVE_SPECIAL_CASTLE) {
         int rook_idx = castle_rook_index(original_side, to);
         int rook_from = board->castling_rook_square[rook_idx];
         int rook_to = rook_to_castle_square(original_side, to);
@@ -971,7 +967,7 @@ void board_unmake_move(Board *board, const Undo *undo) {
 
         if (undo->captured_piece >= 0) {
             int captured_square = to;
-            if (flags & MOVE_FLAG_EN_PASSANT) {
+            if (special == MOVE_SPECIAL_EN_PASSANT) {
                 captured_square = original_side == WHITE ? to - 8 : to + 8;
             }
             add_piece_at(board, undo->captured_piece, captured_square);
@@ -1010,8 +1006,7 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
 
     int from = move_from(move);
     int to = move_to(move);
-    int promotion = move_promotion(move);
-    int flags = move_flags(move);
+    MoveSpecial special = move_special(move);
     int side = board->side;
     int mover_piece = board_piece_at(board, from);
 
@@ -1036,7 +1031,7 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     board->hash ^= ZOBRIST_PIECES[mover_piece][from];
 
     int captured_piece = -1;
-    if (flags & MOVE_FLAG_CASTLE) {
+    if (special == MOVE_SPECIAL_CASTLE) {
         undo->captured_piece = -1;
         int rook_idx = castle_rook_index(side, to);
         int rook_from = board->castling_rook_square[rook_idx];
@@ -1052,7 +1047,7 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
         board->hash ^= ZOBRIST_PIECES[rook_piece][rook_from];
         board->hash ^= ZOBRIST_PIECES[rook_piece][rook_to];
     } else {
-        if (flags & MOVE_FLAG_EN_PASSANT) {
+        if (special == MOVE_SPECIAL_EN_PASSANT) {
             captured_square = side == WHITE ? to - 8 : to + 8;
             captured_piece = piece_for_side_at_type(side ^ 1, 0); // opponent pawn
             if (to != board->ep_square || target_piece >= 0 || captured_square < 0 || captured_square >= 64 ||
@@ -1070,8 +1065,8 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
 
         remove_piece_at(board, mover_piece, from);
 
-        if (piece_type == 0 && promotion != MOVE_PROMO_NONE) {
-            piece_to_move = promotion_piece(side, promotion);
+        if (piece_type == 0 && special >= MOVE_SPECIAL_PROMO_N) {
+            piece_to_move = promotion_piece(side, special);
             if (piece_to_move < 0) {
                 return false;
             }
@@ -1087,11 +1082,11 @@ bool board_make_move(Board *board, Move move, Undo *undo) {
     }
 
     board->ep_square = -1;
-    if ((flags & MOVE_FLAG_DOUBLE_PAWN) != 0) {
+    if (special == MOVE_SPECIAL_DOUBLE_PAWN) {
         board->ep_square = side == WHITE ? from + 8 : from - 8;
     }
 
-    if (piece_type == 0 || target_piece >= 0 || (flags & MOVE_FLAG_EN_PASSANT) != 0) {
+    if (piece_type == 0 || target_piece >= 0 || special == MOVE_SPECIAL_EN_PASSANT) {
         board->halfmove_clock = 0;
     } else {
         ++board->halfmove_clock;

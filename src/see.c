@@ -37,9 +37,7 @@ U64 board_attackers_to(const Board *board, int square, U64 occupancy) {
 
 // Check if the capture is greater than or equal to the threshold
 bool see_ge(const Board *board, Move move, int threshold) {
-    int flags = move_flags(move);
-
-    if (flags & MOVE_FLAG_CASTLE) {
+    if (move_is_castle(move)) {
         return 0 >= threshold;
     }
 
@@ -54,7 +52,7 @@ bool see_ge(const Board *board, Move move, int threshold) {
     int stm = board->side;
 
     int victim_value = 0;
-    if (flags & MOVE_FLAG_EN_PASSANT) {
+    if (move_is_en_passant(move)) {
         victim_value = piece_values[0]; /* Pawn */
     } else {
         int target_piece = board_piece_at(board, to);
@@ -63,8 +61,8 @@ bool see_ge(const Board *board, Move move, int threshold) {
         }
     }
 
-    if (move_promotion(move) != MOVE_PROMO_NONE) {
-        victim_value += piece_values[move_promotion(move)] - piece_values[0];
+    if (move_is_promotion(move)) {
+        victim_value += piece_values[move_promotion_piece_type(move)] - piece_values[0];
     }
 
     int balance = victim_value - threshold;
@@ -83,7 +81,7 @@ bool see_ge(const Board *board, Move move, int threshold) {
 
     U64 occupancy = board->occupancy[BOTH];
     occupancy ^= (1ULL << from);
-    if (flags & MOVE_FLAG_EN_PASSANT) {
+    if (move_is_en_passant(move)) {
         int ep_cap_sq = stm == WHITE ? to - 8 : to + 8;
         occupancy ^= (1ULL << ep_cap_sq);
     }
