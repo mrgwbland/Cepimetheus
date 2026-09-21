@@ -12,51 +12,51 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2090, 2720, 3070, 7100, 0
+    1000, 2120, 2750, 3090, 7260, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3945, 3510, 6560, 11390, 0
+    1000, 3920, 3500, 6580, 11400, 0
 };
 
 int eval_parameters_mg[29] = {
-    188, 230, 0, 22, 145, 16, 97, 68, 45, 358, 14, 12, 136, 77, 493, 69, 0, 77, 288, 210, 153, 0, 37, 58, 0, 234, 85, 45, 8
+    189, 227, 0, 21, 145, 18, 96, 68, 46, 351, 13, 12, 142, 77, 500, 68, 0, 67, 294, 195, 62, 0, 38, 59, 0, 232, 85, 46, 8
 };
 
 int eval_parameters_eg[29] = {
-    115, 9, 92, 36, 72, 125, 100, 73, 29, 84, 42, 0, 200, 85, 1022, 52, 38, 769, 90, 0, 114, 166, 0, 34, 98, 55, 3, 38, 125
+    114, 9, 93, 34, 71, 124, 101, 71, 24, 89, 45, 0, 198, 83, 1022, 54, 39, 766, 90, 0, 115, 165, 0, 37, 81, 54, 4, 36, 124
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 11, 366, 560, 534
+    0, 0, 6, 361, 559, 546
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 372, 589, 1027, 1963
+    0, 0, 373, 592, 1029, 1961
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 12, 39, 119, 528, 1000
+    0, 11, 38, 119, 531, 1102
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 33, 4, 127, 293, 541
+    0, 33, 5, 128, 293, 505
 };
 
 int piece_attack_weights_mg[5] = {
-    37, 62, 29, 28, 43
+    31, 62, 52, 55, 64
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 14, 21, 39
+    1, 0, 0, 0, 1
 };
 
 int piece_defense_weights_mg[5] = {
-    0, 26, 11, 0, 0
+    16, 30, 20, 1, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    656, 72, 77, 0, 635
+    48, 80, 190, 177, 157
 };
 
 // Macros for parameter indices
@@ -528,29 +528,20 @@ static Score evaluate_piece(const Board *board,
         }
 
         U64 attacks = bitboard_bishop_attacks(square, all_pieces);
-
-        int direct_count = __builtin_popcountll(attacks & enemy_king_ring);
-        record_king_ring_attacks(type, direct_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
-
-        // X-ray attacks
+        // Batteries
         U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
-        U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
+        // Pins
+        U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];        
+        // All X-ray attacks
         U64 frontline_diagonals = attacks & (own_bishops_queens | enemy_bishops_queens);
-        if (frontline_diagonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_diagonals;
-            U64 xray_attacks = bitboard_bishop_attacks(square, xray_occupancy);
-            int xray_count = __builtin_popcountll(xray_attacks & enemy_king_ring);
-            record_king_ring_attacks(type, xray_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
-        }
-
-        int direct_def = __builtin_popcountll(attacks & own_king_ring);
-        record_king_ring_defenses(type, direct_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        if (frontline_diagonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_diagonals;
-            U64 xray_attacks = bitboard_bishop_attacks(square, xray_occupancy);
-            int xray_def = __builtin_popcountll(xray_attacks & own_king_ring);
-            record_king_ring_defenses(type, xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        }
+        
+        // Attacks without x-rayed pieces
+        U64 xray_occupancy = all_pieces ^ frontline_diagonals;
+        U64 xray_attacks = bitboard_bishop_attacks(square, xray_occupancy);
+        int xray_count = __builtin_popcountll(xray_attacks & enemy_king_ring);
+        record_king_ring_attacks(type, xray_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
+        int xray_def = __builtin_popcountll(xray_attacks & own_king_ring);
+        record_king_ring_defenses(type, xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
         break;
     }
     case WHITE_ROOK:
@@ -570,28 +561,21 @@ static Score evaluate_piece(const Board *board,
             score_param(&s, trace, ROOK_SEMI_OPEN_FILE_BONUS, 1, is_white);
         }
 
-        int direct_count = __builtin_popcountll(attacks & enemy_king_ring);
-        record_king_ring_attacks(type, direct_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
-
-        // X-ray attacks
+        // Batteries
         U64 own_rooks_queens = board->pieces[side == WHITE ? WHITE_ROOK : BLACK_ROOK] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
+        // Pins
         U64 enemy_rooks_queens = board->pieces[side == WHITE ? BLACK_ROOK : WHITE_ROOK] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
+        // All X-ray attacks
         U64 frontline_orthogonals = attacks & (own_rooks_queens | enemy_rooks_queens);
-        if (frontline_orthogonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
-            U64 xray_attacks = bitboard_rook_attacks(square, xray_occupancy);
-            int xray_count = __builtin_popcountll(xray_attacks & enemy_king_ring);
-            record_king_ring_attacks(type, xray_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
-        }
+        
+        // Attacks without x-rayed pieces
+        U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
+        U64 xray_attacks = bitboard_rook_attacks(square, xray_occupancy);
+        int xray_count = __builtin_popcountll(xray_attacks & enemy_king_ring);
+        record_king_ring_attacks(type, xray_count, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
+        int xray_def = __builtin_popcountll(xray_attacks & own_king_ring);
+        record_king_ring_defenses(type, xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
 
-        int direct_def = __builtin_popcountll(attacks & own_king_ring);
-        record_king_ring_defenses(type, direct_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        if (frontline_orthogonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
-            U64 xray_attacks = bitboard_rook_attacks(square, xray_occupancy);
-            int xray_def = __builtin_popcountll(xray_attacks & own_king_ring);
-            record_king_ring_defenses(type, xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        }
         break;
     }
     case WHITE_QUEEN:
@@ -611,49 +595,30 @@ static Score evaluate_piece(const Board *board,
         }
 
         // Diagonal direct & X-ray attacks
-        int bishop_direct = __builtin_popcountll(bishop_atk & enemy_king_ring);
-        record_king_ring_attacks(type, bishop_direct, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
         U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
         U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
         U64 frontline_diagonals = bishop_atk & (own_bishops_queens | enemy_bishops_queens);
-        if (frontline_diagonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_diagonals;
-            U64 xray_bishop_attacks = bitboard_bishop_attacks(square, xray_occupancy);
-            int bishop_xray = __builtin_popcountll(xray_bishop_attacks & enemy_king_ring);
-            record_king_ring_attacks(type, bishop_xray, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
-        }
+        
+        // Attacks without x-rayed pieces
+        U64 xray_occupancy = all_pieces ^ frontline_diagonals;
+        U64 xray_bishop_attacks = bitboard_bishop_attacks(square, xray_occupancy);
+        int bishop_xray = __builtin_popcountll(xray_bishop_attacks & enemy_king_ring);
+        record_king_ring_attacks(type, bishop_xray, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
+        int bishop_xray_def = __builtin_popcountll(xray_bishop_attacks & own_king_ring);
+        record_king_ring_defenses(type, bishop_xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
 
         // Orthogonal direct & X-ray attacks
-        int rook_direct = __builtin_popcountll(rook_atk & enemy_king_ring);
-        record_king_ring_attacks(type, rook_direct, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
         U64 own_rooks_queens = board->pieces[side == WHITE ? WHITE_ROOK : BLACK_ROOK] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
         U64 enemy_rooks_queens = board->pieces[side == WHITE ? BLACK_ROOK : WHITE_ROOK] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
         U64 frontline_orthogonals = rook_atk & (own_rooks_queens | enemy_rooks_queens);
-        if (frontline_orthogonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
-            U64 xray_rook_attacks = bitboard_rook_attacks(square, xray_occupancy);
-            int rook_xray = __builtin_popcountll(xray_rook_attacks & enemy_king_ring);
-            record_king_ring_attacks(type, rook_xray, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
-        }
-
-        // Defenders
-        int bishop_direct_def = __builtin_popcountll(bishop_atk & own_king_ring);
-        record_king_ring_defenses(type, bishop_direct_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        if (frontline_diagonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_diagonals;
-            U64 xray_bishop_attacks = bitboard_bishop_attacks(square, xray_occupancy);
-            int bishop_xray_def = __builtin_popcountll(xray_bishop_attacks & own_king_ring);
-            record_king_ring_defenses(type, bishop_xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        }
-
-        int rook_direct_def = __builtin_popcountll(rook_atk & own_king_ring);
-        record_king_ring_defenses(type, rook_direct_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        if (frontline_orthogonals) {
-            U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
-            U64 xray_rook_attacks = bitboard_rook_attacks(square, xray_occupancy);
-            int rook_xray_def = __builtin_popcountll(xray_rook_attacks & own_king_ring);
-            record_king_ring_defenses(type, rook_xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
-        }
+        
+        // Attacks without x-rayed pieces
+        xray_occupancy = all_pieces ^ frontline_orthogonals;
+        U64 xray_rook_attacks = bitboard_rook_attacks(square, xray_occupancy);
+        int rook_xray = __builtin_popcountll(xray_rook_attacks & enemy_king_ring);
+        record_king_ring_attacks(type, rook_xray, king_ring_attackers_mg, king_ring_attackers_eg, trace_attackers);
+        int rook_xray_def = __builtin_popcountll(xray_rook_attacks & own_king_ring);
+        record_king_ring_defenses(type, rook_xray_def, is_hanging, king_ring_defenders_mg, king_ring_defenders_eg, trace_defenders);
         break;
     }
     case WHITE_KING:
