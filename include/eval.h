@@ -23,6 +23,8 @@ typedef struct {
     int16_t white_defenders[5];
     int16_t black_attackers[5];
     int16_t black_defenders[5];
+
+    int8_t  check_bonus_counts[16]; // [piece(4)][stm(2)][safe(2)]
 } PositionFeatures;
 
 typedef PositionFeatures EvalTrace;
