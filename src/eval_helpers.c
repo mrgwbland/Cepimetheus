@@ -3,7 +3,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-extern int piece_values_mg[6];
 
 /* File masks - one per file (A-H) */
 const U64 file_masks[8] = {
@@ -51,7 +50,10 @@ static uint64_t phase_reciprocal = 0;
 
 void update_endgame_weight_reciprocal(void)
 {
-    int initial_piece_value = 4 * piece_values_mg[WHITE_KNIGHT] + 4 * piece_values_mg[WHITE_BISHOP] + 4 * piece_values_mg[WHITE_ROOK] + 2 * piece_values_mg[WHITE_QUEEN];
+    int initial_piece_value = 4 * endgame_contribution_weights[0] +
+                              4 * endgame_contribution_weights[1] +
+                              4 * endgame_contribution_weights[2] +
+                              2 * endgame_contribution_weights[3];
     if (initial_piece_value <= 0)
     {
         phase_reciprocal = 0;
@@ -70,11 +72,11 @@ int get_endgame_weight(const Board *board)
 
     for (int i = WHITE_KNIGHT; i < WHITE_KING; i++)
     {
-        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values_mg[i];
+        total_piece_value += __builtin_popcountll(board->pieces[i]) * endgame_contribution_weights[i - WHITE_KNIGHT];
     }
     for (int i = BLACK_KNIGHT; i < BLACK_KING; i++)
     {
-        total_piece_value += __builtin_popcountll(board->pieces[i]) * piece_values_mg[i - 6];
+        total_piece_value += __builtin_popcountll(board->pieces[i]) * endgame_contribution_weights[i - BLACK_KNIGHT];
     }
 
     if (phase_reciprocal == 0)

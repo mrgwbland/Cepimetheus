@@ -12,39 +12,39 @@
 #include <omp.h>
 
 int piece_values_mg[6] = {
-    1000, 2120, 2770, 3070, 7210, 0
+    1000, 2120, 2780, 3130, 7000, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3920, 3500, 6605, 11490, 0
+    1000, 3915, 3495, 6520, 11670, 0
 };
 
 int eval_parameters_mg[29] = {
-    180, 226, 0, 18, 144, 23, 94, 65, 45, 333, 11, 7, 147, 75, 502, 68, 0, 69, 278, 202, 142, 0, 38, 53, 0, 226, 87, 45, 8
+    180, 226, 0, 19, 144, 22, 95, 66, 44, 331, 12, 7, 145, 74, 496, 67, 0, 65, 276,197, 99, 0, 38, 51, 0, 225, 90, 45, 9
 };
 
 int eval_parameters_eg[29] = {
-    102, 6, 93, 30, 73, 120, 99, 66, 15, 70, 38, 0, 198, 98, 1011, 55, 39, 721, 84, 0, 114, 169, 0, 33, 70, 52, 3, 39, 124
+    104, 11, 93, 30, 74, 119, 99, 64, 18, 77, 35, 0, 194, 102, 1017, 56, 39, 727, 85, 0, 115, 168, 0, 32, 69, 58, 0, 42, 119
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 7, 369, 576, 570
+    0, 0, 11, 369, 580, 604
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 371, 591, 1028, 1962
+    0, 0, 363, 585, 1018, 1936
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 10, 38, 122, 533, 1065
+    0, 11, 37, 120, 529, 1047
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 33, 9, 129, 297, 516
+    0, 34, 11, 132, 303, 528
 };
 
 int piece_attack_weights_mg[5] = {
-    35, 65, 53, 46, 64
+    36, 65, 53, 46, 60
 };
 
 int piece_attack_weights_eg[5] = {
@@ -52,19 +52,23 @@ int piece_attack_weights_eg[5] = {
 };
 
 int piece_defense_weights_mg[5] = {
-    21, 34, 21, 6, 0
+    21, 33, 20, 3, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    283, 83, 191, 178, 208
+    132, 76, 140, 173, 157
 };
 
 int check_bonus_mg[16] = {
-    70, 491, 89, 859, 34, 61, 4, 60, 192, 375, 240, 596, 0, 52, 26, 98
+    70, 492, 92, 882, 32, 58, 4, 61, 192, 378, 238, 586, 0, 51, 24, 94
 };
 
 int check_bonus_eg[16] = {
-    36, 45, 24, 0, 176, 166, 253, 239, 27, 131, 0, 85, 48, 158, 209, 327
+    37, 51, 22, 0, 162, 160, 242, 228, 25, 134, 0, 96, 60, 180, 225, 361
+};
+
+int endgame_contribution_weights[4] = {
+    1820, 2625, 2620, 7500
 };
 
 // Macros for parameter indices
@@ -1595,6 +1599,14 @@ static void apply_evaluation_weights(const int *weights)
         offset++;
     }
 
+    for (int i = 0; i < 4; ++i) {
+        if (endgame_contribution_weights[i] != weights[offset]) {
+            endgame_contribution_weights[i] = weights[offset];
+            weights_changed = true;
+        }
+        offset++;
+    }
+
     if (weights_changed || !eval_initialised)
     {
         init_eval();
@@ -1612,7 +1624,8 @@ static void extract_position_features(const Board *board, PositionFeatures *feat
 
 static inline uint64_t compute_phase_reciprocal(const int *weights)
 {
-    int initial_piece_value = 4 * weights[1] + 4 * weights[2] + 4 * weights[3] + 2 * weights[4];
+    const int *ec_w = &weights[146];
+    int initial_piece_value = 4 * ec_w[0] + 4 * ec_w[1] + 4 * ec_w[2] + 2 * ec_w[3];
     if (initial_piece_value <= 0) return 0;
     return ((1024ULL << 32) + (initial_piece_value / 2)) / initial_piece_value;
 }
@@ -1633,12 +1646,13 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *df_eg = &weights[109];
     const int *cb_mg = &weights[114];
     const int *cb_eg = &weights[130];
+    const int *ec_w  = &weights[146];
 
     int total_piece_value =
-        feat->total_pieces[0] * pw_mg[1] +
-        feat->total_pieces[1] * pw_mg[2] +
-        feat->total_pieces[2] * pw_mg[3] +
-        feat->total_pieces[3] * pw_mg[4];
+        feat->total_pieces[0] * ec_w[0] +
+        feat->total_pieces[1] * ec_w[1] +
+        feat->total_pieces[2] * ec_w[2] +
+        feat->total_pieces[3] * ec_w[3];
 
     int phase = 1024 - (int)(((uint64_t)total_piece_value * phase_reciprocal + (1ULL << 31)) >> 32);
     if (phase < 0) phase = 0;

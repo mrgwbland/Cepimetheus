@@ -37,6 +37,8 @@ typedef enum {
 
 enum { MATE_SCORE = 32000 };
 
+extern int endgame_contribution_weights[4];
+
 int get_endgame_weight(const Board *board);
 EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move);
 int eval_terminal_score(EvalTerminalState terminal_state, int ply);
