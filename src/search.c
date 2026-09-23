@@ -409,17 +409,30 @@ static SearchResult negamax(Board *board,
             static_eval = evaluate_position(board);
         }
         ss->static_eval = static_eval;
+
+        int eval = static_eval;
+        //Improve eval estimation based on TT score and bounds
+        if (entry != NULL && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
+        {
+            if (tt_bound == TT_SCORE_EXACT
+                || (tt_bound == TT_SCORE_LOWER && tt_score > eval)
+                || (tt_bound == TT_SCORE_UPPER && tt_score < eval))
+            {
+                eval = tt_score;
+            }
+        }
+
         // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node (the position is so good it's already winning)
         if (!pv_node && depth <= rfp_max_depth
-            && abs(static_eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
-            && static_eval - rfp_margin * depth > beta) 
+            && abs(eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
+            && eval - rfp_margin * depth > beta) 
         {
-            result.score = static_eval;
+            result.score = eval;
             return result;
         }                    
         // Futility Pruning: At shallow depths, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves (a quiet move cannot save eval)
         if (depth <= futility_max_depth && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH
-            && static_eval + futility_margin * depth < alpha)
+            && eval + futility_margin * depth < alpha)
         {
             futility_prune = true;
         }
