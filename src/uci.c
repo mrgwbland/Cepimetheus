@@ -449,6 +449,7 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Lichess_Draw_Rules type check default false\n");
             printf("option name Display_Currmove type check default false\n");
             printf("option name UCI_Chess960 type check default false\n");
+            printf("option name Materialism type spin default 100 min 0 max 199\n");
 #ifdef SPSA_TUNING
             /* Pruning & reductions */
             printf("option name FutilityMargin type spin default %d min 0 max 10000\n", futility_margin);
@@ -578,6 +579,13 @@ void uci_loop(int argc, char *argv[]) {
                         option_chess960 = (strncmp(valuetoken, "true", 4) == 0);
                     } else {
                         option_chess960 = true;
+                    }
+                } else if (strncmp(nametoken, "materialism", 11) == 0 && valuetoken != NULL) {
+                    valuetoken += 5;
+                    while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
+                    int parsed_materialism = atoi(valuetoken);
+                    if (parsed_materialism >= 0 && parsed_materialism <= 199) {
+                        set_materialism(parsed_materialism);
                     }
                 }
 #ifdef SPSA_TUNING

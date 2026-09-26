@@ -3,6 +3,7 @@
 #include "endgame.h"
 #include "movegen.h"
 #include "zobrist.h"
+#include "tt.h"
 #include <stdio.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -11,6 +12,14 @@
 #include <math.h>
 #include <omp.h>
 
+int base_piece_values_mg[6] = {
+    1000, 2120, 2780, 3130, 7000, 0
+};
+
+int base_piece_values_eg[6] = {
+    1000, 3915, 3495, 6520, 11670, 0
+};
+
 int piece_values_mg[6] = {
     1000, 2120, 2780, 3130, 7000, 0
 };
@@ -18,6 +27,36 @@ int piece_values_mg[6] = {
 int piece_values_eg[6] = {
     1000, 3915, 3495, 6520, 11670, 0
 };
+
+static int current_materialism = 100;
+
+void set_materialism(int materialism)
+{
+    if (materialism < 0) materialism = 0;
+    if (materialism > 199) materialism = 199;
+    current_materialism = materialism;
+
+    double mult;
+    if (materialism <= 100)
+    {
+        mult = (double)materialism / 100.0;
+    }
+    else
+    {
+        mult = 100.0 / (200.0 - (double)materialism);
+    }
+
+    for (int i = 0; i < 6; ++i)
+    {
+        piece_values_mg[i] = (int)lround(base_piece_values_mg[i] * mult);
+        piece_values_eg[i] = (int)lround(base_piece_values_eg[i] * mult);
+    }
+}
+
+int get_materialism(void)
+{
+    return current_materialism;
+}
 
 int eval_parameters_mg[29] = {
     180, 226, 0, 19, 144, 22, 95, 66, 44, 331, 12, 7, 145, 74, 496, 67, 0, 65, 276,197, 99, 0, 38, 51, 0, 225, 90, 45, 9
@@ -314,6 +353,7 @@ void init_eval(void)
     current_eval_version++;
     endgame_init();
     update_endgame_weight_reciprocal();
+    set_materialism(current_materialism);
     eval_initialised = true;
 }
 
@@ -1459,13 +1499,14 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     int final_score = ((1024 - phase) * mg_total + phase * eg_total) >> 10;
 
     // Cap evaluation to avoid overlap with mate scores
-    if (final_score > 30000)
+    int max_eval = MATE_SCORE - MAX_PLY_DEPTH;
+    if (final_score > max_eval)
     {
-        final_score = 30000;
+        final_score = max_eval;
     }
-    else if (final_score < -30000)
+    else if (final_score < -max_eval)
     {
-        final_score = -30000;
+        final_score = -max_eval;
     }
 
     return board->side == WHITE ? final_score : -final_score;
@@ -1495,19 +1536,21 @@ static void apply_evaluation_weights(const int *weights)
     int offset = 0;
 
     for (int i = 0; i < 6; ++i) {
-        if (piece_values_mg[i] != weights[offset]) {
-            piece_values_mg[i] = weights[offset];
+        if (base_piece_values_mg[i] != weights[offset]) {
+            base_piece_values_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
     for (int i = 0; i < 6; ++i) {
-        if (piece_values_eg[i] != weights[offset]) {
-            piece_values_eg[i] = weights[offset];
+        if (base_piece_values_eg[i] != weights[offset]) {
+            base_piece_values_eg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
+
+    set_materialism(100);
 
     for (int i = 0; i < 29; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {

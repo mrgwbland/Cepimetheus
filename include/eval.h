@@ -45,6 +45,9 @@ int eval_terminal_score(EvalTerminalState terminal_state, int ply);
 void init_eval(void);
 int evaluate_position(Board *board);
 
+void set_materialism(int materialism);
+int get_materialism(void);
+
 /* Python Bridge Functions */
 int init_tuning_dataset(const char *dataset_path);
 void free_tuning_dataset(void);
