@@ -19,6 +19,7 @@ My testing games include several third party "anchor engines", these are engines
 
 | Version | CCRL Blitz Rating | Estimated CCRL Blitz Rating | CCRL Rapid Rating | COPE Bullet Rating | COPE Rapid Rating
 | :--- | :---: | :---: | :---: | :---: | :---: |
+| **Cepimetheus 17.0.0** | N/A | **2869.6** | N/A | N/A | N/A
 | **Cepimetheus 16.0.0** | **2762** | **2762.0** | N/A | N/A | N/A
 | **Cepimetheus 15.0.0** | N/A | **2640.0** | **2617** | **2725** | **2922**
 | **Cepimetheus 14.0.1** | N/A | **2569.6** | **2517** | **2647** | **2771**
