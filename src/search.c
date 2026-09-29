@@ -143,7 +143,7 @@ static int quiescence(Board *board,
         }
     }
 
-    if (context != NULL)
+    if (context != NULL && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha, beta);
         transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, ss->static_eval, ply);
@@ -584,6 +584,12 @@ static SearchResult negamax(Board *board,
             if (r > 0)
             {
                 child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                if (control->stop)
+                {
+                    --history->count;
+                    board_unmake_move(board, &undo);
+                    break;
+                }
                 int score = -child.score;
                 if (score > alpha) //If it fails high do a full search
                 {
@@ -594,6 +600,14 @@ static SearchResult negamax(Board *board,
             {
                 child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
+
+            if (control->stop)
+            {
+                --history->count;
+                board_unmake_move(board, &undo);
+                break;
+            }
+
             int score = -child.score;
 
             // If the null-window search fails high, we must re-search with the full window.
@@ -603,6 +617,14 @@ static SearchResult negamax(Board *board,
                 child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
         }
+
+        if (control->stop)
+        {
+            --history->count;
+            board_unmake_move(board, &undo);
+            break;
+        }
+
         int score = -child.score;
         legal_moves_searched++;
 
@@ -706,7 +728,7 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    if (context != NULL && ss->excluded_move == MOVE_NONE)
+    if (context != NULL && ss->excluded_move == MOVE_NONE && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
         transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : ss->static_eval, ply);
@@ -860,6 +882,12 @@ SearchResult search_root(Board *board,
             if (r > 0)
             {
                 child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                if (control->stop)
+                {
+                    --history->count;
+                    board_unmake_move(board, &undo);
+                    break;
+                }
                 int score = -child.score;
                 if (score > alpha)
                 {
@@ -870,6 +898,14 @@ SearchResult search_root(Board *board,
             {
                 child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
+
+            if (control->stop)
+            {
+                --history->count;
+                board_unmake_move(board, &undo);
+                break;
+            }
+
             int score = -child.score;
 
             // If the null-window search fails high, re-search with the full window.
@@ -878,6 +914,14 @@ SearchResult search_root(Board *board,
                 child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
         }
+
+        if (control->stop)
+        {
+            --history->count;
+            board_unmake_move(board, &undo);
+            break;
+        }
+
         int score = -child.score;
         legal_moves_searched++;
 
@@ -924,7 +968,7 @@ SearchResult search_root(Board *board,
         }
     }
 
-    if (context != NULL)
+    if (context != NULL && !control->stop)
     {
         root_moves_sort(&context->root_moves, excluded_move_count);
         // hashfull of 0 means empty TT, 1000 means full TT
@@ -941,7 +985,7 @@ SearchResult search_root(Board *board,
         }
     }
 
-    if (context != NULL)
+    if (context != NULL && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
         transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move,ss->static_eval, 0);

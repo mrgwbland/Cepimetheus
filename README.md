@@ -100,6 +100,6 @@ Alternatively you can also of course compile it yourself from the source code.
 | **POPCNT** | **1st Gen to 3rd Gen Core** | **Phenom II, FX Series** |
 | **64** | **Legacy 64-bit CPUs** *(Core 2 Duo, Pentium D)* | **Legacy 64-bit CPUs** *(Athlon 64, Opteron)* |
 
-To avoid confusion, before the release of v15.0.0, I didn't release a binary called BMI2, however the old AVX2 binaries are equivalent to the new BMI2 binaries in that they demand hardware PEXT, for this reason, for older releases, POPCNT binaries are potentially superior on older Zen architectures, although this is still ineffficient as they lack the AVX2 support (and only run on software PEXT rather than magic bitboards), hence my introduction of the new binary beginning with version 15.0.0.
+**Note on previous versions:** before the release of v15.0.0, I didn't release a binary called BMI2, however the old AVX2 binaries are equivalent to the new BMI2 binaries in that they demand hardware PEXT, for this reason, for older releases, POPCNT binaries are potentially superior on older Zen architectures, although this is still ineffficient as they lack the AVX2 support (and only run on software PEXT rather than magic bitboards), hence my introduction of the new binary beginning with version 15.0.0.
 
 Please note that the older the version of engine you get, not only will it be weaker, but the potential for bugs will increase, versions 6.4.1 and later have no major bugs.

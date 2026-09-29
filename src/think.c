@@ -554,6 +554,23 @@ Move think(Board *board,
             }
         }
 
+        if (control.stop || (stop_signal != NULL && *stop_signal))
+        {
+            if (best_result.move == MOVE_NONE)
+            {
+                if (depth_best_result.move != MOVE_NONE)
+                {
+                    best_result = depth_best_result;
+                }
+                else if (search_context->root_moves.count > 0 && search_context->root_moves.entries[0].move != MOVE_NONE)
+                {
+                    best_result.move = search_context->root_moves.entries[0].move;
+                    best_result.score = search_context->root_moves.entries[0].score;
+                }
+            }
+            break;
+        }
+
         root_moves_sort(&search_context->root_moves, 0);
 
         if (search_context->root_moves.count > 0 && search_context->root_moves.entries[0].move != MOVE_NONE && search_context->root_moves.entries[0].score > -MATE_SCORE)
