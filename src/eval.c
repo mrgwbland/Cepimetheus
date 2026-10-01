@@ -13,101 +13,71 @@
 #include <omp.h>
 
 int base_piece_values_mg[6] = {
-    1000, 2120, 2780, 3130, 7000, 0
+    1000, 2120, 2765, 3135, 7010, 0
 };
 
 int base_piece_values_eg[6] = {
-    1000, 3915, 3495, 6520, 11670, 0
+    1000, 3895, 3490, 6490, 11610, 0
 };
 
 int piece_values_mg[6] = {
-    1000, 2120, 2780, 3130, 7000, 0
+    1000, 2120, 2765, 3135, 7010, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3915, 3495, 6520, 11670, 0
+    1000, 3895, 3490, 6490, 11610, 0
 };
 
-static int current_materialism = 100;
-
-void set_materialism(int materialism)
-{
-    if (materialism < 0) materialism = 0;
-    if (materialism > 199) materialism = 199;
-    current_materialism = materialism;
-
-    double mult;
-    if (materialism <= 100)
-    {
-        mult = (double)materialism / 100.0;
-    }
-    else
-    {
-        mult = 100.0 / (200.0 - (double)materialism);
-    }
-
-    for (int i = 0; i < 6; ++i)
-    {
-        piece_values_mg[i] = (int)lround(base_piece_values_mg[i] * mult);
-        piece_values_eg[i] = (int)lround(base_piece_values_eg[i] * mult);
-    }
-}
-
-int get_materialism(void)
-{
-    return current_materialism;
-}
-
-int eval_parameters_mg[29] = {
-    180, 226, 0, 19, 144, 22, 95, 66, 44, 331, 12, 7, 145, 74, 496, 67, 0, 65, 276,197, 99, 0, 38, 51, 0, 225, 90, 45, 9
+int eval_parameters_mg[32] = {
+    180, 227, 0, 17, 143, 24, 96, 67, 43, 332, 11, 10, 141, 74, 497, 67, 0, 72, 278, 196, 100, 0, 37, 51, 0, 214, 89, 47, 8, 0, 166, 15
 };
 
-int eval_parameters_eg[29] = {
-    104, 11, 93, 30, 74, 119, 99, 64, 18, 77, 35, 0, 194, 102, 1017, 56, 39, 727, 85, 0, 115, 168, 0, 32, 69, 58, 0, 42, 119
+int eval_parameters_eg[32] = {
+    104, 14, 91, 31, 75, 118, 99, 64, 20, 77, 41, 0, 194, 103, 1017, 56, 39, 716, 85, 0, 115, 168,0, 31, 61, 57, 0, 40, 120, 174, 0, 158
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 11, 369, 580, 604
+    0, 0, 13, 369, 580, 587
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 363, 585, 1018, 1936
+    0, 0, 362, 586, 1016, 1939
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 11, 37, 120, 529, 1047
+    0, 11, 39, 121, 529, 1042
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 34, 11, 132, 303, 528
+    0, 35, 10, 134, 300, 532
 };
 
 int piece_attack_weights_mg[5] = {
-    36, 65, 53, 46, 60
+    36, 64, 52, 48, 62
 };
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 0, 0, 0
+    1, 0, 0, 0, 0
 };
 
 int piece_defense_weights_mg[5] = {
-    21, 33, 20, 3, 0
+    21, 33, 20, 4, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    132, 76, 140, 173, 157
+    53, 126, 234, 223, 172
 };
 
 int check_bonus_mg[16] = {
-    70, 492, 92, 882, 32, 58, 4, 61, 192, 378, 238, 586, 0, 51, 24, 94
+    70, 490, 90, 878, 31, 58, 3, 62, 134, 343, 191, 559, 0, 52, 23, 94
 };
 
 int check_bonus_eg[16] = {
-    37, 51, 22, 0, 162, 160, 242, 228, 25, 134, 0, 96, 60, 180, 225, 361
+    32, 49, 20, 0, 119, 146, 196, 216, 37, 132, 0, 93, 28, 158, 196, 341
 };
 
 int endgame_contribution_weights[4] = {
-    1820, 2625, 2620, 7500
+    1745, 2720, 2625, 7500
 };
 
 // Macros for parameter indices
@@ -140,8 +110,42 @@ int endgame_contribution_weights[4] = {
 #define BAD_BISHOP_PENALTY 26
 #define KNIGHT_BAD_MOVE_PENALTY 27
 #define BACKWARD_PAWN_PENALTY 28
+#define BISHOP_ALIGNMENT_BONUS 29
+#define ROOK_ALIGNMENT_BONUS 30
+#define QUEEN_ALIGNMENT_BONUS 31
 
 #define DARK_SQUARES 0xAA55AA55AA55AA55ULL
+
+
+static int current_materialism = 100;
+
+void set_materialism(int materialism)
+{
+    if (materialism < 0) materialism = 0;
+    if (materialism > 199) materialism = 199;
+    current_materialism = materialism;
+
+    double mult;
+    if (materialism <= 100)
+    {
+        mult = (double)materialism / 100.0;
+    }
+    else
+    {
+        mult = 100.0 / (200.0 - (double)materialism);
+    }
+
+    for (int i = 0; i < 6; ++i)
+    {
+        piece_values_mg[i] = (int)lround(base_piece_values_mg[i] * mult);
+        piece_values_eg[i] = (int)lround(base_piece_values_eg[i] * mult);
+    }
+}
+
+int get_materialism(void)
+{
+    return current_materialism;
+}
 
 /* Central 3 files on the opposite side of the king (files D,E,F for queenside king; C,D,E for kingside king) */
 static const U64 king_sq_central_files[64] = {
@@ -1255,6 +1259,31 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     U64 b_rook_checks   = (white_king_sq >= 0) ? bitboard_rook_attacks(white_king_sq, all_pieces) : 0ULL;
     U64 b_queen_checks  = b_bishop_checks | b_rook_checks;
 
+    // Sliding piece alignment with enemy king
+    U64 w_bishop_align = (black_king_sq >= 0) ? bitboard_bishop_attacks(black_king_sq, 0ULL) : 0ULL;
+    U64 w_rook_align   = (black_king_sq >= 0) ? bitboard_rook_attacks(black_king_sq, 0ULL) : 0ULL;
+    U64 w_queen_align  = w_bishop_align | w_rook_align;
+
+    U64 b_bishop_align = (white_king_sq >= 0) ? bitboard_bishop_attacks(white_king_sq, 0ULL) : 0ULL;
+    U64 b_rook_align   = (white_king_sq >= 0) ? bitboard_rook_attacks(white_king_sq, 0ULL) : 0ULL;
+    U64 b_queen_align  = b_bishop_align | b_rook_align;
+
+    int w_bishop_align_cnt = __builtin_popcountll(board->pieces[WHITE_BISHOP] & w_bishop_align);
+    int w_rook_align_cnt   = __builtin_popcountll(board->pieces[WHITE_ROOK] & w_rook_align);
+    int w_queen_align_cnt  = __builtin_popcountll(board->pieces[WHITE_QUEEN] & w_queen_align);
+
+    int b_bishop_align_cnt = __builtin_popcountll(board->pieces[BLACK_BISHOP] & b_bishop_align);
+    int b_rook_align_cnt   = __builtin_popcountll(board->pieces[BLACK_ROOK] & b_rook_align);
+    int b_queen_align_cnt  = __builtin_popcountll(board->pieces[BLACK_QUEEN] & b_queen_align);
+
+    score_param(&white_score, trace, BISHOP_ALIGNMENT_BONUS, w_bishop_align_cnt, true);
+    score_param(&white_score, trace, ROOK_ALIGNMENT_BONUS,   w_rook_align_cnt,   true);
+    score_param(&white_score, trace, QUEEN_ALIGNMENT_BONUS,  w_queen_align_cnt,  true);
+
+    score_param(&black_score, trace, BISHOP_ALIGNMENT_BONUS, b_bishop_align_cnt, false);
+    score_param(&black_score, trace, ROOK_ALIGNMENT_BONUS,   b_rook_align_cnt,   false);
+    score_param(&black_score, trace, QUEEN_ALIGNMENT_BONUS,  b_queen_align_cnt,  false);
+
     for (int piece = 0; piece < PIECE_NB; ++piece)
     {
         if (piece == WHITE_PAWN || piece == BLACK_PAWN)
@@ -1552,14 +1581,14 @@ static void apply_evaluation_weights(const int *weights)
 
     set_materialism(100);
 
-    for (int i = 0; i < 29; ++i) {
+    for (int i = 0; i < 32; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 29; ++i) {
+    for (int i = 0; i < 32; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
@@ -1667,7 +1696,7 @@ static void extract_position_features(const Board *board, PositionFeatures *feat
 
 static inline uint64_t compute_phase_reciprocal(const int *weights)
 {
-    const int *ec_w = &weights[146];
+    const int *ec_w = &weights[152];
     int initial_piece_value = 4 * ec_w[0] + 4 * ec_w[1] + 4 * ec_w[2] + 2 * ec_w[3];
     if (initial_piece_value <= 0) return 0;
     return ((1024ULL << 32) + (initial_piece_value / 2)) / initial_piece_value;
@@ -1678,18 +1707,18 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *pw_mg = &weights[0];
     const int *pw_eg = &weights[6];
     const int *ep_mg = &weights[12];
-    const int *ep_eg = &weights[41];
-    const int *pp_mg = &weights[70];
-    const int *pp_eg = &weights[76];
-    const int *px_mg = &weights[82];
-    const int *px_eg = &weights[88];
-    const int *at_mg = &weights[94];
-    const int *at_eg = &weights[99];
-    const int *df_mg = &weights[104];
-    const int *df_eg = &weights[109];
-    const int *cb_mg = &weights[114];
-    const int *cb_eg = &weights[130];
-    const int *ec_w  = &weights[146];
+    const int *ep_eg = &weights[44];
+    const int *pp_mg = &weights[76];
+    const int *pp_eg = &weights[82];
+    const int *px_mg = &weights[88];
+    const int *px_eg = &weights[94];
+    const int *at_mg = &weights[100];
+    const int *at_eg = &weights[105];
+    const int *df_mg = &weights[110];
+    const int *df_eg = &weights[115];
+    const int *cb_mg = &weights[120];
+    const int *cb_eg = &weights[136];
+    const int *ec_w  = &weights[152];
 
     int total_piece_value =
         feat->total_pieces[0] * ec_w[0] +
@@ -1731,7 +1760,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     // 4. General evaluation parameters
-    for (int p = 0; p < 29; ++p)
+    for (int p = 0; p < 32; ++p)
     {
         mg_total += ep_mg[p] * feat->eval_param_counts_mg[p];
         eg_total += ep_eg[p] * feat->eval_param_counts_eg[p];
