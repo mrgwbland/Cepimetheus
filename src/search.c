@@ -392,6 +392,7 @@ static SearchResult negamax(Board *board,
 
     bool in_check = board_is_in_check(board, board->side);      
     bool futility_prune = false; 
+    bool improving = false;
     if (in_check)
     {
         depth += check_extension; // Check extension to ensure forcing lines are fully explored
@@ -409,6 +410,8 @@ static SearchResult negamax(Board *board,
             static_eval = evaluate_position(board);
         }
         ss->static_eval = static_eval;
+
+        improving = !in_check && ply > 1 && (ss - 2)->static_eval != EVAL_NONE && ss->static_eval > (ss - 2)->static_eval;
 
         int eval = static_eval;
         //Improve eval estimation based on TT score and bounds
@@ -583,7 +586,11 @@ static SearchResult negamax(Board *board,
 
             if (r > 0)
             {
-                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                if (!improving)
+                {
+                    r++;
+                }
+                child = negamax(board, depth -1 -r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 if (control->stop)
                 {
                     --history->count;
@@ -761,6 +768,10 @@ SearchResult search_root(Board *board,
 
     SearchStack stack[MAX_PLY_DEPTH + STACK_OFFSET + 4];
     memset(stack, 0, sizeof(stack));
+    for (int i = 0; i < STACK_OFFSET; ++i)
+    {
+        stack[i].static_eval = EVAL_NONE;
+    }
     SearchStack *ss = stack + STACK_OFFSET;
     ss->ply = 0;
     ss->move = MOVE_NONE;
