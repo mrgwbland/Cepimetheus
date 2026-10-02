@@ -532,7 +532,9 @@ static SearchResult negamax(Board *board,
         // Late Move Pruning (LMP) - Quiet only pruning when remaining depth <= lmp_max_depth
         if (depth <= lmp_max_depth && depth < 33 && !in_check && is_quiet && !pv_node)
         {
-            if (quiet_searched_count >= lmp_quiet_limits[depth])
+            // When not improving, halve the number of quiet moves retained
+            int limit = improving ? lmp_quiet_limits[depth] : (lmp_quiet_limits[depth] >> 1);
+            if (quiet_searched_count >= limit)
             {
                 continue;
             }
