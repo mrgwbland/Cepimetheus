@@ -251,11 +251,29 @@ void board_init(Board *board) {
     bitboard_init_tables();
     zobrist_init();
     board_clear(board);
-    board_set_startpos(board);
+    board_set_special(board, "startpos");
 }
 
-void board_set_startpos(Board *board) {
-    board_set_fen(board, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+typedef struct {
+    const char *name;
+    const char *fen;
+} SpecialPosition;
+
+static const SpecialPosition SPECIAL_POSITIONS[] = {
+    {"startpos", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"},
+    {"kiwipete", "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1"}
+};
+
+bool board_set_special(Board *board, const char *name) {
+    if (board == NULL || name == NULL) {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(SPECIAL_POSITIONS) / sizeof(SPECIAL_POSITIONS[0]); ++i) {
+        if (strcmp(name, SPECIAL_POSITIONS[i].name) == 0) {
+            return board_set_fen(board, SPECIAL_POSITIONS[i].fen);
+        }
+    }
+    return false;
 }
 
 int board_piece_color(int piece) {

@@ -46,8 +46,7 @@ static void apply_position(Board *board, RepetitionHistory *history, char *line)
     }
 
     int move_start = 0;
-    if (strcmp(tokens[1], "startpos") == 0) {
-        board_set_startpos(board);
+    if (board_set_special(board, tokens[1])) {
         push_current_position(board, history);
         move_start = 2;
     } else if (strcmp(tokens[1], "fen") == 0) {
@@ -64,7 +63,7 @@ static void apply_position(Board *board, RepetitionHistory *history, char *line)
             offset += snprintf(fen + offset, sizeof(fen) - offset, "%s%s", (i > 2) ? " " : "", tokens[i]);
         }
         if (!board_set_fen(board, fen)) {
-            board_set_startpos(board);
+            board_set_special(board, "startpos");
         }
         push_current_position(board, history);
         move_start = fen_end;
@@ -643,7 +642,7 @@ void uci_loop(int argc, char *argv[]) {
 
         if (strncmp(line, "ucinewgame", 10) == 0) {
             search_thread_stop_and_join(&search_thread);
-            board_set_startpos(&board);
+            board_set_special(&board, "startpos");
             push_current_position(&board, &history);
             search_context_clear(global_search_context);
             continue;
