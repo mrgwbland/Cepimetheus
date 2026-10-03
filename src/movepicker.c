@@ -3,15 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-int history_bonus_cap = 382;
-int history_gravity = 416;
-int history_scale = 23;
-int order_knight_promo = 311;
-int order_bishop_promo = 311;
-int order_rook_promo = 514;
-int order_queen_promo = 856;
-int order_victim_mult = 15;
-int order_castle = 149;
+TUNE_VAR history_bonus_cap = 382;
+TUNE_VAR history_gravity = 416;
+TUNE_VAR history_scale = 23;
+TUNE_VAR order_knight_promo = 311;
+TUNE_VAR order_bishop_promo = 311;
+TUNE_VAR order_rook_promo = 514;
+TUNE_VAR order_queen_promo = 856;
+TUNE_VAR order_victim_mult = 15;
+TUNE_VAR order_castle = 149;
 
 int history_bonus(int depth)
 {

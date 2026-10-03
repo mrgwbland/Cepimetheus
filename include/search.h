@@ -76,49 +76,55 @@ void reinit_lmr(void);
 void init_lmp(void);
 void reinit_lmp(void);
 
+#ifdef SPSA_TUNING
+#define TUNE_VAR int
+#else
+#define TUNE_VAR const int
+#endif
+
 /* Search parameters */
-extern int futility_margin;
-extern int futility_max_depth;
-extern int rfp_margin;
-extern int rfp_max_depth;
-extern int nmp_min_depth;
-extern int nmp_base_reduction;
-extern int nmp_reduction;
-extern int nmp_depth_scale;
-extern int nmp_min_pieces;
-extern int qs_delta_margin;
-extern int lmr_min_depth;
-extern int lmr_offset;
-extern int lmr_divisor;
-extern int lmr_move_multiplier;
-extern int lmp_base;
-extern int lmp_multiplier;
-extern int lmp_max_depth;
+extern TUNE_VAR futility_margin;
+extern TUNE_VAR futility_max_depth;
+extern TUNE_VAR rfp_margin;
+extern TUNE_VAR rfp_max_depth;
+extern TUNE_VAR nmp_min_depth;
+extern TUNE_VAR nmp_base_reduction;
+extern TUNE_VAR nmp_reduction;
+extern TUNE_VAR nmp_depth_scale;
+extern TUNE_VAR nmp_min_pieces;
+extern TUNE_VAR qs_delta_margin;
+extern TUNE_VAR lmr_min_depth;
+extern TUNE_VAR lmr_offset;
+extern TUNE_VAR lmr_divisor;
+extern TUNE_VAR lmr_move_multiplier;
+extern TUNE_VAR lmp_base;
+extern TUNE_VAR lmp_multiplier;
+extern TUNE_VAR lmp_max_depth;
 extern int lmp_quiet_limits[33];
-extern int se_min_depth;
-extern int se_depth_margin;
-extern int se_margin;
-extern int se_depth_scale;
-extern int se_negative_extension;
-extern int iir_min_depth;
-extern int iir_reduction;
-extern int check_extension;
+extern TUNE_VAR se_min_depth;
+extern TUNE_VAR se_depth_margin;
+extern TUNE_VAR se_margin;
+extern TUNE_VAR se_depth_scale;
+extern TUNE_VAR se_negative_extension;
+extern TUNE_VAR iir_min_depth;
+extern TUNE_VAR iir_reduction;
+extern TUNE_VAR check_extension;
 
 /* Move picker & history parameters */
-extern int history_bonus_cap;
-extern int history_gravity;
-extern int history_scale;
-extern int order_knight_promo;
-extern int order_bishop_promo;
-extern int order_rook_promo;
-extern int order_queen_promo;
-extern int order_victim_mult;
-extern int order_castle;
+extern TUNE_VAR history_bonus_cap;
+extern TUNE_VAR history_gravity;
+extern TUNE_VAR history_scale;
+extern TUNE_VAR order_knight_promo;
+extern TUNE_VAR order_bishop_promo;
+extern TUNE_VAR order_rook_promo;
+extern TUNE_VAR order_queen_promo;
+extern TUNE_VAR order_victim_mult;
+extern TUNE_VAR order_castle;
 
 /* Aspiration window parameters */
-extern int asp_min_depth;
-extern int asp_initial_delta;
-extern int asp_growth_factor;
+extern TUNE_VAR asp_min_depth;
+extern TUNE_VAR asp_initial_delta;
+extern TUNE_VAR asp_growth_factor;
 
 SearchContext *search_context_create(size_t hash_power);
 void search_context_destroy(SearchContext *context);

@@ -9,31 +9,31 @@
 #include <stdlib.h>
 #include <string.h>
 
-int futility_margin = 1473;
-int futility_max_depth = 1;
-int rfp_margin = 974;
-int rfp_max_depth = 7;
-int nmp_min_depth = 3;
-int nmp_base_reduction = 2;
-int nmp_reduction = 2;
-int nmp_depth_scale = 4;
-int nmp_min_pieces = 1;
-int qs_delta_margin = 3206;
-int iir_min_depth = 4;
-int iir_reduction = 1;
-int se_min_depth = 7;
-int se_depth_margin = 3;
-int se_margin = 515;
-int se_depth_scale = 2;
-int se_negative_extension = 0;
-int check_extension = 1;
-int lmr_min_depth = 1;
-int lmr_offset = -28;
-int lmr_divisor = 183;
-int lmr_move_multiplier = 232;
-int lmp_base = 400;
-int lmp_multiplier = 100;
-int lmp_max_depth = 11;
+TUNE_VAR futility_margin = 1473;
+TUNE_VAR futility_max_depth = 1;
+TUNE_VAR rfp_margin = 974;
+TUNE_VAR rfp_max_depth = 7;
+TUNE_VAR nmp_min_depth = 3;
+TUNE_VAR nmp_base_reduction = 2;
+TUNE_VAR nmp_reduction = 2;
+TUNE_VAR nmp_depth_scale = 4;
+TUNE_VAR nmp_min_pieces = 1;
+TUNE_VAR qs_delta_margin = 3206;
+TUNE_VAR iir_min_depth = 4;
+TUNE_VAR iir_reduction = 1;
+TUNE_VAR se_min_depth = 7;
+TUNE_VAR se_depth_margin = 3;
+TUNE_VAR se_margin = 515;
+TUNE_VAR se_depth_scale = 2;
+TUNE_VAR se_negative_extension = 0;
+TUNE_VAR check_extension = 1;
+TUNE_VAR lmr_min_depth = 1;
+TUNE_VAR lmr_offset = -28;
+TUNE_VAR lmr_divisor = 183;
+TUNE_VAR lmr_move_multiplier = 232;
+TUNE_VAR lmp_base = 400;
+TUNE_VAR lmp_multiplier = 100;
+TUNE_VAR lmp_max_depth = 11;
 int lmp_quiet_limits[33];
 static bool lmp_initialised = false;
 

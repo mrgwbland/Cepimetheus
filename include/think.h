@@ -41,11 +41,10 @@ Move think(Board *board,
 
 void get_score_string(int score, char *buffer, size_t size);
 long long current_time_ms(void);
-
 /* Time management parameters */
-extern int time_soft_divisor;
-extern int time_hard_divisor;
-extern int time_scale_min_depth;
-extern int time_node_scale;
+extern TUNE_VAR time_soft_divisor;
+extern TUNE_VAR time_hard_divisor;
+extern TUNE_VAR time_scale_min_depth;
+extern TUNE_VAR time_node_scale;
 
 #endif

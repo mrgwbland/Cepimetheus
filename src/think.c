@@ -12,14 +12,14 @@
 #include <sys/time.h>
 #endif
 
-int asp_min_depth = 5;
-int asp_initial_delta = 229;
-int asp_growth_factor = 153;
+TUNE_VAR asp_min_depth = 5;
+TUNE_VAR asp_initial_delta = 229;
+TUNE_VAR asp_growth_factor = 153;
 
-int time_soft_divisor = 30;
-int time_hard_divisor = 5;
-int time_scale_min_depth = 8;
-int time_node_scale = 167;
+TUNE_VAR time_soft_divisor = 30;
+TUNE_VAR time_hard_divisor = 5;
+TUNE_VAR time_scale_min_depth = 8;
+TUNE_VAR time_node_scale = 167;
 
 static int score_to_cp(int score)
 {
