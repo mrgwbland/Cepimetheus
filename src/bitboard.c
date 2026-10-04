@@ -381,10 +381,6 @@ U64 bitboard_square(int square) {
 }
 //Returns the index of the least significant set bit and clears it from the bitboard
 int bitboard_pop_lsb(U64 *bitboard) {
-    if (*bitboard == 0) {
-        return -1;
-    }
-
     U64 value = *bitboard;
     int square = __builtin_ctzll(value);
     *bitboard = value & (value - 1ULL);// Clear the least significant bit
@@ -392,17 +388,14 @@ int bitboard_pop_lsb(U64 *bitboard) {
 }
 
 U64 bitboard_knight_attacks(int square) {
-    bitboard_init_tables();
     return knight_table[square];
 }
 
 U64 bitboard_king_attacks(int square) {
-    bitboard_init_tables();
     return king_table[square];
 }
 
 U64 bitboard_pawn_attacks(int side, int square) {
-    bitboard_init_tables();
     return pawn_table[side][square];
 }
 
@@ -421,21 +414,17 @@ U64 bitboard_queen_attacks(int square, U64 occupancy) {
 }
 
 U64 bitboard_passed_pawn_mask(int side, int square) {
-    bitboard_init_tables();
     return passed_pawn_masks[side][square];
 }
 
 U64 bitboard_pawn_push_path_mask(int side, int square) {
-    bitboard_init_tables();
     return pawn_push_path_masks[side][square];
 }
 
 U64 bitboard_line_mask(int sq1, int sq2) {
-    bitboard_init_tables();
     return line_masks[sq1][sq2];
 }
 
 U64 bitboard_in_between_mask(int sq1, int sq2) {
-    bitboard_init_tables();
     return in_between_masks[sq1][sq2];
 }
