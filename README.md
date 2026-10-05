@@ -17,22 +17,22 @@ I have also made an effort to estimate the ratings of major versions to better s
 Estimated ratings are calculated with [Ordo]https://github.com/michiguel/Ordo on game pools played at the exact CCRL blitz time control of 120s + 1s increment, my testing cpu has very similar single thread performance to the CCRL baseline 4770K.\
 My testing games include several third party "anchor engines", these are engines that are rated on the CCRL list, to improve the accuracy of the data.
 
-| Version | CCRL Blitz Rating\* | CCRL Rapid Rating | COPE Bullet Rating | COPE Rapid Rating
-| :--- | :---: | :---: | :---: | :---: |
-| **Cepimetheus 17.0.0** | 2869.6 | N/A | N/A | N/A
-| **Cepimetheus 16.0.0** | **2762** | N/A | N/A | N/A
-| **Cepimetheus 15.0.0** | 2640.0 | **2617** | **2725** | **2922**
-| **Cepimetheus 14.0.1** | 2569.6 | **2517** | **2647** | **2771**
-| **Cepimetheus 13.0.0** | 2490.0 | N/A | N/A | N/A
-| **Cepimetheus 12.0.0** | 2335.5 | N/A | N/A | N/A
-| **Cepimetheus 11.0.0** | 2238.1 | N/A | N/A | N/A
-| **Cepimetheus 10.0.0** | **2165** | N/A | N/A | N/A
-| **Cepimetheus 9.0.0** | 2125.1 | N/A | N/A | N/A
-| **Cepimetheus 8.0.0** | 2065.6 | N/A | N/A | N/A
-| **Cepimetheus 7.2.0** | 2005.3 | N/A | N/A | N/A
-| **Cepimetheus 6.4.1** | **1916** | N/A | N/A | N/A
-| **Cepimetheus 5.1.0** | 1706.2 | N/A | N/A | N/A
-| **Cepimetheus 4.3.1** | 1627.7 | N/A | N/A | N/A
+| Version | CCRL Blitz\* | CCRL Rapid | CCRL 40/2 FRC | COPE Bullet | COPE Rapid
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **v17.0.0** | 2869.6 | - | 2876 | - | -
+| **v16.0.0** | **2762** | - | - | - | -
+| **v15.0.0** | 2640.0 | **2617** | - | **2725** | **2922**
+| **v14.0.1** | 2569.6 | **2517** | - | **2647** | **2771**
+| **v13.0.0** | 2490.0 | - | - | - | -
+| **v12.0.0** | 2335.5 | - | - | - | -
+| **v11.0.0** | 2238.1 | - | - | - | -
+| **v10.0.0** | **2165** | - | - | - | -
+| **v9.0.0** | 2125.1 | - | - | - | -
+| **v8.0.0** | 2065.6 | - | - | - | -
+| **v7.2.0** | 2005.3 | - | - | - | -
+| **v6.4.1** | **1916** | - | - | - | -
+| **v5.1.0** | 1706.2 | - | - | - | -
+| **v4.3.1** | 1627.7 | - | - | - | -
 
 > \* Official ratings in bold, estimates normal text
 
