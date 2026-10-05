@@ -454,6 +454,7 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name FutilityMargin type spin default %d min 0 max 10000\n", futility_margin);
             printf("option name Futility_MaxDepth type spin default %d min 0 max 10\n", futility_max_depth);
             printf("option name RFP_Margin type spin default %d min 0 max 10000\n", rfp_margin);
+            printf("option name RFP_ImprovingMargin type spin default %d min 0 max 10000\n", rfp_improving_margin);
             printf("option name RFP_MaxDepth type spin default %d min 0 max 32\n", rfp_max_depth);
             printf("option name NMP_MinDepth type spin default %d min 0 max 32\n", nmp_min_depth);
             printf("option name NMP_BaseReduction type spin default %d min 0 max 10\n", nmp_base_reduction);
@@ -595,6 +596,7 @@ void uci_loop(int argc, char *argv[]) {
 
                     if (strncmp(nametoken, "futilitymargin", 14) == 0) futility_margin = val;
                     else if (strncmp(nametoken, "futility_maxdepth", 17) == 0 || strncmp(nametoken, "futilitymaxdepth", 16) == 0) futility_max_depth = val;
+                    else if (strncmp(nametoken, "rfp_improvingmargin", 19) == 0 || strncmp(nametoken, "rfp_improving_margin", 20) == 0 || strncmp(nametoken, "rfp_impmargin", 13) == 0) rfp_improving_margin = val;
                     else if (strncmp(nametoken, "rfp_margin", 10) == 0) rfp_margin = val;
                     else if (strncmp(nametoken, "rfp_maxdepth", 12) == 0) rfp_max_depth = val;
                     else if (strncmp(nametoken, "nmp_mindepth", 12) == 0) nmp_min_depth = val;

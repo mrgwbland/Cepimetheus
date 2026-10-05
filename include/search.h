@@ -86,6 +86,7 @@ void reinit_lmp(void);
 extern TUNE_VAR futility_margin;
 extern TUNE_VAR futility_max_depth;
 extern TUNE_VAR rfp_margin;
+extern TUNE_VAR rfp_improving_margin;
 extern TUNE_VAR rfp_max_depth;
 extern TUNE_VAR nmp_min_depth;
 extern TUNE_VAR nmp_base_reduction;

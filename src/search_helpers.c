@@ -12,6 +12,7 @@
 TUNE_VAR futility_margin = 1473;
 TUNE_VAR futility_max_depth = 1;
 TUNE_VAR rfp_margin = 974;
+TUNE_VAR rfp_improving_margin = 750;
 TUNE_VAR rfp_max_depth = 7;
 TUNE_VAR nmp_min_depth = 3;
 TUNE_VAR nmp_base_reduction = 2;

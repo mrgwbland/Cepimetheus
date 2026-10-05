@@ -426,9 +426,10 @@ static SearchResult negamax(Board *board,
         }
 
         // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node (the position is so good it's already winning)
+        int rfp_margin_val = (improving ? rfp_improving_margin : rfp_margin) * depth;
         if (!pv_node && depth <= rfp_max_depth
             && abs(eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
-            && eval - rfp_margin * depth > beta) 
+            && eval - rfp_margin_val > beta) 
         {
             result.score = eval;
             return result;
