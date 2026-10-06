@@ -13,72 +13,73 @@
 #include <omp.h>
 
 int base_piece_values_mg[6] = {
-    1000, 2120, 2765, 3135, 7010, 0
+    1000, 2165, 2705, 3345, 7020, 0
 };
 
 int base_piece_values_eg[6] = {
-    1000, 3895, 3490, 6490, 11610, 0
+    1000, 3915, 3575, 6480, 11610, 0
 };
 
 int piece_values_mg[6] = {
-    1000, 2120, 2765, 3135, 7010, 0
+    1000, 2165, 2705, 3345, 7020, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3895, 3490, 6490, 11610, 0
+    1000, 3915, 3575, 6480, 11610, 0
 };
 
 int eval_parameters_mg[32] = {
-    180, 227, 0, 17, 143, 24, 96, 67, 43, 332, 11, 10, 141, 74, 497, 67, 0, 72, 278, 196, 100, 0, 37, 51, 0, 214, 89, 47, 8, 0, 166, 15
+    175, 224, 0, 22, 159, 18, 96, 68, 36, 323, 12, 9, 129, 73, 500, 54, 0, 140, 272, 198, 511, 0, 39, 49, 0, 223, 76, 45, 9, 0, 162, 20
 };
 
 int eval_parameters_eg[32] = {
-    104, 14, 91, 31, 75, 118, 99, 64, 20, 77, 41, 0, 194, 103, 1017, 56, 39, 716, 85, 0, 115, 168,0, 31, 61, 57, 0, 40, 120, 174, 0, 158
+    104, 1, 91, 27, 82, 114, 89, 58, 18, 84, 46, 0, 187, 111, 1053, 61, 45, 673, 91, 0, 114, 165, 0, 44, 64, 130, 11, 35, 107, 157, 0, 194
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 13, 369, 580, 587
+    0, 0, 0, 331, 580, 708
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 362, 586, 1016, 1939
+    0, 0, 363, 608, 1056, 1989
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 11, 39, 121, 529, 1042
+    0, 7, 34, 118, 532, 1284
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 35, 10, 134, 300, 532
+    0, 44, 20, 148, 285, 408
 };
 
 int piece_attack_weights_mg[5] = {
-    36, 64, 52, 48, 62
+    36, 66, 54, 45, 60
 };
 
 int piece_attack_weights_eg[5] = {
-    1, 0, 0, 0, 0
+    0, 0, 0, 0, 0
 };
 
 int piece_defense_weights_mg[5] = {
-    21, 33, 20, 4, 0
+    23, 30, 20, 7, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    53, 126, 234, 223, 172
+    360, 285, 165, 81, 48
 };
 
 int check_bonus_mg[16] = {
-    70, 490, 90, 878, 31, 58, 3, 62, 134, 343, 191, 559, 0, 52, 23, 94
+    72, 476, 95, 861, 32, 58, 10, 66, 136, 340, 181, 545, 0, 51, 26, 99
 };
 
 int check_bonus_eg[16] = {
-    32, 49, 20, 0, 119, 146, 196, 216, 37, 132, 0, 93, 28, 158, 196, 341
+    29, 65, 20, 15, 124, 154, 195, 220, 26, 146, 0, 105, 83, 231, 271, 418
 };
 
 int endgame_contribution_weights[4] = {
-    1745, 2720, 2625, 7500
+    975, 1870, 2725, 7500
 };
+
 
 // Macros for parameter indices
 #define TEMPO_BONUS 0
@@ -106,7 +107,7 @@ int endgame_contribution_weights[4] = {
 #define SPACE_BONUS 22
 #define OUTPOST_MOVE_BONUS 23
 #define QUEEN_TROPISM_BONUS 24
-#define ROOK_SEMI_OPEN_FILE_BONUS 25
+#define ROOK_HALF_OPEN_FILE_BONUS 25
 #define BAD_BISHOP_PENALTY 26
 #define KNIGHT_BAD_MOVE_PENALTY 27
 #define BACKWARD_PAWN_PENALTY 28
@@ -668,9 +669,9 @@ static Score evaluate_piece(const Board *board,
         {
             score_param(&s, trace, ROOK_OPEN_FILE_BONUS, 1, is_white);
         }
-        else if (__builtin_popcountll(all_pawns & file_mask) == 1)// Semi-open file
+        else if ((own_pawns & file_mask) == 0)// Half-open file, no friendly pawns on the file
         {
-            score_param(&s, trace, ROOK_SEMI_OPEN_FILE_BONUS, 1, is_white);
+            score_param(&s, trace, ROOK_HALF_OPEN_FILE_BONUS, 1, is_white);
         }
 
         // Batteries
