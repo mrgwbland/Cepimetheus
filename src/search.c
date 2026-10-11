@@ -35,6 +35,7 @@ static int quiescence(Board *board,
     bool in_check = board_is_in_check(board, board->side);
     Move best_move = MOVE_NONE;
     int stand_pat = -MATE_SCORE + ply;
+    int raw_eval = EVAL_NONE;
 
     if (in_check)
     {
@@ -42,7 +43,10 @@ static int quiescence(Board *board,
     }
     else
     {
-        stand_pat = evaluate_position(board);
+        raw_eval = evaluate_position(board);
+        stand_pat = raw_eval + pawn_corr_score(context, board);
+        if (stand_pat >= MATE_SCORE - MAX_PLY_DEPTH) stand_pat = MATE_SCORE - MAX_PLY_DEPTH - 1;
+        else if (stand_pat <= -MATE_SCORE + MAX_PLY_DEPTH) stand_pat = -MATE_SCORE + MAX_PLY_DEPTH + 1;
         ss->static_eval = stand_pat;
 
         if (stand_pat >= beta)
@@ -146,7 +150,7 @@ static int quiescence(Board *board,
     if (context != NULL && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha, beta);
-        transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, ss->static_eval, ply);
+        transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, in_check ? EVAL_NONE : raw_eval, ply);
     }
 
     return alpha;
@@ -393,6 +397,7 @@ static SearchResult negamax(Board *board,
     bool in_check = board_is_in_check(board, board->side);      
     bool futility_prune = false; 
     bool improving = false;
+    int raw_eval = EVAL_NONE;
     if (in_check)
     {
         depth += check_extension; // Check extension to ensure forcing lines are fully explored
@@ -400,15 +405,17 @@ static SearchResult negamax(Board *board,
     }
     else // The following pruning doesn't occur when in check so we can reuse this is_in_check to save compute
     {
-        int static_eval;
         if (entry != NULL && entry->static_eval != EVAL_NONE)
         {
-            static_eval = entry->static_eval; // Cached static eval
+            raw_eval = entry->static_eval; // Cached static eval
         }
         else
         {
-            static_eval = evaluate_position(board);
+            raw_eval = evaluate_position(board);
         }
+        int static_eval = raw_eval + pawn_corr_score(context, board);
+        if (static_eval >= MATE_SCORE - MAX_PLY_DEPTH) static_eval = MATE_SCORE - MAX_PLY_DEPTH - 1;
+        else if (static_eval <= -MATE_SCORE + MAX_PLY_DEPTH) static_eval = -MATE_SCORE + MAX_PLY_DEPTH + 1;
         ss->static_eval = static_eval;
 
         improving = !in_check && ply > 1 && (ss - 2)->static_eval != EVAL_NONE && ss->static_eval > (ss - 2)->static_eval;
@@ -741,7 +748,15 @@ static SearchResult negamax(Board *board,
     if (context != NULL && ss->excluded_move == MOVE_NONE && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : ss->static_eval, ply);
+        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : raw_eval, ply);
+
+        if (!in_check && ss->static_eval != EVAL_NONE &&
+            (result.move == MOVE_NONE || move_is_quiet(result.move)) &&
+            !(score_type == TT_SCORE_LOWER && result.score <= ss->static_eval) &&
+            !(score_type == TT_SCORE_UPPER && result.score >= ss->static_eval))
+        {
+            pawn_corr_update(context, board, depth, result.score - ss->static_eval);
+        }
     }
 
     return result;
@@ -778,17 +793,22 @@ SearchResult search_root(Board *board,
     SearchStack *ss = stack + STACK_OFFSET;
     ss->ply = 0;
     ss->move = MOVE_NONE;
+    int raw_eval = EVAL_NONE;
     if (!board_is_in_check(board, board->side))
     {
         const TranspositionEntry *root_entry = (context != NULL) ? transposition_table_lookup(&context->table, board->hash) : NULL;
         if (root_entry != NULL && root_entry->static_eval != EVAL_NONE)
         {
-            ss->static_eval = root_entry->static_eval;
+            raw_eval = root_entry->static_eval;
         }
         else
         {
-            ss->static_eval = evaluate_position(board);
+            raw_eval = evaluate_position(board);
         }
+        int static_eval = raw_eval + pawn_corr_score(context, board);
+        if (static_eval >= MATE_SCORE - MAX_PLY_DEPTH) static_eval = MATE_SCORE - MAX_PLY_DEPTH - 1;
+        else if (static_eval <= -MATE_SCORE + MAX_PLY_DEPTH) static_eval = -MATE_SCORE + MAX_PLY_DEPTH + 1;
+        ss->static_eval = static_eval;
     }
     else
     {
@@ -1002,7 +1022,15 @@ SearchResult search_root(Board *board,
     if (context != NULL && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move,ss->static_eval, 0);
+        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, board_is_in_check(board, board->side) ? EVAL_NONE : raw_eval, 0);
+
+        if (!board_is_in_check(board, board->side) && ss->static_eval != EVAL_NONE &&
+            (result.move == MOVE_NONE || move_is_quiet(result.move)) &&
+            !(score_type == TT_SCORE_LOWER && result.score <= ss->static_eval) &&
+            !(score_type == TT_SCORE_UPPER && result.score >= ss->static_eval))
+        {
+            pawn_corr_update(context, board, depth, result.score - ss->static_eval);
+        }
     }
 
     return result;

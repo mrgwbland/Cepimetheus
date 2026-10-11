@@ -71,12 +71,14 @@ My testing games include several third party "anchor engines", these are engines
 * Singular Extensions
 * Multi Cut
 * Negative Extensions
+* Improving Flag
 
 ### Evaluation
 * No PST Hand Crafted Evaluation
 * Tapered Evaluation
 * Custom Automated Tuning
 * Specific Endgame Knowledge
+* Pawn structure corrhist
 
 ### Board Representation
 * PEXT/Fancy Magic Bitboards
@@ -85,6 +87,7 @@ My testing games include several third party "anchor engines", these are engines
 * MultiPV Support
 * Allocatable Hash Table Size (in megabytes)
 * Move Overhead Adjustment
+* Materialism modifier
 
 ## Download
 To use this engine please click on the "releases" section of the github page. For newer versions I have provided a range of binaries for use on Windows or Linux. \

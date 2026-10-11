@@ -277,10 +277,10 @@ static inline U64 pawn_hash_combine(U64 hash, U64 value) {
     return hash;
 }
 
-static inline U64 board_pawn_key(U64 white_pawns, U64 black_pawns) {
+U64 board_pawn_key(const Board *board) {
     U64 key = 1469598103934665603ULL;
-    key = pawn_hash_combine(key, white_pawns);
-    key = pawn_hash_combine(key, black_pawns);
+    key = pawn_hash_combine(key, board->pieces[WHITE_PAWN]);
+    key = pawn_hash_combine(key, board->pieces[BLACK_PAWN]);
     return key;
 }
 // Table to store the distance between two squares
@@ -1116,7 +1116,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     int knight_open_position_penalty_eg = eval_parameters_eg[KNIGHT_PAWN_COUNT_PENALTY] * pawns_lost;
     
     // Probe pawn structure cache
-    U64 pawn_key = board_pawn_key(white_pawns, black_pawns);
+    U64 pawn_key = board_pawn_key(board);
     int pawn_idx = (int)(pawn_key & (PAWN_TABLE_SIZE - 1));
     Score pawn_score;
     U64 white_passed_pawns;

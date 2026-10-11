@@ -44,6 +44,7 @@ EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move);
 int eval_terminal_score(EvalTerminalState terminal_state, int ply);
 void init_eval(void);
 int evaluate_position(Board *board);
+U64 board_pawn_key(const Board *board);
 
 void set_materialism(int materialism);
 int get_materialism(void);

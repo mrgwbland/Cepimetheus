@@ -4,10 +4,26 @@
 #include "board.h"
 #include "tt.h"
 #include <stddef.h>
+#include <stdlib.h>
 
 #define MAX_PV_MOVES 128
 #define MAX_QUIET_TRACKED 256
 #define STACK_OFFSET 4 // Offset to allow negative checks at root
+
+#define PAWN_CORR_HIST_SIZE 16384
+#define PAWN_CORR_GRAIN 256
+#define PAWN_CORR_MAX_BONUS 2048
+//When the entry is small, the decay is near zero, so  the entry grows fast with delta
+//When the entry grows large enough, the decay term equals the scaling, preventing growth
+static inline void gravity_update_entry(int16_t *entry, int delta, int scale, int gravity)
+{
+    int grav = gravity > 0 ? gravity : 1;
+    int val = *entry;
+    val += scale * delta - val * abs(delta) / grav;
+    if (val > 32767) val = 32767;
+    else if (val < -32767) val = -32767;
+    *entry = (int16_t)val;
+}
 
 // Information for each ply in the search stack
 typedef struct SearchStack {
@@ -64,6 +80,8 @@ struct SearchContext
     int16_t hh_table[12][64]; // [piece][to]
     // Ordered list of root moves for root ordering
     RootMoveTable root_moves;
+    // Pawn structure correction history table: [side_to_move][pawn_hash % PAWN_CORR_HIST_SIZE]
+    int16_t pawn_corr_hist[2][PAWN_CORR_HIST_SIZE];
 };
 
 typedef void (*SearchMoveInfoCallback)(int depth,
@@ -121,6 +139,14 @@ extern TUNE_VAR order_rook_promo;
 extern TUNE_VAR order_queen_promo;
 extern TUNE_VAR order_victim_mult;
 extern TUNE_VAR order_castle;
+
+/* Correction history parameters */
+extern TUNE_VAR pawn_corr_gravity;
+extern TUNE_VAR pawn_corr_scale;
+extern TUNE_VAR pawn_corr_max_depth;
+
+int pawn_corr_score(const SearchContext *context, const Board *board);
+void pawn_corr_update(SearchContext *context, const Board *board, int depth, int diff);
 
 /* Aspiration window parameters */
 extern TUNE_VAR asp_min_depth;

@@ -21,8 +21,7 @@ int history_bonus(int depth)
 
 void update_history_entry(int16_t *entry, int delta)
 {
-    int grav = history_gravity > 0 ? history_gravity : 1;
-    *entry += history_scale * delta - *entry * abs(delta) / grav;
+    gravity_update_entry(entry, delta, history_scale, history_gravity);
 }
 
 static bool is_good_noisy(const Board *board, Move move)

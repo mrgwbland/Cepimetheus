@@ -37,6 +37,9 @@ TUNE_VAR lmp_multiplier = 100;
 TUNE_VAR lmp_max_depth = 11;
 int lmp_quiet_limits[33];
 static bool lmp_initialised = false;
+TUNE_VAR pawn_corr_gravity = 8192;
+TUNE_VAR pawn_corr_scale = 1;
+TUNE_VAR pawn_corr_max_depth = 16;
 
 void reinit_lmp(void)
 {
@@ -289,6 +292,7 @@ void search_context_clear(SearchContext *context)
         }
     }
     memset(context->hh_table, 0, sizeof(context->hh_table));
+    memset(context->pawn_corr_hist, 0, sizeof(context->pawn_corr_hist));
     memset(&context->root_moves, 0, sizeof(context->root_moves));
     transposition_table_clear(&context->table);
 }
@@ -400,5 +404,32 @@ void root_moves_seed_iteration(RootMoveTable *table)
     }
 
     root_moves_sort(table, 0);
+}
+
+int pawn_corr_score(const SearchContext *context, const Board *board)
+{
+    if (context == NULL)
+    {
+        return 0;
+    }
+    U64 pkey = board_pawn_key(board);
+    int entry = context->pawn_corr_hist[board->side][pkey & (PAWN_CORR_HIST_SIZE - 1)];
+    return entry / PAWN_CORR_GRAIN;
+}
+
+void pawn_corr_update(SearchContext *context, const Board *board, int depth, int diff)
+{
+    if (context == NULL)
+    {
+        return;
+    }
+    int weight = depth < pawn_corr_max_depth ? depth : pawn_corr_max_depth;
+    int delta = diff * weight;
+    if (delta > PAWN_CORR_MAX_BONUS) delta = PAWN_CORR_MAX_BONUS;
+    else if (delta < -PAWN_CORR_MAX_BONUS) delta = -PAWN_CORR_MAX_BONUS;
+
+    U64 pkey = board_pawn_key(board);
+    int16_t *entry = &context->pawn_corr_hist[board->side][pkey & (PAWN_CORR_HIST_SIZE - 1)];
+    gravity_update_entry(entry, delta, pawn_corr_scale, pawn_corr_gravity);
 }
 
