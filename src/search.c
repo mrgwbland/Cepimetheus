@@ -355,6 +355,7 @@ static SearchResult negamax(Board *board,
     if (!pv_node && // Disallowed in PV nodes- PV must be a legal continuation
         previous_move != MOVE_NONE && //Disallow null move immediately after a null move
         ss->excluded_move == MOVE_NONE && // Disallowed in singular verification search
+        (context == NULL || ss->ply >= context->nmp_min_ply) && // Disallowed during NMP verification search
         depth >= nmp_min_depth &&// NMP not done near leaves as tree is already small, and NMP has overhead
         beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
         !board_is_in_check(board, board->side) && // In check passing is illegal
@@ -365,14 +366,13 @@ static SearchResult negamax(Board *board,
         int child_depth = depth - 1 - reduction;
         if (child_depth < 0) child_depth = 0;
 
+        // Test if we fail high even if we skip a move
         Undo undo;
         board_make_null_move(board, &undo);
-
         (ss + 1)->ply = ss->ply + 1;
         (ss + 1)->move = MOVE_NONE;
         (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
-
         SearchResult null_child = negamax(board,
                                           child_depth,
                                           -beta,
@@ -384,13 +384,58 @@ static SearchResult negamax(Board *board,
                                           control,
                                           lichess_draw_rules);
         int null_score = -null_child.score;
-
         board_unmake_move(board, &undo);
 
+        // Null search failed high
+        // Position is very good or zugzwang
         if (null_score >= beta)
         {
-            result.score = beta;
-            return result;
+            // Skip verification when at low depth or if already in a verification search
+            if (depth < nmp_verification_min_depth || (context != NULL && context->nmp_min_ply > 0))
+            {
+                //We assume not zugzwang to save time at low depths
+                result.score = beta;
+                return result;
+            }
+
+            if (context != NULL)
+            {
+                // Disable NMP for 3/4 of the verification search depth
+                int nmp_verif_suppress = 3 * child_depth / 4;
+                if (nmp_verif_suppress < 1) nmp_verif_suppress = 1;
+                context->nmp_min_ply = ss->ply + nmp_verif_suppress;
+
+                SearchResult verif = negamax(board,
+                                             child_depth, // Verification search at same depth as null search, could experiment with unlinking these?
+                                             beta - 1,
+                                             beta,
+                                             history,
+                                             stats,
+                                             ss,
+                                             context,
+                                             control,
+                                             lichess_draw_rules);
+
+                context->nmp_min_ply = 0;
+
+                if (control->stop)
+                {
+                    result.score = alpha;
+                    return result;
+                }
+
+                if (verif.score >= beta)
+                {
+                    // Verification passed: not zugzwang, safe to prune
+                    result.score = beta;
+                    return result;
+                }
+            }
+            else
+            {
+                result.score = beta;
+                return result;
+            }
         }
     }
 
@@ -496,7 +541,7 @@ static SearchResult negamax(Board *board,
         }
         else if (beta_target >= beta) // Not Singular
         {
-            // Multicut: if another move beats beta_target at reduced depth and beta_target >= beta then
+            // SE Multicut: if another move beats beta_target at reduced depth and beta_target >= beta then
             // multiple moves failed high, therefore TT move is not special so we can prune this subtree immediately.
             result.score = beta_target;
             return result;

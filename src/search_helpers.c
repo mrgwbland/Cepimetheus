@@ -15,6 +15,7 @@ TUNE_VAR rfp_margin = 974;
 TUNE_VAR rfp_improving_margin = 750;
 TUNE_VAR rfp_max_depth = 7;
 TUNE_VAR nmp_min_depth = 3;
+TUNE_VAR nmp_verification_min_depth = 14;
 TUNE_VAR nmp_base_reduction = 2;
 TUNE_VAR nmp_reduction = 2;
 TUNE_VAR nmp_depth_scale = 4;
@@ -268,6 +269,7 @@ void search_context_reset_search(SearchContext *context)
     context->killer_moves[MAX_PLY_DEPTH - 1][1] = MOVE_NONE;
 
     memset(&context->root_moves, 0, sizeof(context->root_moves));
+    context->nmp_min_ply = 0;
 }
 
 // Clear TT and reset all search heuristics (killers, counter moves, history, root moves)
@@ -277,6 +279,8 @@ void search_context_clear(SearchContext *context)
     {
         return;
     }
+
+    context->nmp_min_ply = 0;
 
     for (int p = 0; p < MAX_PLY_DEPTH; ++p)
     {

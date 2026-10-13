@@ -82,6 +82,7 @@ struct SearchContext
     RootMoveTable root_moves;
     // Pawn structure correction history table: [side_to_move][pawn_hash % PAWN_CORR_HIST_SIZE]
     int16_t pawn_corr_hist[2][PAWN_CORR_HIST_SIZE];
+    int nmp_min_ply;
 };
 
 typedef void (*SearchMoveInfoCallback)(int depth,
@@ -107,6 +108,7 @@ extern TUNE_VAR rfp_margin;
 extern TUNE_VAR rfp_improving_margin;
 extern TUNE_VAR rfp_max_depth;
 extern TUNE_VAR nmp_min_depth;
+extern TUNE_VAR nmp_verification_min_depth;
 extern TUNE_VAR nmp_base_reduction;
 extern TUNE_VAR nmp_reduction;
 extern TUNE_VAR nmp_depth_scale;
