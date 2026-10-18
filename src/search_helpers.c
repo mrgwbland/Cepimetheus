@@ -41,6 +41,8 @@ static bool lmp_initialised = false;
 TUNE_VAR pawn_corr_gravity = 8192;
 TUNE_VAR pawn_corr_scale = 1;
 TUNE_VAR pawn_corr_max_depth = 16;
+TUNE_VAR pawn_corr_grain = 256;
+TUNE_VAR pawn_corr_max_bonus = 2048;
 
 void reinit_lmp(void)
 {
@@ -296,6 +298,7 @@ void search_context_clear(SearchContext *context)
         }
     }
     memset(context->hh_table, 0, sizeof(context->hh_table));
+    memset(context->cont_hist, 0, sizeof(context->cont_hist));
     memset(context->pawn_corr_hist, 0, sizeof(context->pawn_corr_hist));
     memset(&context->root_moves, 0, sizeof(context->root_moves));
     transposition_table_clear(&context->table);
@@ -384,7 +387,7 @@ void root_moves_init(RootMoveTable *table, Board *board, const Move *search_move
             RootMoveEntry *entry = &table->entries[table->count++];
             entry->move = m;
             entry->score = -MATE_SCORE - 1;
-            entry->previous_score = estimate_move_score(board, m, context, 0);
+            entry->previous_score = estimate_move_score(board, m, context, 0, NULL);
             entry->nodes = 0;
             entry->pv_length = 0;
             entry->pv[0] = MOVE_NONE;
@@ -418,7 +421,8 @@ int pawn_corr_score(const SearchContext *context, const Board *board)
     }
     U64 pkey = board_pawn_key(board);
     int entry = context->pawn_corr_hist[board->side][pkey & (PAWN_CORR_HIST_SIZE - 1)];
-    return entry / PAWN_CORR_GRAIN;
+    int grain = pawn_corr_grain > 0 ? pawn_corr_grain : 1;
+    return entry / grain;
 }
 
 void pawn_corr_update(SearchContext *context, const Board *board, int depth, int diff)
@@ -429,8 +433,8 @@ void pawn_corr_update(SearchContext *context, const Board *board, int depth, int
     }
     int weight = depth < pawn_corr_max_depth ? depth : pawn_corr_max_depth;
     int delta = diff * weight;
-    if (delta > PAWN_CORR_MAX_BONUS) delta = PAWN_CORR_MAX_BONUS;
-    else if (delta < -PAWN_CORR_MAX_BONUS) delta = -PAWN_CORR_MAX_BONUS;
+    if (delta > pawn_corr_max_bonus) delta = pawn_corr_max_bonus;
+    else if (delta < -pawn_corr_max_bonus) delta = -pawn_corr_max_bonus;
 
     U64 pkey = board_pawn_key(board);
     int16_t *entry = &context->pawn_corr_hist[board->side][pkey & (PAWN_CORR_HIST_SIZE - 1)];

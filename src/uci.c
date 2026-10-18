@@ -489,10 +489,21 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Order_VictimMult type spin default %d min 0 max 1000\n", order_victim_mult);
             printf("option name Order_Castle type spin default %d min 0 max 10000\n", order_castle);
 
+            /* Continuation history */
+            printf("option name ContHist_BonusCap type spin default %d min 0 max 1000\n", conthist_bonus_cap);
+            printf("option name ContHist_1_Gravity type spin default %d min 0 max 10000\n", conthist_1_gravity);
+            printf("option name ContHist_1_Scale type spin default %d min 0 max 1000\n", conthist_1_scale);
+            printf("option name ContHist_2_Gravity type spin default %d min 0 max 10000\n", conthist_2_gravity);
+            printf("option name ContHist_2_Scale type spin default %d min 0 max 1000\n", conthist_2_scale);
+            printf("option name ContHist_4_Gravity type spin default %d min 0 max 10000\n", conthist_4_gravity);
+            printf("option name ContHist_4_Scale type spin default %d min 0 max 1000\n", conthist_4_scale);
+
             /* Correction history */
             printf("option name PawnCorr_Gravity type spin default %d min 0 max 32767\n", pawn_corr_gravity);
             printf("option name PawnCorr_Scale type spin default %d min 0 max 100\n", pawn_corr_scale);
             printf("option name PawnCorr_MaxDepth type spin default %d min 0 max 32\n", pawn_corr_max_depth);
+            printf("option name PawnCorr_Grain type spin default %d min 1 max 10000\n", pawn_corr_grain);
+            printf("option name PawnCorr_MaxBonus type spin default %d min 0 max 10000\n", pawn_corr_max_bonus);
 
             /* Aspiration window */
             printf("option name Asp_MinDepth type spin default %d min 0 max 32\n", asp_min_depth);
@@ -636,9 +647,18 @@ void uci_loop(int argc, char *argv[]) {
                     else if (strncmp(nametoken, "order_queenpromo", 16) == 0) order_queen_promo = val;
                     else if (strncmp(nametoken, "order_victimmult", 16) == 0) order_victim_mult = val;
                     else if (strncmp(nametoken, "order_castle", 12) == 0) order_castle = val;
+                    else if (strncmp(nametoken, "conthist_bonuscap", 17) == 0) conthist_bonus_cap = val;
+                    else if (strncmp(nametoken, "conthist_1_gravity", 18) == 0) conthist_1_gravity = val;
+                    else if (strncmp(nametoken, "conthist_1_scale", 16) == 0) conthist_1_scale = val;
+                    else if (strncmp(nametoken, "conthist_2_gravity", 18) == 0) conthist_2_gravity = val;
+                    else if (strncmp(nametoken, "conthist_2_scale", 16) == 0) conthist_2_scale = val;
+                    else if (strncmp(nametoken, "conthist_4_gravity", 18) == 0) conthist_4_gravity = val;
+                    else if (strncmp(nametoken, "conthist_4_scale", 16) == 0) conthist_4_scale = val;
                     else if (strncmp(nametoken, "pawncorr_gravity", 16) == 0) pawn_corr_gravity = val;
                     else if (strncmp(nametoken, "pawncorr_scale", 14) == 0) pawn_corr_scale = val;
                     else if (strncmp(nametoken, "pawncorr_maxdepth", 17) == 0) pawn_corr_max_depth = val;
+                    else if (strncmp(nametoken, "pawncorr_grain", 14) == 0) pawn_corr_grain = val;
+                    else if (strncmp(nametoken, "pawncorr_maxbonus", 17) == 0) pawn_corr_max_bonus = val;
                     else if (strncmp(nametoken, "asp_mindepth", 12) == 0) asp_min_depth = val;
                     else if (strncmp(nametoken, "asp_initialdelta", 16) == 0) asp_initial_delta = val;
                     else if (strncmp(nametoken, "asp_growthfactor", 16) == 0) asp_growth_factor = val;

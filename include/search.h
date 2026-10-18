@@ -8,11 +8,9 @@
 
 #define MAX_PV_MOVES 128
 #define MAX_QUIET_TRACKED 256
-#define STACK_OFFSET 4 // Offset to allow negative checks at root
+#define STACK_OFFSET 6 // Offset to allow negative checks at root
 
-#define PAWN_CORR_HIST_SIZE 16384
-#define PAWN_CORR_GRAIN 256
-#define PAWN_CORR_MAX_BONUS 2048
+#define PAWN_CORR_HIST_SIZE 1 << 14
 //When the entry is small, the decay is near zero, so  the entry grows fast with delta
 //When the entry grows large enough, the decay term equals the scaling, preventing growth
 static inline void gravity_update_entry(int16_t *entry, int delta, int scale, int gravity)
@@ -25,12 +23,15 @@ static inline void gravity_update_entry(int16_t *entry, int delta, int scale, in
     *entry = (int16_t)val;
 }
 
+typedef int16_t ContHistEntry[12][64];
+
 // Information for each ply in the search stack
 typedef struct SearchStack {
     int ply;
     int static_eval;
     Move move;
     Move excluded_move;
+    ContHistEntry *cont_entry;
 } SearchStack;
 
 typedef struct {
@@ -78,6 +79,8 @@ struct SearchContext
     Move counter_moves[12][64][2]; // [piece][to][slot]
     // Scores how good a move is based on performance across the tree
     int16_t hh_table[12][64]; // [piece][to]
+    // Continuation history table: [prev_piece][prev_to][curr_piece][curr_to]
+    int16_t cont_hist[12][64][12][64];
     // Ordered list of root moves for root ordering
     RootMoveTable root_moves;
     // Pawn structure correction history table: [side_to_move][pawn_hash % PAWN_CORR_HIST_SIZE]
@@ -142,10 +145,21 @@ extern TUNE_VAR order_queen_promo;
 extern TUNE_VAR order_victim_mult;
 extern TUNE_VAR order_castle;
 
+/* Continuation history parameters */
+extern TUNE_VAR conthist_bonus_cap;
+extern TUNE_VAR conthist_1_gravity;
+extern TUNE_VAR conthist_1_scale;
+extern TUNE_VAR conthist_2_gravity;
+extern TUNE_VAR conthist_2_scale;
+extern TUNE_VAR conthist_4_gravity;
+extern TUNE_VAR conthist_4_scale;
+
 /* Correction history parameters */
 extern TUNE_VAR pawn_corr_gravity;
 extern TUNE_VAR pawn_corr_scale;
 extern TUNE_VAR pawn_corr_max_depth;
+extern TUNE_VAR pawn_corr_grain;
+extern TUNE_VAR pawn_corr_max_bonus;
 
 int pawn_corr_score(const SearchContext *context, const Board *board);
 void pawn_corr_update(SearchContext *context, const Board *board, int depth, int diff);

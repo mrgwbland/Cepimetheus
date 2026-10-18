@@ -13,15 +13,49 @@ TUNE_VAR order_queen_promo = 856;
 TUNE_VAR order_victim_mult = 15;
 TUNE_VAR order_castle = 149;
 
+TUNE_VAR conthist_bonus_cap = 382;
+TUNE_VAR conthist_1_gravity = 416;
+TUNE_VAR conthist_1_scale = 23;
+TUNE_VAR conthist_2_gravity = 416;
+TUNE_VAR conthist_2_scale = 23;
+TUNE_VAR conthist_4_gravity = 416;
+TUNE_VAR conthist_4_scale = 23;
+
 int history_bonus(int depth)
 {
     int b = depth * depth;
     return b < history_bonus_cap ? b : history_bonus_cap;
 }
 
+int conthist_bonus(int depth)
+{
+    int b = depth * depth;
+    return b < conthist_bonus_cap ? b : conthist_bonus_cap;
+}
+
 void update_history_entry(int16_t *entry, int delta)
 {
     gravity_update_entry(entry, delta, history_scale, history_gravity);
+}
+
+void update_conthist(const SearchStack *ss, int piece, int to, int delta)
+{
+    if (ss == NULL || piece < 0 || piece >= PIECE_NB || to < 0 || to >= 64)
+    {
+        return;
+    }
+    if ((ss - 1)->cont_entry != NULL)
+    {
+        gravity_update_entry(&(*(ss - 1)->cont_entry)[piece][to], delta, conthist_1_scale, conthist_1_gravity);
+    }
+    if ((ss - 2)->cont_entry != NULL)
+    {
+        gravity_update_entry(&(*(ss - 2)->cont_entry)[piece][to], delta, conthist_2_scale, conthist_2_gravity);
+    }
+    if ((ss - 4)->cont_entry != NULL)
+    {
+        gravity_update_entry(&(*(ss - 4)->cont_entry)[piece][to], delta, conthist_4_scale, conthist_4_gravity);
+    }
 }
 
 static bool is_good_noisy(const Board *board, Move move)
@@ -54,7 +88,7 @@ static bool is_good_noisy(const Board *board, Move move)
 }
 
 /* Estimate move score for move ordering. This is intentionally cheap. */
-int estimate_move_score(const Board *board, Move move, const SearchContext *context, int ply)
+int estimate_move_score(const Board *board, Move move, const SearchContext *context, int ply, const SearchStack *ss)
 {
     (void)ply;
 
@@ -101,7 +135,15 @@ int estimate_move_score(const Board *board, Move move, const SearchContext *cont
         int piece = board_piece_at(board, move_from(move));
         if (piece >= 0 && piece < PIECE_NB)
         {
-            return context->hh_table[piece][move_to(move)];
+            int to = move_to(move);
+            int score = context->hh_table[piece][to];
+            if (ss != NULL)
+            {
+                if ((ss - 1)->cont_entry != NULL) score += (*(ss - 1)->cont_entry)[piece][to];
+                if ((ss - 2)->cont_entry != NULL) score += (*(ss - 2)->cont_entry)[piece][to];
+                if ((ss - 4)->cont_entry != NULL) score += (*(ss - 4)->cont_entry)[piece][to];
+            }
+            return score;
         }
         return 0;
     }
@@ -120,6 +162,7 @@ void movepicker_init(MovePicker *mp,
 {
     mp->board = board;
     mp->context = context;
+    mp->ss = ss;
     mp->ply = (ss != NULL) ? ss->ply : 0;
     mp->tt_move = tt_move;
     
@@ -188,7 +231,7 @@ Move movepicker_next_move(MovePicker *mp)
                     if (is_good_noisy(mp->board, m))
                     {
                         mp->moves[mp->count] = m;
-                        mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                        mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply, mp->ss);
                         mp->count++;
                     }
                     else if (mp->bad_noisy_count < 64)
@@ -290,7 +333,7 @@ Move movepicker_next_move(MovePicker *mp)
                         continue;
                     }
                     mp->moves[mp->count] = m;
-                    mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply);
+                    mp->scores[mp->count] = estimate_move_score(mp->board, m, mp->context, mp->ply, mp->ss);
                     mp->count++;
                 }
                 mp->current_idx = 0;
@@ -327,7 +370,7 @@ Move movepicker_next_move(MovePicker *mp)
             case STAGE_GENERATE_BAD_NOISY:
                 for (int i = 0; i < mp->bad_noisy_count; ++i)
                 {
-                    mp->bad_scores[i] = estimate_move_score(mp->board, mp->bad_noisy[i], mp->context, mp->ply);
+                    mp->bad_scores[i] = estimate_move_score(mp->board, mp->bad_noisy[i], mp->context, mp->ply, mp->ss);
                 }
                 mp->current_idx = 0;
                 mp->stage = STAGE_PLAY_BAD_NOISY;

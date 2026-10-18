@@ -46,6 +46,7 @@ typedef struct {
     const Board *board;
     const SearchContext *context;
     int ply;
+    const SearchStack *ss;
 } MovePicker;
 
 void movepicker_init(MovePicker *mp,
@@ -58,9 +59,11 @@ void movepicker_init(MovePicker *mp,
                      bool in_qsearch);
 
 Move movepicker_next_move(MovePicker *mp);
-int estimate_move_score(const Board *board, Move move, const SearchContext *context, int ply);
+int estimate_move_score(const Board *board, Move move, const SearchContext *context, int ply, const SearchStack *ss);
 void update_history_entry(int16_t *entry, int delta);
 int history_bonus(int depth);
+int conthist_bonus(int depth);
+void update_conthist(const SearchStack *ss, int piece, int to, int delta);
 static const int piece_values[6] = {
     1000,   /* Pawn */
     3000,   /* Knight */

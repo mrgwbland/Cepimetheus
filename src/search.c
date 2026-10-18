@@ -92,6 +92,7 @@ static int quiescence(Board *board,
 
         Undo undo;
 
+        int move_piece = board_piece_at(board, move_from(move));
         if (!board_make_move(board, move, &undo))
         {
             continue;
@@ -110,6 +111,7 @@ static int quiescence(Board *board,
         (ss + 1)->move = move;
         (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
+        (ss + 1)->cont_entry = (context != NULL && move_piece >= 0 && move_piece < PIECE_NB) ? &context->cont_hist[move_piece][move_to(move)] : NULL;
 
         int score = -quiescence(board, -beta, -alpha, history, stats, ss + 1, qply + 1, context, control, lichess_draw_rules);
 
@@ -373,6 +375,7 @@ static SearchResult negamax(Board *board,
         (ss + 1)->move = MOVE_NONE;
         (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
+        (ss + 1)->cont_entry = NULL;
         SearchResult null_child = negamax(board,
                                           child_depth,
                                           -beta,
@@ -398,6 +401,8 @@ static SearchResult negamax(Board *board,
                 return result;
             }
 
+            // When sufficient depth perform a verification search (in case position was zugzwang)
+            // I tried limiting this to when we have few pieces but surprisingly this didn't gain
             if (context != NULL)
             {
                 // Disable NMP for 3/4 of the verification search depth
@@ -594,6 +599,7 @@ static SearchResult negamax(Board *board,
         }
 
         Undo undo;
+        int move_piece = board_piece_at(board, move_from(move));
 
         if (!board_make_move(board, move, &undo))
         {
@@ -619,6 +625,7 @@ static SearchResult negamax(Board *board,
         (ss + 1)->move = move;
         (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
+        (ss + 1)->cont_entry = (context != NULL && move_piece >= 0 && move_piece < PIECE_NB) ? &context->cont_hist[move_piece][move_to(move)] : NULL;
 
         int ext = (move == tt_move) ? extension : 0;
         SearchResult child;
@@ -741,12 +748,14 @@ static SearchResult negamax(Board *board,
                 }
 
                 int bonus = history_bonus(depth);
+                int cbonus = conthist_bonus(depth);
                 int move_piece = board_piece_at(board, move_from(move));
 
                 // Bonus for the cutoff move.
                 if (move_piece >= 0 && move_piece < PIECE_NB)
                 {
                     update_history_entry(&context->hh_table[move_piece][move_to(move)], bonus);
+                    update_conthist(ss, move_piece, move_to(move), cbonus);
                 }
 
                 // Malus for all quiet moves searched before the cutoff.
@@ -759,6 +768,7 @@ static SearchResult negamax(Board *board,
                         if (qm_piece >= 0 && qm_piece < PIECE_NB)
                         {
                             update_history_entry(&context->hh_table[qm_piece][move_to(qm)], -bonus);
+                            update_conthist(ss, qm_piece, move_to(qm), -cbonus);
                         }
                     }
                 }
@@ -915,6 +925,7 @@ SearchResult search_root(Board *board,
 
         Undo undo;
         int curr_index = move_index++;
+        int move_piece = board_piece_at(board, move_from(move));
 
         if (!board_make_move(board, move, &undo))
         {
@@ -939,6 +950,7 @@ SearchResult search_root(Board *board,
         (ss + 1)->move = move;
         (ss + 1)->static_eval = EVAL_NONE;
         (ss + 1)->excluded_move = MOVE_NONE;
+        (ss + 1)->cont_entry = (context != NULL && move_piece >= 0 && move_piece < PIECE_NB) ? &context->cont_hist[move_piece][move_to(move)] : NULL;
 
         SearchResult child;
         if (legal_moves_searched == 0)
