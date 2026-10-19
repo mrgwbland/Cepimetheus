@@ -321,14 +321,18 @@ bool search_context_resize(SearchContext *context, size_t hash_power)
 
 static int compare_root_moves(const RootMoveEntry *a, const RootMoveEntry *b)
 {
+    // Moves are different and have real scores
     if (a->score != b->score)
     {
         return a->score > b->score ? -1 : 1;
     }
-    if (a->previous_score != b->previous_score)
+    // Moves originate as -MATE_SCORE - 1, which is how we identify moves that have not yet been searched
+    // Order based on previous search score
+    if (a->score <= -MATE_SCORE && a->previous_score != b->previous_score)
     {
         return a->previous_score > b->previous_score ? -1 : 1;
     }
+    // Moves are the same but are real values then moves are tied
     return 0;
 }
 
