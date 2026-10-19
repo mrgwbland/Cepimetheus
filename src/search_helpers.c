@@ -39,9 +39,7 @@ TUNE_VAR lmp_max_depth = 11;
 int lmp_quiet_limits[33];
 static bool lmp_initialised = false;
 TUNE_VAR pawn_corr_gravity = 8192;
-TUNE_VAR pawn_corr_scale = 1;
 TUNE_VAR pawn_corr_max_depth = 16;
-TUNE_VAR pawn_corr_grain = 256;
 TUNE_VAR pawn_corr_max_bonus = 2048;
 
 void reinit_lmp(void)
@@ -421,8 +419,7 @@ int pawn_corr_score(const SearchContext *context, const Board *board)
     }
     U64 pkey = board_pawn_key(board);
     int entry = context->pawn_corr_hist[board->side][pkey & (PAWN_CORR_HIST_SIZE - 1)];
-    int grain = pawn_corr_grain > 0 ? pawn_corr_grain : 1;
-    return entry / grain;
+    return entry / 256;
 }
 
 void pawn_corr_update(SearchContext *context, const Board *board, int depth, int diff)
@@ -438,6 +435,6 @@ void pawn_corr_update(SearchContext *context, const Board *board, int depth, int
 
     U64 pkey = board_pawn_key(board);
     int16_t *entry = &context->pawn_corr_hist[board->side][pkey & (PAWN_CORR_HIST_SIZE - 1)];
-    gravity_update_entry(entry, delta, pawn_corr_scale, pawn_corr_gravity);
+    gravity_update_entry(entry, delta, 1, pawn_corr_gravity);
 }
 

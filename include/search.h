@@ -10,7 +10,7 @@
 #define MAX_QUIET_TRACKED 256
 #define STACK_OFFSET 6 // Offset to allow negative checks at root
 
-#define PAWN_CORR_HIST_SIZE 1 << 14
+#define PAWN_CORR_HIST_SIZE (1 << 14)
 //When the entry is small, the decay is near zero, so  the entry grows fast with delta
 //When the entry grows large enough, the decay term equals the scaling, preventing growth
 static inline void gravity_update_entry(int16_t *entry, int delta, int scale, int gravity)
@@ -156,9 +156,7 @@ extern TUNE_VAR conthist_4_scale;
 
 /* Correction history parameters */
 extern TUNE_VAR pawn_corr_gravity;
-extern TUNE_VAR pawn_corr_scale;
 extern TUNE_VAR pawn_corr_max_depth;
-extern TUNE_VAR pawn_corr_grain;
 extern TUNE_VAR pawn_corr_max_bonus;
 
 int pawn_corr_score(const SearchContext *context, const Board *board);
