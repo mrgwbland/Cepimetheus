@@ -82,38 +82,46 @@ int endgame_contribution_weights[4] = {
 
 
 // Macros for parameter indices
+// General
 #define TEMPO_BONUS 0
 #define PAWN_BLOCKING_PENALTY 1
-#define KNIGHT_PAWN_COUNT_PENALTY 2
-#define PAWN_SHIELD_PENALTY 3
-#define DOUBLED_PAWN_PENALTY 4
-#define ISOLATED_PAWN_PENALTY 5
-#define KNIGHT_MOBILITY_BONUS 6
-#define BISHOP_MOBILITY_BONUS 7
-#define ROOK_CONTROL_BONUS 8
-#define ROOK_OPEN_FILE_BONUS 9
-#define QUEEN_MOBILITY_BONUS 10
-#define KING_EXPOSURE_PENALTY 11
-#define KING_CORNER_DISTANCE_BONUS 12
 #define HANGING_PIECE_STM_PENALTY 13
 #define HANGING_PIECE_NSTM_PENALTY 14
+// Pawn
+#define DOUBLED_PAWN_PENALTY 4
+#define ISOLATED_PAWN_PENALTY 5
 #define PASSED_PAWN_FRIENDLY_KING_PROXIMITY 15
 #define PASSED_PAWN_ENEMY_KING_PROXIMITY 16
-#define BISHOP_PAIR_BONUS 17
-#define KNIGHT_OUTPOST_BONUS 18
-#define BISHOP_OUTPOST_BONUS 19
-#define OCB_SCALE 20
 #define PASSED_PAWN_SAFE_PATH 21
 #define SPACE_BONUS 22
-#define OUTPOST_MOVE_BONUS 23
-#define QUEEN_TROPISM_BONUS 24
-#define ROOK_HALF_OPEN_FILE_BONUS 25
-#define BAD_BISHOP_PENALTY 26
-#define KNIGHT_BAD_MOVE_PENALTY 27
 #define BACKWARD_PAWN_PENALTY 28
+// Knight
+#define KNIGHT_PAWN_COUNT_PENALTY 2
+#define KNIGHT_MOBILITY_BONUS 6
+#define KNIGHT_OUTPOST_BONUS 18
+#define OUTPOST_MOVE_BONUS 23
+#define KNIGHT_BAD_MOVE_PENALTY 27
+// Bishop
+#define BISHOP_MOBILITY_BONUS 7
+#define BISHOP_PAIR_BONUS 17
+#define BISHOP_OUTPOST_BONUS 19
+#define OCB_SCALE 20
+#define BAD_BISHOP_PENALTY 26
 #define BISHOP_ALIGNMENT_BONUS 29
+// Rook
+#define ROOK_CONTROL_BONUS 8
+#define ROOK_OPEN_FILE_BONUS 9
+#define ROOK_HALF_OPEN_FILE_BONUS 25
 #define ROOK_ALIGNMENT_BONUS 30
+// Queen
+#define QUEEN_MOBILITY_BONUS 10
+#define QUEEN_TROPISM_BONUS 24
 #define QUEEN_ALIGNMENT_BONUS 31
+// King
+#define PAWN_SHIELD_PENALTY 3
+#define KING_EXPOSURE_PENALTY 11
+#define KING_CORNER_DISTANCE_BONUS 12
+
 
 #define DARK_SQUARES 0xAA55AA55AA55AA55ULL
 
@@ -800,7 +808,7 @@ static Score evaluate_pawn_structure(const Board *board,
     return s;
 }
 
-
+// A hanging piece (according to this function) is a piece attacked by a lower value enemy piece
 static void calculate_hanging_piece_penalties(const Board *board,
                                               int *white_penalty,
                                               int *black_penalty,
@@ -826,7 +834,7 @@ static void calculate_hanging_piece_penalties(const Board *board,
 
     U64 occupancy = board->occupancy[BOTH];
 
-    // --- White's hanging pieces (Black is attacker) ---
+    // Calculate white's hanging pieces
     U64 white_targets = wn | wb | wr | wq;
     U64 black_attackers = bp | bn | bb | br;
 
@@ -900,7 +908,7 @@ static void calculate_hanging_piece_penalties(const Board *board,
         *white_penalty = penalty;
     }
 
-    // --- Black's hanging pieces (White is attacker) ---
+    // Calculate black's hanging pieces
     U64 black_targets = bn | bb | br | bq;
     U64 white_attackers = wp | wn | wb | wr;
 
