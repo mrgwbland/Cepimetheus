@@ -1,6 +1,8 @@
 #ifndef EVAL_H
 #define EVAL_H
 
+#define NUM_EVAL_PARAMS 35
+
 #include "board.h"
 #include "movegen.h"
 #include <stdint.h>
@@ -16,8 +18,8 @@ typedef struct {
     int8_t  piece_counts[5];        // [0]=Pawn, [1]=N, [2]=B, [3]=R, [4]=Q (White - Black)
     int8_t  passed_pawn_counts[6];  // Rank 2 to 7 -> index 0 to 5
     int8_t  phalanx_pawn_counts[6]; // Rank 2 to 7 -> index 0 to 5
-    int16_t eval_param_counts_mg[33]; // 32 general evaluation parameters for MG
-    int16_t eval_param_counts_eg[33]; // 32 general evaluation parameters for EG
+    int16_t eval_param_counts_mg[NUM_EVAL_PARAMS]; // General evaluation parameters for MG
+    int16_t eval_param_counts_eg[NUM_EVAL_PARAMS]; // General evaluation parameters for EG
 
     int16_t white_attackers[5];     // [0]=Pawn, [1]=N, [2]=B, [3]=R, [4]=Q
     int16_t white_defenders[5];

@@ -13,47 +13,47 @@
 #include <omp.h>
 
 int base_piece_values_mg[6] = {
-    1000, 2165, 2705, 3345, 7020, 0
-};
-
-int base_piece_values_eg[6] = {
-    1000, 3915, 3575, 6480, 11610, 0
+    1000, 2110, 2740, 2955, 6820, 0
 };
 
 int piece_values_mg[6] = {
-    1000, 2165, 2705, 3345, 7020, 0
+    1000, 2110, 2740, 2955, 6820, 0
+};
+
+int base_piece_values_eg[6] = {
+    1000, 3850, 3475, 6480, 11570, 0
 };
 
 int piece_values_eg[6] = {
-    1000, 3915, 3575, 6480, 11610, 0
+    1000, 3850, 3475, 6480, 11570, 0
 };
 
-int eval_parameters_mg[32] = {
-    175, 224, 0, 22, 159, 18, 96, 68, 36, 323, 12, 9, 129, 73, 500, 54, 0, 140, 272, 198, 511, 0, 39, 49, 0, 223, 76, 45, 9, 0, 162, 20
+int eval_parameters_mg[NUM_EVAL_PARAMS] = {
+    175, 220, 0, 21, 158, 17, 96, 67, 66, 169, 22, 9, 136, 72, 494, 56, 0, 86, 288, 211, 100, 0, 34, 58, 0, 126, 84, 44, 14, 0, 146, 42, 64, 37, 19
 };
 
-int eval_parameters_eg[32] = {
-    104, 1, 91, 27, 82, 114, 89, 58, 18, 84, 46, 0, 187, 111, 1053, 61, 45, 673, 91, 0, 114, 165, 0, 44, 64, 130, 11, 35, 107, 157, 0, 194
+int eval_parameters_eg[NUM_EVAL_PARAMS] = {
+    105, 16, 88, 30, 83, 114, 99, 62, 16, 112, 37, 0, 192, 103, 1025, 56, 41, 706, 86, 0, 113, 163, 0, 30, 65, 156, 1, 40, 108, 153, 0, 141, 105, 0, 7
 };
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 331, 580, 708
+    0, 0, 0, 323, 527, 571
 };
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 363, 608, 1056, 1989
+    0, 0, 360, 600, 1052, 1981
 };
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 7, 34, 118, 532, 1284
+    0, 8, 31, 110, 514, 1061
 };
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 44, 20, 148, 285, 408
+    0, 42, 19, 144, 294, 486
 };
 
 int piece_attack_weights_mg[5] = {
-    36, 66, 54, 45, 60
+    36, 66, 53, 46, 63
 };
 
 int piece_attack_weights_eg[5] = {
@@ -61,23 +61,23 @@ int piece_attack_weights_eg[5] = {
 };
 
 int piece_defense_weights_mg[5] = {
-    23, 30, 20, 7, 0
+    23, 31, 19, 7, 0
 };
 
 int piece_defense_weights_eg[5] = {
-    360, 285, 165, 81, 48
+    124, 79, 235, 223, 172
 };
 
 int check_bonus_mg[16] = {
-    72, 476, 95, 861, 32, 58, 10, 66, 136, 340, 181, 545, 0, 51, 26, 99
+    76, 478, 100, 870, 29, 55, 3, 60, 159, 353, 203, 571, 0, 57, 31, 102
 };
 
 int check_bonus_eg[16] = {
-    29, 65, 20, 15, 124, 154, 195, 220, 26, 146, 0, 105, 83, 231, 271, 418
+    26, 52, 15, 0, 125, 162, 208, 234, 22, 140, 0, 98, 47, 162, 200, 349
 };
 
 int endgame_contribution_weights[4] = {
-    975, 1870, 2725, 7500
+    1490, 2470, 2665, 7500
 };
 
 
@@ -102,21 +102,26 @@ int endgame_contribution_weights[4] = {
 #define OUTPOST_MOVE_BONUS 23
 #define KNIGHT_BAD_MOVE_PENALTY 27
 // Bishop
-#define BISHOP_MOBILITY_BONUS 7
+#define BISHOP_CONTROL_BONUS 7
+#define BISHOP_XRAY_CONTROL_BONUS 32
 #define BISHOP_PAIR_BONUS 17
 #define BISHOP_OUTPOST_BONUS 19
 #define OCB_SCALE 20
 #define BAD_BISHOP_PENALTY 26
 #define BISHOP_ALIGNMENT_BONUS 29
+#define BISHOP_MOBILITY_BONUS BISHOP_CONTROL_BONUS
 // Rook
 #define ROOK_CONTROL_BONUS 8
+#define ROOK_XRAY_CONTROL_BONUS 33
 #define ROOK_OPEN_FILE_BONUS 9
 #define ROOK_HALF_OPEN_FILE_BONUS 25
 #define ROOK_ALIGNMENT_BONUS 30
 // Queen
-#define QUEEN_MOBILITY_BONUS 10
+#define QUEEN_CONTROL_BONUS 10
+#define QUEEN_XRAY_CONTROL_BONUS 34
 #define QUEEN_TROPISM_BONUS 24
 #define QUEEN_ALIGNMENT_BONUS 31
+#define QUEEN_MOBILITY_BONUS QUEEN_CONTROL_BONUS
 // King
 #define PAWN_SHIELD_PENALTY 3
 #define KING_EXPOSURE_PENALTY 11
@@ -626,9 +631,14 @@ static Score evaluate_piece(const Board *board,
     }
     case WHITE_BISHOP:
     {
-        // Reward bishops with mobility through pawn occupancy only
-        int mobility = __builtin_popcountll(bitboard_bishop_attacks(square, all_pawns));
-        score_param(&s, trace, BISHOP_MOBILITY_BONUS, mobility, is_white);
+        U64 attacks = bitboard_bishop_attacks(square, all_pieces);
+        int control = __builtin_popcountll(attacks);
+        score_param(&s, trace, BISHOP_CONTROL_BONUS, control, is_white);
+
+        U64 attacks_pawns = bitboard_bishop_attacks(square, all_pawns);
+        U64 xray_attacks_mask = attacks_pawns & ~attacks;
+        int xray_control = __builtin_popcountll(xray_attacks_mask);
+        score_param(&s, trace, BISHOP_XRAY_CONTROL_BONUS, xray_control, is_white);
 
         // Deduct penalty for each friendly pawn on its square colour
         U64 color_mask = ((1ULL << square) & DARK_SQUARES) ? DARK_SQUARES : ~DARK_SQUARES;
@@ -646,7 +656,6 @@ static Score evaluate_piece(const Board *board,
             score_param(&s, trace, BISHOP_OUTPOST_BONUS, 1, is_white);
         }
 
-        U64 attacks = bitboard_bishop_attacks(square, all_pieces);
         // Batteries
         U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
         // Pins
@@ -667,10 +676,14 @@ static Score evaluate_piece(const Board *board,
     }
     case WHITE_ROOK:
     {
-        // Reward squares controlled
         U64 attacks = bitboard_rook_attacks(square, all_pieces);
         int control = __builtin_popcountll(attacks);
         score_param(&s, trace, ROOK_CONTROL_BONUS, control, is_white);
+
+        U64 attacks_pawns = bitboard_rook_attacks(square, all_pawns);
+        U64 xray_attacks_mask = attacks_pawns & ~attacks;
+        int xray_control = __builtin_popcountll(xray_attacks_mask);
+        score_param(&s, trace, ROOK_XRAY_CONTROL_BONUS, xray_control, is_white);
 
         U64 file_mask = file_masks[file];
         if ((all_pawns & file_mask) == 0)// Open file bonus: + points if no pawns on the file
@@ -705,9 +718,15 @@ static Score evaluate_piece(const Board *board,
         U64 bishop_atk = bitboard_bishop_attacks(square, all_pieces);
         U64 rook_atk = bitboard_rook_attacks(square, all_pieces);
         U64 attacks = bishop_atk | rook_atk;
-        // Reward for each legal move
-        int mobility = __builtin_popcountll(attacks);
-        score_param(&s, trace, QUEEN_MOBILITY_BONUS, mobility, is_white);
+        
+        int control = __builtin_popcountll(attacks);
+        score_param(&s, trace, QUEEN_CONTROL_BONUS, control, is_white);
+
+        U64 attacks_pawns = bitboard_queen_attacks(square, all_pawns);
+        U64 xray_attacks_mask = attacks_pawns & ~attacks;
+        int xray_control = __builtin_popcountll(xray_attacks_mask);
+        score_param(&s, trace, QUEEN_XRAY_CONTROL_BONUS, xray_control, is_white);
+
         // Queen tropism: reward the queen for being close to the enemy king
         int enemy_king_sq = board->king_square[side ^ 1];
         if (enemy_king_sq >= 0)
@@ -1590,14 +1609,14 @@ static void apply_evaluation_weights(const int *weights)
 
     set_materialism(100);
 
-    for (int i = 0; i < 32; ++i) {
+    for (int i = 0; i < NUM_EVAL_PARAMS; ++i) {
         if (eval_parameters_mg[i] != weights[offset]) {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 32; ++i) {
+    for (int i = 0; i < NUM_EVAL_PARAMS; ++i) {
         if (eval_parameters_eg[i] != weights[offset]) {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
@@ -1705,7 +1724,7 @@ static void extract_position_features(const Board *board, PositionFeatures *feat
 
 static inline uint64_t compute_phase_reciprocal(const int *weights)
 {
-    const int *ec_w = &weights[152];
+    const int *ec_w = &weights[88 + 2 * NUM_EVAL_PARAMS];
     int initial_piece_value = 4 * ec_w[0] + 4 * ec_w[1] + 4 * ec_w[2] + 2 * ec_w[3];
     if (initial_piece_value <= 0) return 0;
     return ((1024ULL << 32) + (initial_piece_value / 2)) / initial_piece_value;
@@ -1716,18 +1735,18 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *pw_mg = &weights[0];
     const int *pw_eg = &weights[6];
     const int *ep_mg = &weights[12];
-    const int *ep_eg = &weights[44];
-    const int *pp_mg = &weights[76];
-    const int *pp_eg = &weights[82];
-    const int *px_mg = &weights[88];
-    const int *px_eg = &weights[94];
-    const int *at_mg = &weights[100];
-    const int *at_eg = &weights[105];
-    const int *df_mg = &weights[110];
-    const int *df_eg = &weights[115];
-    const int *cb_mg = &weights[120];
-    const int *cb_eg = &weights[136];
-    const int *ec_w  = &weights[152];
+    const int *ep_eg = &weights[12 + NUM_EVAL_PARAMS];
+    const int *pp_mg = &weights[12 + 2 * NUM_EVAL_PARAMS];
+    const int *pp_eg = &weights[18 + 2 * NUM_EVAL_PARAMS];
+    const int *px_mg = &weights[24 + 2 * NUM_EVAL_PARAMS];
+    const int *px_eg = &weights[30 + 2 * NUM_EVAL_PARAMS];
+    const int *at_mg = &weights[36 + 2 * NUM_EVAL_PARAMS];
+    const int *at_eg = &weights[41 + 2 * NUM_EVAL_PARAMS];
+    const int *df_mg = &weights[46 + 2 * NUM_EVAL_PARAMS];
+    const int *df_eg = &weights[51 + 2 * NUM_EVAL_PARAMS];
+    const int *cb_mg = &weights[56 + 2 * NUM_EVAL_PARAMS];
+    const int *cb_eg = &weights[72 + 2 * NUM_EVAL_PARAMS];
+    const int *ec_w  = &weights[88 + 2 * NUM_EVAL_PARAMS];
 
     int total_piece_value =
         feat->total_pieces[0] * ec_w[0] +
@@ -1769,7 +1788,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     // 4. General evaluation parameters
-    for (int p = 0; p < 32; ++p)
+    for (int p = 0; p < NUM_EVAL_PARAMS; ++p)
     {
         mg_total += ep_mg[p] * feat->eval_param_counts_mg[p];
         eg_total += ep_eg[p] * feat->eval_param_counts_eg[p];
