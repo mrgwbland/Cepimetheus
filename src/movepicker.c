@@ -87,12 +87,12 @@ static bool is_good_noisy(const Board *board, Move move)
     return see_ge(board, move, 0);
 }
 
-/* Estimate move score for move ordering. This is intentionally cheap. */
+// Estimate move score for move ordering. This is intentionally cheap. 
 int estimate_move_score(const Board *board, Move move, const SearchContext *context, int ply, const SearchStack *ss)
 {
     (void)ply;
 
-    /* 1. Promotions */
+    // 1. Promotions 
     if (move_is_promotion(move))
     {
         const int promo_bonus[5] = {0, order_knight_promo, order_bishop_promo, order_rook_promo, order_queen_promo};
@@ -103,7 +103,7 @@ int estimate_move_score(const Board *board, Move move, const SearchContext *cont
         }
     }
 
-    /* 2. Captures - MVV/LVA */
+    // 2. Captures - MVV/LVA 
     if (move_iscapture(move))
     {
         int attacker_piece = board_piece_at(board, move_from(move));
@@ -123,13 +123,13 @@ int estimate_move_score(const Board *board, Move move, const SearchContext *cont
         return 1000000 + victim_value * order_victim_mult - attacker_value;
     }
 
-    /* 3. Quiet Moves (Castling, History) */
+    // 3. Quiet Moves (Castling, History) 
     if (move_is_castle(move))
     {
         return order_castle;
     }
 
-    /* History */
+    // History 
     if (context != NULL)
     {
         int piece = board_piece_at(board, move_from(move));
@@ -213,7 +213,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     return mp->tt_move;
                 }
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_GENERATE_NOISY: {
                 Move raw_noisy[MAX_ORDERED_MOVES];
@@ -241,7 +241,7 @@ Move movepicker_next_move(MovePicker *mp)
                 }
                 mp->current_idx = 0;
                 mp->stage = STAGE_PLAY_NOISY;
-                /* fallthrough */
+                // fallthrough 
             }
 
             case STAGE_PLAY_NOISY:
@@ -274,7 +274,7 @@ Move movepicker_next_move(MovePicker *mp)
                 }
 
                 mp->stage = STAGE_KILLER_1;
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_KILLER_1:
                 mp->stage = STAGE_KILLER_2;
@@ -284,7 +284,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     return mp->killer1;
                 }
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_KILLER_2:
                 mp->stage = STAGE_COUNTER_1;
@@ -294,7 +294,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     return mp->killer2;
                 }
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_COUNTER_1:
                 mp->stage = STAGE_COUNTER_2;
@@ -305,7 +305,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     return mp->counter1;
                 }
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_COUNTER_2:
                 mp->stage = STAGE_GENERATE_QUIET;
@@ -317,7 +317,7 @@ Move movepicker_next_move(MovePicker *mp)
                 {
                     return mp->counter2;
                 }
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_GENERATE_QUIET: {
                 Move raw_quiets[MAX_ORDERED_MOVES];
@@ -338,7 +338,7 @@ Move movepicker_next_move(MovePicker *mp)
                 }
                 mp->current_idx = 0;
                 mp->stage = STAGE_PLAY_QUIET;
-                /* fallthrough */
+                // fallthrough 
             }
 
             case STAGE_PLAY_QUIET:
@@ -365,7 +365,7 @@ Move movepicker_next_move(MovePicker *mp)
                 }
                 
                 mp->stage = STAGE_GENERATE_BAD_NOISY;
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_GENERATE_BAD_NOISY:
                 for (int i = 0; i < mp->bad_noisy_count; ++i)
@@ -374,7 +374,7 @@ Move movepicker_next_move(MovePicker *mp)
                 }
                 mp->current_idx = 0;
                 mp->stage = STAGE_PLAY_BAD_NOISY;
-                /* fallthrough */
+                // fallthrough 
 
             case STAGE_PLAY_BAD_NOISY:
                 while (mp->current_idx < mp->bad_noisy_count)

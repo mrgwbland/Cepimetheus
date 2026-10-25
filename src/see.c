@@ -12,22 +12,22 @@ U64 board_attackers_to(const Board *board, int square, U64 occupancy) {
 
     U64 attackers = 0ULL;
 
-    /* Pawns */
+    // Pawns 
     attackers |= bitboard_pawn_attacks(BLACK, square) & board->pieces[WHITE_PAWN];
     attackers |= bitboard_pawn_attacks(WHITE, square) & board->pieces[BLACK_PAWN];
 
-    /* Knights */
+    // Knights 
     attackers |= bitboard_knight_attacks(square) & (board->pieces[WHITE_KNIGHT] | board->pieces[BLACK_KNIGHT]);
 
-    /* Kings */
+    // Kings 
     attackers |= bitboard_king_attacks(square) & (board->pieces[WHITE_KING] | board->pieces[BLACK_KING]);
 
-    /* Bishops & Queens */
+    // Bishops & Queens 
     U64 bishops = board->pieces[WHITE_BISHOP] | board->pieces[BLACK_BISHOP]
                 | board->pieces[WHITE_QUEEN]  | board->pieces[BLACK_QUEEN];
     attackers |= bitboard_bishop_attacks(square, occupancy) & bishops;
 
-    /* Rooks & Queens */
+    // Rooks & Queens 
     U64 rooks = board->pieces[WHITE_ROOK] | board->pieces[BLACK_ROOK]
               | board->pieces[WHITE_QUEEN] | board->pieces[BLACK_QUEEN];
     attackers |= bitboard_rook_attacks(square, occupancy) & rooks;
@@ -53,7 +53,7 @@ bool see_ge(const Board *board, Move move, int threshold) {
 
     int victim_value = 0;
     if (move_is_en_passant(move)) {
-        victim_value = piece_values[0]; /* Pawn */
+        victim_value = piece_values[0]; // Pawn 
     } else {
         int target_piece = board_piece_at(board, to);
         if (target_piece >= 0) {
@@ -67,14 +67,14 @@ bool see_ge(const Board *board, Move move, int threshold) {
 
     int balance = victim_value - threshold;
 
-    /* Fail-low cutoff */
+    // Fail-low cutoff 
     if (balance < 0) {
         return false;
     }
 
     int attacker_value = piece_values[mover_type];
 
-    /* Fail-high cutoff */
+    // Fail-high cutoff 
     if (attacker_value - balance <= 0) {
         return true;
     }
@@ -107,7 +107,7 @@ bool see_ge(const Board *board, Move move, int threshold) {
         int next_victim_type = -1;
         U64 least_attacker_bb = 0ULL;
 
-        /* Find least valuable attacker */
+        // Find least valuable attacker 
         for (int pt = 0; pt < 6; ++pt) {
             int p = curr_stm == WHITE ? pt : pt + 6;
             U64 subset = my_attackers & board->pieces[p];
@@ -122,8 +122,8 @@ bool see_ge(const Board *board, Move move, int threshold) {
             break;
         }
 
-        /* If King captures, check if opponent still has attackers guarding `to` square */
-        if (next_victim_type == 5 /* KING */) {
+        // If King captures, check if opponent still has attackers guarding `to` square 
+        if (next_victim_type == WHITE_KING) {
             if (attackers & board->occupancy[curr_stm ^ 1]) {
                 curr_stm ^= 1;
             }
@@ -137,10 +137,10 @@ bool see_ge(const Board *board, Move move, int threshold) {
             break;
         }
 
-        /* Remove used attacker from occupancy */
+        // Remove used attacker from occupancy 
         occupancy ^= least_attacker_bb;
 
-        /* Update X-ray attacks */
+        // Update X-ray attacks 
         if (next_victim_type == 0 || next_victim_type == 2 || next_victim_type == 4) {
             attackers |= bitboard_bishop_attacks(to, occupancy) & diagonal_sliders;
         }

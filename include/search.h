@@ -104,7 +104,7 @@ void reinit_lmp(void);
 #define TUNE_VAR const int
 #endif
 
-/* Search parameters */
+// Search parameters 
 extern TUNE_VAR futility_margin;
 extern TUNE_VAR futility_max_depth;
 extern TUNE_VAR rfp_margin;
@@ -134,7 +134,7 @@ extern TUNE_VAR iir_min_depth;
 extern TUNE_VAR iir_reduction;
 extern TUNE_VAR check_extension;
 
-/* Move picker & history parameters */
+// Move picker & history parameters 
 extern TUNE_VAR history_bonus_cap;
 extern TUNE_VAR history_gravity;
 extern TUNE_VAR history_scale;
@@ -145,7 +145,7 @@ extern TUNE_VAR order_queen_promo;
 extern TUNE_VAR order_victim_mult;
 extern TUNE_VAR order_castle;
 
-/* Continuation history parameters */
+// Continuation history parameters 
 extern TUNE_VAR conthist_bonus_cap;
 extern TUNE_VAR conthist_1_gravity;
 extern TUNE_VAR conthist_1_scale;
@@ -154,7 +154,7 @@ extern TUNE_VAR conthist_2_scale;
 extern TUNE_VAR conthist_4_gravity;
 extern TUNE_VAR conthist_4_scale;
 
-/* Correction history parameters */
+// Correction history parameters 
 extern TUNE_VAR pawn_corr_gravity;
 extern TUNE_VAR pawn_corr_max_depth;
 extern TUNE_VAR pawn_corr_max_bonus;
@@ -162,7 +162,7 @@ extern TUNE_VAR pawn_corr_max_bonus;
 int pawn_corr_score(const SearchContext *context, const Board *board);
 void pawn_corr_update(SearchContext *context, const Board *board, int depth, int diff);
 
-/* Aspiration window parameters */
+// Aspiration window parameters 
 extern TUNE_VAR asp_min_depth;
 extern TUNE_VAR asp_initial_delta;
 extern TUNE_VAR asp_growth_factor;

@@ -300,7 +300,7 @@ Move think(Board *board,
 
     if (movetime_ms > 0 && !depth_explicitly_set)
     {
-        /* In pure movetime mode, deepen until the time budget is consumed. */
+        // In pure movetime mode, deepen until the time budget is consumed. 
         target_depth = max_iterative_depth;
     }
 
@@ -378,7 +378,7 @@ Move think(Board *board,
 
     SearchResult best_result = {0, MOVE_NONE, {0}, 0};
 
-    /* Iterative deepening: search depths 1 through target_depth. */
+    // Iterative deepening: search depths 1 through target_depth. 
     int depth_limit = target_depth;
     if (infinite_search && !depth_explicitly_set && !time_limited && movetime_ms <= 0)
     {

@@ -158,7 +158,7 @@ static int quiescence(Board *board,
     return alpha;
 }
 
-/* Alpha-beta pruned negamax search. */
+// Alpha-beta pruned negamax search.
 static SearchResult negamax(Board *board,
                             int depth,
                             int alpha,
@@ -221,7 +221,8 @@ static SearchResult negamax(Board *board,
                 // (Using TT in PV can cause the info PV to be truncated but this is neccessary to maximise search speed)
                 if (pv_node)
                 {
-                    // On PV nodes, only allow EXACT cutoffs — bound scores from null-window searches would return imprecise values and corrupt the PV.
+                    // On PV nodes, only allow EXACT cutoffs
+                    // Bound scores from null-window searches would return imprecise values and corrupt the PV.
                     if (score_type == TT_SCORE_EXACT)
                     {
                         tt_cutoff = true;
@@ -271,14 +272,14 @@ static SearchResult negamax(Board *board,
             int pv_depth = 0;
             Undo undos[MAX_PV_MOVES];
             U64 pv_hashes[MAX_PV_MOVES];
-            /* Build a temporary history that includes the current path so that
-             * board_is_draw() can detect threefold repetitions inside the PV. */
+            // Build a temporary history that includes the current path so that
+            // board_is_draw() can detect threefold repetitions inside the PV.
             RepetitionHistory pv_history = *history;
             while (pv_depth < depth && result.pv_length < MAX_PV_MOVES)
             {
                 U64 hash = board->hash;
 
-                /* Stop if the current position is already a draw. */
+                // Stop if the current position is already a draw.
                 if (board_is_draw(board, &pv_history, ply + pv_depth, lichess_draw_rules))
                 {
                     break;
@@ -316,12 +317,11 @@ static SearchResult negamax(Board *board,
                     break;
                 }
 
-                /* Record the new position in the temporary history so that
-                 * subsequent iterations can detect draws through it. */
+                // Record the new position in the temporary history so that subsequent iterations can detect draws through it.
                 U64 new_hash = board->hash;
                 if (!repetition_history_push(&pv_history, new_hash))
                 {
-                    /* History full — roll back this move and stop. */
+                    // History full
                     board_unmake_move(board, &undos[pv_depth]);
                     break;
                 }
@@ -353,7 +353,7 @@ static SearchResult negamax(Board *board,
 
     Move previous_move = (ss - 1)->move;
 
-    /* Null-move pruning */
+    // Null-move pruning
     if (!pv_node && // Disallowed in PV nodes- PV must be a legal continuation
         previous_move != MOVE_NONE && //Disallow null move immediately after a null move
         ss->excluded_move == MOVE_NONE && // Disallowed in singular verification search

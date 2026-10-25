@@ -450,7 +450,7 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name UCI_Chess960 type check default false\n");
             printf("option name Materialism type spin default 100 min 0 max 199\n");
 #ifdef SPSA_TUNING
-            /* Pruning & reductions */
+            // Pruning & reductions 
             printf("option name FutilityMargin type spin default %d min 0 max 10000\n", futility_margin);
             printf("option name Futility_MaxDepth type spin default %d min 0 max 10\n", futility_max_depth);
             printf("option name RFP_Margin type spin default %d min 0 max 10000\n", rfp_margin);
@@ -478,7 +478,7 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name LMP_Multiplier type spin default %d min 0 max 1000\n", lmp_multiplier);
             printf("option name LMP_MaxDepth type spin default %d min 0 max 32\n", lmp_max_depth);
 
-            /* Move ordering & history */
+            // Move ordering & history 
             printf("option name History_BonusCap type spin default %d min 0 max 1000\n", history_bonus_cap);
             printf("option name History_Gravity type spin default %d min 0 max 10000\n", history_gravity);
             printf("option name History_Scale type spin default %d min 0 max 1000\n", history_scale);
@@ -489,7 +489,7 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name Order_VictimMult type spin default %d min 0 max 1000\n", order_victim_mult);
             printf("option name Order_Castle type spin default %d min 0 max 10000\n", order_castle);
 
-            /* Continuation history */
+            // Continuation history 
             printf("option name ContHist_BonusCap type spin default %d min 0 max 1000\n", conthist_bonus_cap);
             printf("option name ContHist_1_Gravity type spin default %d min 0 max 10000\n", conthist_1_gravity);
             printf("option name ContHist_1_Scale type spin default %d min 0 max 1000\n", conthist_1_scale);
@@ -498,17 +498,17 @@ void uci_loop(int argc, char *argv[]) {
             printf("option name ContHist_4_Gravity type spin default %d min 0 max 10000\n", conthist_4_gravity);
             printf("option name ContHist_4_Scale type spin default %d min 0 max 1000\n", conthist_4_scale);
 
-            /* Correction history */
+            // Correction history 
             printf("option name PawnCorr_Gravity type spin default %d min 0 max 32767\n", pawn_corr_gravity);
             printf("option name PawnCorr_MaxDepth type spin default %d min 0 max 32\n", pawn_corr_max_depth);
             printf("option name PawnCorr_MaxBonus type spin default %d min 0 max 10000\n", pawn_corr_max_bonus);
 
-            /* Aspiration window */
+            // Aspiration window 
             printf("option name Asp_MinDepth type spin default %d min 0 max 32\n", asp_min_depth);
             printf("option name Asp_InitialDelta type spin default %d min 0 max 10000\n", asp_initial_delta);
             printf("option name Asp_GrowthFactor type spin default %d min 0 max 1000\n", asp_growth_factor);
 
-            /* Time management */
+            // Time management 
             printf("option name Time_SoftDivisor type spin default %d min 0 max 1000\n", time_soft_divisor);
             printf("option name Time_HardDivisor type spin default %d min 0 max 10\n", time_hard_divisor);
             printf("option name Time_ScaleMinDepth type spin default %d min 0 max 32\n", time_scale_min_depth);

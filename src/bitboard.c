@@ -38,7 +38,7 @@ static int on_board(int file, int rank) {
 }
 
 #if defined(NO_PEXT)
-    /* Hardware PEXT explicitly disabled */
+    // Hardware PEXT explicitly disabled 
 #elif defined(USE_PEXT)
 #   define USE_HARDWARE_PEXT
 #elif defined(__BMI2__) && !defined(__znver1__) && !defined(__znver2__) && !defined(__znver1) && !defined(__znver2) && !defined(__tune_znver1__) && !defined(__tune_znver2__)
@@ -269,11 +269,11 @@ static void build_tables(void) {
         }
         pawn_push_path_masks[BLACK][square] = black_push_path;
 
-        /* Generate and store rook/bishop masks for this square */
+        // Generate and store rook/bishop masks for this square 
         rook_masks[square] = generate_rook_mask(square);
         bishop_masks[square] = generate_bishop_mask(square);
 
-        /* Build rook attack table for this square */
+        // Build rook attack table for this square 
         {
             U64 mask = rook_masks[square];
             int positions[64];
@@ -295,7 +295,7 @@ static void build_tables(void) {
             rook_table_index += permutations;
         }
 
-        /* Build bishop attack table for this square */
+        // Build bishop attack table for this square 
         {
             U64 mask = bishop_masks[square];
             int positions[64];

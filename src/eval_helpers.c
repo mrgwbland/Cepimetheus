@@ -4,16 +4,16 @@
 #include <stdbool.h>
 
 
-/* File masks - one per file (A-H) */
+// File masks - one per file (A-H) 
 const U64 file_masks[8] = {
-    0x0101010101010101ULL, /* A-file */
-    0x0202020202020202ULL, /* B-file */
-    0x0404040404040404ULL, /* C-file */
-    0x0808080808080808ULL, /* D-file */
-    0x1010101010101010ULL, /* E-file */
-    0x2020202020202020ULL, /* F-file */
-    0x4040404040404040ULL, /* G-file */
-    0x8080808080808080ULL  /* H-file */
+    0x0101010101010101ULL, // A-file 
+    0x0202020202020202ULL, // B-file 
+    0x0404040404040404ULL, // C-file 
+    0x0808080808080808ULL, // D-file 
+    0x1010101010101010ULL, // E-file 
+    0x2020202020202020ULL, // F-file 
+    0x4040404040404040ULL, // G-file 
+    0x8080808080808080ULL  // H-file 
 };
 
 
@@ -37,7 +37,7 @@ U64 mark_passed_pawns(const Board *board, int side)
     {
         int square = bitboard_pop_lsb(&bb);
 
-        /* Check if any enemy pawns exist in the precomputed block mask. */
+        // Check if any enemy pawns exist in the precomputed block mask. 
         if ((enemy_pawns & bitboard_passed_pawn_mask(side, square)) == 0)
         {
             passed_pawns |= 1ULL << square;

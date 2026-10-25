@@ -51,7 +51,7 @@ U64 board_pawn_key(const Board *board);
 void set_materialism(int materialism);
 int get_materialism(void);
 
-/* Python Bridge Functions */
+// Python Bridge Functions
 int init_tuning_dataset(const char *dataset_path);
 void free_tuning_dataset(void);
 int get_tuning_dataset_size(void);

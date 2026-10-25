@@ -161,7 +161,7 @@ int get_materialism(void)
     return current_materialism;
 }
 
-/* Central 3 files on the opposite side of the king (files D,E,F for queenside king; C,D,E for kingside king) */
+// Central 3 files on the opposite side of the king (files D,E,F for queenside king; C,D,E for kingside king)
 static const U64 king_sq_central_files[64] = {
     // Rank 1 (a1-d1: Queenside -> D,E,F; e1-h1: Kingside -> C,D,E)
     0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
@@ -1521,7 +1521,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     if (has_black_bishop_pair)
         score_param(&black_score, trace, BISHOP_PAIR_BONUS, 1, false);
 
-    /* Unless the position is zugzwang, having a move is often better. Zugzwang more likely in endgames */
+    // Unless the position is zugzwang, having a move is often better. Zugzwang more likely in endgames
     if (board->side == WHITE)
     {
         score_param(&white_score, trace, TEMPO_BONUS, 1, true);
