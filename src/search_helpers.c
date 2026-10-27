@@ -300,6 +300,7 @@ void search_context_clear(SearchContext *context)
     memset(context->pawn_corr_hist, 0, sizeof(context->pawn_corr_hist));
     memset(&context->root_moves, 0, sizeof(context->root_moves));
     transposition_table_clear(&context->table);
+    clear_pawn_table();
 }
 
 // Destroy and reinit TT with new size, reset all search heuristics

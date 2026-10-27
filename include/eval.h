@@ -45,6 +45,7 @@ int get_endgame_weight(const Board *board);
 EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move);
 int eval_terminal_score(EvalTerminalState terminal_state, int ply);
 void init_eval(void);
+void clear_pawn_table(void);
 int evaluate_position(Board *board);
 U64 board_pawn_key(const Board *board);
 

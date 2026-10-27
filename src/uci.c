@@ -600,7 +600,11 @@ void uci_loop(int argc, char *argv[]) {
                     while (*valuetoken == ' ' || *valuetoken == '\t') valuetoken++;
                     int parsed_materialism = atoi(valuetoken);
                     if (parsed_materialism >= 0 && parsed_materialism <= 199) {
-                        set_materialism(parsed_materialism);
+                        if (parsed_materialism != get_materialism()) {
+                            search_thread_stop_and_join(&search_thread);
+                            set_materialism(parsed_materialism);
+                            search_context_clear(global_search_context);
+                        }
                     }
                 }
 #ifdef SPSA_TUNING

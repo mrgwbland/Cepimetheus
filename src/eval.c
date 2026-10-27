@@ -137,6 +137,10 @@ void set_materialism(int materialism)
 {
     if (materialism < 0) materialism = 0;
     if (materialism > 199) materialism = 199;
+    if (current_materialism != materialism)
+    {
+        clear_pawn_table();
+    }
     current_materialism = materialism;
 
     double mult;
@@ -274,6 +278,16 @@ typedef struct
 #define PAWN_TABLE_SIZE 32768
 static _Thread_local PawnEntry pawn_table[PAWN_TABLE_SIZE];
 static int current_eval_version = 1;
+
+void clear_pawn_table(void)
+{
+    current_eval_version++;
+    if (current_eval_version == 0)
+    {
+        current_eval_version = 1;
+    }
+    memset((void *)pawn_table, 0, sizeof(pawn_table));
+}
 
 static inline U64 pawn_mix_u64(U64 value) {
     value ^= value >> 33;
