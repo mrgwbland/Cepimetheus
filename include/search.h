@@ -11,22 +11,25 @@
 #define STACK_OFFSET 6 // Offset to allow negative checks at root
 
 #define PAWN_CORR_HIST_SIZE (1 << 14)
-//When the entry is small, the decay is near zero, so  the entry grows fast with delta
-//When the entry grows large enough, the decay term equals the scaling, preventing growth
+// When the entry is small, the decay is near zero, so  the entry grows fast with delta
+// When the entry grows large enough, the decay term equals the scaling, preventing growth
 static inline void gravity_update_entry(int16_t *entry, int delta, int scale, int gravity)
 {
     int grav = gravity > 0 ? gravity : 1;
     int val = *entry;
     val += scale * delta - val * abs(delta) / grav;
-    if (val > 32767) val = 32767;
-    else if (val < -32767) val = -32767;
+    if (val > 32767)
+        val = 32767;
+    else if (val < -32767)
+        val = -32767;
     *entry = (int16_t)val;
 }
 
 typedef int16_t ContHistEntry[12][64];
 
 // Information for each ply in the search stack
-typedef struct SearchStack {
+typedef struct SearchStack
+{
     int ply;
     int static_eval;
     Move move;
@@ -34,27 +37,31 @@ typedef struct SearchStack {
     ContHistEntry *cont_entry;
 } SearchStack;
 
-typedef struct {
+typedef struct
+{
     int score;
     Move move;
     Move pv[MAX_PV_MOVES];
     int pv_length;
 } SearchResult;
 
-typedef struct {
+typedef struct
+{
     unsigned long long nodes;
     int seldepth;
     int hashfull;
 } SearchStats;
 
-typedef struct {
+typedef struct
+{
     bool hard_time_limited;
     long long hard_stop_time_ms;
     bool stop;
     volatile bool *external_stop;
 } SearchControl;
 
-typedef struct {
+typedef struct
+{
     Move move;
     int score;
     int previous_score;
@@ -63,7 +70,8 @@ typedef struct {
     int pv_length;
 } RootMoveEntry;
 
-typedef struct {
+typedef struct
+{
     RootMoveEntry entries[MAX_QUIET_TRACKED];
     int count;
 } RootMoveTable;
@@ -104,7 +112,7 @@ void reinit_lmp(void);
 #define TUNE_VAR const int
 #endif
 
-// Search parameters 
+// Search parameters
 extern TUNE_VAR futility_margin;
 extern TUNE_VAR futility_max_depth;
 extern TUNE_VAR rfp_margin;
@@ -134,7 +142,7 @@ extern TUNE_VAR iir_min_depth;
 extern TUNE_VAR iir_reduction;
 extern TUNE_VAR check_extension;
 
-// Move picker & history parameters 
+// Move picker & history parameters
 extern TUNE_VAR history_bonus_cap;
 extern TUNE_VAR history_gravity;
 extern TUNE_VAR history_scale;
@@ -145,7 +153,7 @@ extern TUNE_VAR order_queen_promo;
 extern TUNE_VAR order_victim_mult;
 extern TUNE_VAR order_castle;
 
-// Continuation history parameters 
+// Continuation history parameters
 extern TUNE_VAR conthist_bonus_cap;
 extern TUNE_VAR conthist_1_gravity;
 extern TUNE_VAR conthist_1_scale;
@@ -154,7 +162,7 @@ extern TUNE_VAR conthist_2_scale;
 extern TUNE_VAR conthist_4_gravity;
 extern TUNE_VAR conthist_4_scale;
 
-// Correction history parameters 
+// Correction history parameters
 extern TUNE_VAR pawn_corr_gravity;
 extern TUNE_VAR pawn_corr_max_depth;
 extern TUNE_VAR pawn_corr_max_bonus;
@@ -162,7 +170,7 @@ extern TUNE_VAR pawn_corr_max_bonus;
 int pawn_corr_score(const SearchContext *context, const Board *board);
 void pawn_corr_update(SearchContext *context, const Board *board, int depth, int diff);
 
-// Aspiration window parameters 
+// Aspiration window parameters
 extern TUNE_VAR asp_min_depth;
 extern TUNE_VAR asp_initial_delta;
 extern TUNE_VAR asp_growth_factor;

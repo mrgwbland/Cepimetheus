@@ -8,10 +8,11 @@ typedef uint16_t Move;
 
 #define MOVE_NONE ((Move)0)
 
-#define MOVE_FLAG_CAPTURE   ((Move)(1u << 15))
+#define MOVE_FLAG_CAPTURE ((Move)(1u << 15))
 #define MOVE_FLAG_PROMOTION ((Move)(1u << 14))
 
-typedef enum {
+typedef enum
+{
     MOVE_SPECIAL_NONE = 0,
     MOVE_SPECIAL_CASTLE = 1,
     MOVE_SPECIAL_EN_PASSANT = 2,
@@ -24,51 +25,63 @@ typedef enum {
 
 struct Board;
 
-static inline Move move_make(int from, int to, MoveSpecial special, bool is_capture) {
+static inline Move move_make(int from, int to, MoveSpecial special, bool is_capture)
+{
     return (Move)((from & 0x3F) | ((to & 0x3F) << 6) | ((special & 0x7) << 12) | ((Move)is_capture << 15));
 }
 
-static inline int move_from(Move move) {
+static inline int move_from(Move move)
+{
     return (int)(move & 0x3Fu);
 }
 
-static inline int move_to(Move move) {
+static inline int move_to(Move move)
+{
     return (int)((move >> 6) & 0x3Fu);
 }
 
-static inline MoveSpecial move_special(Move move) {
+static inline MoveSpecial move_special(Move move)
+{
     return (MoveSpecial)((move >> 12) & 0x7u);
 }
 
-static inline bool move_iscapture(Move move) {
+static inline bool move_iscapture(Move move)
+{
     return (move & MOVE_FLAG_CAPTURE) != 0;
 }
 
-static inline bool move_is_promotion(Move move) {
+static inline bool move_is_promotion(Move move)
+{
     return (move & MOVE_FLAG_PROMOTION) != 0;
 }
 
-static inline bool move_is_quiet(Move move) {
+static inline bool move_is_quiet(Move move)
+{
     return (move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTION)) == 0;
 }
 
-static inline bool move_is_noisy(Move move) {
+static inline bool move_is_noisy(Move move)
+{
     return (move & (MOVE_FLAG_CAPTURE | MOVE_FLAG_PROMOTION)) != 0;
 }
 
-static inline bool move_is_castle(Move move) {
+static inline bool move_is_castle(Move move)
+{
     return move_special(move) == MOVE_SPECIAL_CASTLE;
 }
 
-static inline bool move_is_en_passant(Move move) {
+static inline bool move_is_en_passant(Move move)
+{
     return move_special(move) == MOVE_SPECIAL_EN_PASSANT;
 }
 
-static inline bool move_is_double_pawn(Move move) {
+static inline bool move_is_double_pawn(Move move)
+{
     return move_special(move) == MOVE_SPECIAL_DOUBLE_PAWN;
 }
 
-static inline int move_promotion_piece_type(Move move) {
+static inline int move_promotion_piece_type(Move move)
+{
     return move_is_promotion(move) ? (int)(((move >> 12) & 0x3u) + 1) : 0;
 }
 bool move_ischeck(const struct Board *board, Move move);

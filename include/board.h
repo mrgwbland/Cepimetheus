@@ -7,13 +7,15 @@
 #include "bitboard.h"
 #include "move.h"
 
-enum {
+enum
+{
     WHITE = 0,
     BLACK = 1,
     BOTH = 2
 };
 
-enum {
+enum
+{
     WHITE_PAWN,
     WHITE_KNIGHT,
     WHITE_BISHOP,
@@ -29,18 +31,21 @@ enum {
     PIECE_NB
 };
 
-enum {
+enum
+{
     CASTLE_WHITE_KING = 1 << 0,
     CASTLE_WHITE_QUEEN = 1 << 1,
     CASTLE_BLACK_KING = 1 << 2,
     CASTLE_BLACK_QUEEN = 1 << 3
 };
 
-enum {
+enum
+{
     REPETITION_HISTORY_MAX = 1024
 };
 
-typedef struct Board {
+typedef struct Board
+{
     int squares[64];
     U64 pieces[PIECE_NB];
     U64 occupancy[3];
@@ -56,7 +61,8 @@ typedef struct Board {
     U64 pinned_mask;
 } Board;
 
-typedef struct Undo {
+typedef struct Undo
+{
     U64 hash;
     U64 checkers;
     U64 pinned_mask;
@@ -67,7 +73,8 @@ typedef struct Undo {
     Move move;
 } Undo;
 
-typedef struct RepetitionHistory {
+typedef struct RepetitionHistory
+{
     U64 keys[REPETITION_HISTORY_MAX];
     int count;
 } RepetitionHistory;
@@ -91,7 +98,7 @@ bool board_is_in_check(const Board *board, int side);
 U64 board_pinned_mask(const Board *board, int side);
 U64 board_checkers(const Board *board, int side);
 bool board_is_move_legal(const Board *board, Move move, U64 pinned_mask, U64 checkers);
-bool board_is_move_pseudo_legal(const Board *board, Move move);
+bool is_move_pseudo_legal(const Board *board, Move move);
 int board_piece_at(const Board *board, int square);
 int board_piece_color(int piece);
 int board_piece_type(int piece);

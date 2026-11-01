@@ -7,22 +7,32 @@
 
 #include "board.h"
 
-static void square_to_string(int square, char buffer[3]) {
+static void square_to_string(int square, char buffer[3])
+{
     board_square_to_string(square, buffer);
 }
 
-void move_to_string(Move move, const Board *board, char buffer[6]) {
+void move_to_string(Move move, const Board *board, char buffer[6])
+{
     int from_sq = move_from(move);
     int to_sq = move_to(move);
 
-    if (option_chess960 && board != NULL && move_is_castle(move)) {
-        if (to_sq == 6) {
+    if (option_chess960 && board != NULL && move_is_castle(move))
+    {
+        if (to_sq == 6)
+        {
             to_sq = board->castling_rook_square[0];
-        } else if (to_sq == 2) {
+        }
+        else if (to_sq == 2)
+        {
             to_sq = board->castling_rook_square[1];
-        } else if (to_sq == 62) {
+        }
+        else if (to_sq == 62)
+        {
             to_sq = board->castling_rook_square[2];
-        } else if (to_sq == 58) {
+        }
+        else if (to_sq == 58)
+        {
             to_sq = board->castling_rook_square[3];
         }
     }
@@ -35,32 +45,48 @@ void move_to_string(Move move, const Board *board, char buffer[6]) {
     buffer[1] = from[1];
     buffer[2] = to[0];
     buffer[3] = to[1];
-    switch (move_special(move)) {
-        case MOVE_SPECIAL_PROMO_N: buffer[4] = 'n'; break;
-        case MOVE_SPECIAL_PROMO_B: buffer[4] = 'b'; break;
-        case MOVE_SPECIAL_PROMO_R: buffer[4] = 'r'; break;
-        case MOVE_SPECIAL_PROMO_Q: buffer[4] = 'q'; break;
-        default: buffer[4] = '\0'; break;
+    switch (move_special(move))
+    {
+    case MOVE_SPECIAL_PROMO_N:
+        buffer[4] = 'n';
+        break;
+    case MOVE_SPECIAL_PROMO_B:
+        buffer[4] = 'b';
+        break;
+    case MOVE_SPECIAL_PROMO_R:
+        buffer[4] = 'r';
+        break;
+    case MOVE_SPECIAL_PROMO_Q:
+        buffer[4] = 'q';
+        break;
+    default:
+        buffer[4] = '\0';
+        break;
     }
     buffer[5] = '\0';
 }
 
-void zobrist_hash_to_string(uint64_t hash, char buffer[17]) {
-    if (buffer == NULL) {
+void zobrist_hash_to_string(uint64_t hash, char buffer[17])
+{
+    if (buffer == NULL)
+    {
         return;
     }
 
     snprintf(buffer, 17, "%016llx", (unsigned long long)hash);
 }
 
-bool zobrist_hash_from_string(const char *text, uint64_t *hash_out) {
-    if (text == NULL || hash_out == NULL || *text == '\0') {
+bool zobrist_hash_from_string(const char *text, uint64_t *hash_out)
+{
+    if (text == NULL || hash_out == NULL || *text == '\0')
+    {
         return false;
     }
 
     char *end = NULL;
     unsigned long long value = strtoull(text, &end, 16);
-    if (end == text || *end != '\0') {
+    if (end == text || *end != '\0')
+    {
         return false;
     }
 
@@ -68,28 +94,33 @@ bool zobrist_hash_from_string(const char *text, uint64_t *hash_out) {
     return true;
 }
 
-
-bool move_ischeck(const struct Board *board, Move move) {
-    if (board == NULL) {
+bool move_ischeck(const struct Board *board, Move move)
+{
+    if (board == NULL)
+    {
         return false;
     }
     Board temp = *board;
     Undo undo;
-    if (!board_make_move(&temp, move, &undo)) {
+    if (!board_make_move(&temp, move, &undo))
+    {
         return false;
     }
     return board_is_in_check(&temp, temp.side);
 }
 
-bool move_is_in_list(Move move, const Move *list, int count) {
-    if (list == NULL || count <= 0) {
+bool move_is_in_list(Move move, const Move *list, int count)
+{
+    if (list == NULL || count <= 0)
+    {
         return false;
     }
-    for (int i = 0; i < count; ++i) {
-        if (list[i] == move) {
+    for (int i = 0; i < count; ++i)
+    {
+        if (list[i] == move)
+        {
             return true;
         }
     }
     return false;
 }
-

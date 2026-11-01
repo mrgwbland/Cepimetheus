@@ -258,11 +258,11 @@ void transposition_table_store(TranspositionTable *table,
     {
         // Allow the overwrite if any of these are true:
         bool is_better = ((score_type == TT_SCORE_EXACT && (target->gen_bound & TT_BOUND_MASK) != TT_SCORE_EXACT) || (score_type == TT_SCORE_EXACT && depth > target->depth)); // The new result has a better EXACT score (most valuable bound type)
-        bool is_stale = (tt_entry_gen(target) != table->generation); // The existing entry is from a previous search (stale generation)
-        bool is_deeper = (depth >= (int)target->depth); // The new depth is deeper than the existing depth
+        bool is_stale = (tt_entry_gen(target) != table->generation);                                                                                                           // The existing entry is from a previous search (stale generation)
+        bool is_deeper = (depth >= (int)target->depth);                                                                                                                        // The new depth is deeper than the existing depth
 
         if (!is_better && !is_stale && !is_deeper) // Replacement rejected
-        {            
+        {
             if (best_move != MOVE_NONE && target->best_move == MOVE_NONE) // Despite rejection, store a best move if we have one and one is not already present
             {
                 target->best_move = best_move;

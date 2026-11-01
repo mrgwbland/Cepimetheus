@@ -5,8 +5,8 @@
 #include "search.h"
 #include <stddef.h>
 
-
-typedef struct SearchOptions {
+typedef struct SearchOptions
+{
     int overhead_ms;
     int multipv;
     int hash_power;
@@ -15,7 +15,8 @@ typedef struct SearchOptions {
     bool silent;
 } SearchOptions;
 
-typedef struct SearchLimits {
+typedef struct SearchLimits
+{
     int depth;
     int movetime_ms;
     int wtime_ms;
@@ -41,7 +42,7 @@ Move think(Board *board,
 
 void get_score_string(int score, char *buffer, size_t size);
 long long current_time_ms(void);
-// Time management parameters 
+// Time management parameters
 extern TUNE_VAR time_soft_divisor;
 extern TUNE_VAR time_hard_divisor;
 extern TUNE_VAR time_scale_min_depth;

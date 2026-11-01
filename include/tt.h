@@ -15,21 +15,21 @@ typedef uint8_t TranspositionScoreType;
 #define TT_SCORE_LOWER 2
 
 #define TT_BOUND_MASK 0x03
-#define TT_GEN_MASK   0xFC
-#define TT_GEN_INC    0x04 // TT increments by 4 because 2 bits are used for score type, so this can be thought of as an increment of 1
-#define TT_GEN_CYCLE  (256 + TT_GEN_INC)
+#define TT_GEN_MASK 0xFC
+#define TT_GEN_INC 0x04 // TT increments by 4 because 2 bits are used for score type, so this can be thought of as an increment of 1
+#define TT_GEN_CYCLE (256 + TT_GEN_INC)
 
 #define EVAL_NONE ((int16_t)32002)
 
 typedef struct
 {
-    U64 hash; // 8 bytes
-    Move best_move; // 2 bytes
-    int16_t score; // 2 bytes
+    U64 hash;            // 8 bytes
+    Move best_move;      // 2 bytes
+    int16_t score;       // 2 bytes
     int16_t static_eval; // 2 bytes
-    int8_t depth; // 1 byte
-    uint8_t gen_bound; // 1 byte (first 6 bits = generation, last 2 bits = score_type)
-} TranspositionEntry; // 16 bytes
+    int8_t depth;        // 1 byte
+    uint8_t gen_bound;   // 1 byte (first 6 bits = generation, last 2 bits = score_type)
+} TranspositionEntry;    // 16 bytes
 
 typedef struct
 {
@@ -54,7 +54,7 @@ static inline uint8_t tt_entry_gen(const TranspositionEntry *entry)
     return (uint8_t)(entry->gen_bound & TT_GEN_MASK);
 }
 
-// 
+//
 static inline int score_to_tt(int score, int ply)
 {
     if (score > MATE_SCORE - MAX_PLY_DEPTH)

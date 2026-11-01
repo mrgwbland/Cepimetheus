@@ -8,7 +8,8 @@
 
 #define MAX_ORDERED_MOVES 256
 
-enum {
+enum
+{
     STAGE_TT,
     STAGE_GENERATE_NOISY,
     STAGE_PLAY_NOISY,
@@ -23,7 +24,8 @@ enum {
     STAGE_DONE
 };
 
-typedef struct {
+typedef struct
+{
     Move moves[MAX_ORDERED_MOVES];
     int scores[MAX_ORDERED_MOVES];
     int count;
@@ -65,11 +67,11 @@ int history_bonus(int depth);
 int conthist_bonus(int depth);
 void update_conthist(const SearchStack *ss, int piece, int to, int delta);
 static const int piece_values[6] = {
-    1000,   // Pawn 
-    3000,   // Knight 
-    3200,   // Bishop 
-    5000,   // Rook 
-    9000,   // Queen 
-    200000  // King 
+    1000,  // Pawn
+    3000,  // Knight
+    3200,  // Bishop
+    5000,  // Rook
+    9000,  // Queen
+    200000 // King
 };
 #endif

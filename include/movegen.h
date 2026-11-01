@@ -3,7 +3,8 @@
 
 #include "board.h"
 
-typedef struct MoveList {
+typedef struct MoveList
+{
     Move moves[256];
     int count;
 } MoveList;

@@ -69,7 +69,8 @@ void reinit_lmr(void)
 {
     double move_mult = (double)lmr_move_multiplier / 100.0;
     double div_factor = (double)lmr_divisor / 100.0;
-    if (div_factor == 0.0) div_factor = 0.01;
+    if (div_factor == 0.0)
+        div_factor = 0.01;
     double offset = (double)lmr_offset / 100.0;
 
     for (int depth = 0; depth < 64; ++depth)
@@ -130,7 +131,7 @@ bool search_should_stop(SearchControl *control, long long nodes)
     {
         return false;
     }
-    
+
     if (control->external_stop != NULL && *control->external_stop)
     {
         control->stop = true;
@@ -435,11 +436,12 @@ void pawn_corr_update(SearchContext *context, const Board *board, int depth, int
     }
     int weight = depth < pawn_corr_max_depth ? depth : pawn_corr_max_depth;
     int delta = diff * weight;
-    if (delta > pawn_corr_max_bonus) delta = pawn_corr_max_bonus;
-    else if (delta < -pawn_corr_max_bonus) delta = -pawn_corr_max_bonus;
+    if (delta > pawn_corr_max_bonus)
+        delta = pawn_corr_max_bonus;
+    else if (delta < -pawn_corr_max_bonus)
+        delta = -pawn_corr_max_bonus;
 
     U64 pkey = board_pawn_key(board);
     int16_t *entry = &context->pawn_corr_hist[board->side][pkey & (PAWN_CORR_HIST_SIZE - 1)];
     gravity_update_entry(entry, delta, 1, pawn_corr_gravity);
 }
-

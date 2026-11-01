@@ -12,7 +12,8 @@
 typedef int (*EndgameFunc)(const Board *board, int strong_side);
 typedef int (*EndgameScaleFunc)(const Board *board, int strong_side);
 
-typedef struct {
+typedef struct
+{
     uint64_t key;
     EndgameFunc eval_fn;
     EndgameScaleFunc scale_fn;

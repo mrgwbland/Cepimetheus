@@ -45,8 +45,10 @@ static int quiescence(Board *board,
     {
         raw_eval = evaluate_position(board);
         stand_pat = raw_eval + pawn_corr_score(context, board);
-        if (stand_pat >= MATE_SCORE - MAX_PLY_DEPTH) stand_pat = MATE_SCORE - MAX_PLY_DEPTH - 1;
-        else if (stand_pat <= -MATE_SCORE + MAX_PLY_DEPTH) stand_pat = -MATE_SCORE + MAX_PLY_DEPTH + 1;
+        if (stand_pat >= MATE_SCORE - MAX_PLY_DEPTH)
+            stand_pat = MATE_SCORE - MAX_PLY_DEPTH - 1;
+        else if (stand_pat <= -MATE_SCORE + MAX_PLY_DEPTH)
+            stand_pat = -MATE_SCORE + MAX_PLY_DEPTH + 1;
         ss->static_eval = stand_pat;
 
         if (stand_pat >= beta)
@@ -255,11 +257,14 @@ static SearchResult negamax(Board *board,
             int start = 0;
             int history_limit = history->count - 1;
             int halfmove_limit = history->count - 1 - board->halfmove_clock;
-            if (halfmove_limit > start) {
+            if (halfmove_limit > start)
+            {
                 start = halfmove_limit;
             }
-            for (int i = start; i < history_limit; ++i) {
-                if (history->keys[i] == current_key) {
+            for (int i = start; i < history_limit; ++i)
+            {
+                if (history->keys[i] == current_key)
+                {
                     is_repeated = true;
                     break;
                 }
@@ -307,7 +312,7 @@ static SearchResult negamax(Board *board,
                     break;
                 }
 
-                if (!board_is_move_pseudo_legal(board, pv_entry->best_move))
+                if (!is_move_pseudo_legal(board, pv_entry->best_move))
                 {
                     break;
                 }
@@ -342,7 +347,7 @@ static SearchResult negamax(Board *board,
 
             return result;
         }
-    }        
+    }
 
     // At leaf node, quiescence search
     if (depth <= 0)
@@ -354,19 +359,20 @@ static SearchResult negamax(Board *board,
     Move previous_move = (ss - 1)->move;
 
     // Null-move pruning
-    if (!pv_node && // Disallowed in PV nodes- PV must be a legal continuation
-        previous_move != MOVE_NONE && //Disallow null move immediately after a null move
-        ss->excluded_move == MOVE_NONE && // Disallowed in singular verification search
+    if (!pv_node &&                                             // Disallowed in PV nodes- PV must be a legal continuation
+        previous_move != MOVE_NONE &&                           // Disallow null move immediately after a null move
+        ss->excluded_move == MOVE_NONE &&                       // Disallowed in singular verification search
         (context == NULL || ss->ply >= context->nmp_min_ply) && // Disallowed during NMP verification search
-        depth >= nmp_min_depth &&// NMP not done near leaves as tree is already small, and NMP has overhead
-        beta < MATE_SCORE - MAX_PLY_DEPTH &&// Not done in mating sequences
-        !board_is_in_check(board, board->side) && // In check passing is illegal
-        has_sufficient_nmp_material(board)) //Not done in endgames to avoid zugzwang issues
+        depth >= nmp_min_depth &&                               // NMP not done near leaves as tree is already small, and NMP has overhead
+        beta < MATE_SCORE - MAX_PLY_DEPTH &&                    // Not done in mating sequences
+        !board_is_in_check(board, board->side) &&               // In check passing is illegal
+        has_sufficient_nmp_material(board))                     // Not done in endgames to avoid zugzwang issues
     {
         int scale = nmp_depth_scale > 0 ? nmp_depth_scale : 1;
         int reduction = nmp_base_reduction + depth / scale;
         int child_depth = depth - 1 - reduction;
-        if (child_depth < 0) child_depth = 0;
+        if (child_depth < 0)
+            child_depth = 0;
 
         // Test if we fail high even if we skip a move
         Undo undo;
@@ -396,7 +402,7 @@ static SearchResult negamax(Board *board,
             // Skip verification when at low depth or if already in a verification search
             if (depth < nmp_verification_min_depth || (context != NULL && context->nmp_min_ply > 0))
             {
-                //We assume not zugzwang to save time at low depths
+                // We assume not zugzwang to save time at low depths
                 result.score = beta;
                 return result;
             }
@@ -407,7 +413,8 @@ static SearchResult negamax(Board *board,
             {
                 // Disable NMP for 3/4 of the verification search depth
                 int nmp_verif_suppress = 3 * child_depth / 4;
-                if (nmp_verif_suppress < 1) nmp_verif_suppress = 1;
+                if (nmp_verif_suppress < 1)
+                    nmp_verif_suppress = 1;
                 context->nmp_min_ply = ss->ply + nmp_verif_suppress;
 
                 SearchResult verif = negamax(board,
@@ -444,8 +451,8 @@ static SearchResult negamax(Board *board,
         }
     }
 
-    bool in_check = board_is_in_check(board, board->side);      
-    bool futility_prune = false; 
+    bool in_check = board_is_in_check(board, board->side);
+    bool futility_prune = false;
     bool improving = false;
     int raw_eval = EVAL_NONE;
     if (in_check)
@@ -464,19 +471,19 @@ static SearchResult negamax(Board *board,
             raw_eval = evaluate_position(board);
         }
         int static_eval = raw_eval + pawn_corr_score(context, board);
-        if (static_eval >= MATE_SCORE - MAX_PLY_DEPTH) static_eval = MATE_SCORE - MAX_PLY_DEPTH - 1;
-        else if (static_eval <= -MATE_SCORE + MAX_PLY_DEPTH) static_eval = -MATE_SCORE + MAX_PLY_DEPTH + 1;
+        if (static_eval >= MATE_SCORE - MAX_PLY_DEPTH)
+            static_eval = MATE_SCORE - MAX_PLY_DEPTH - 1;
+        else if (static_eval <= -MATE_SCORE + MAX_PLY_DEPTH)
+            static_eval = -MATE_SCORE + MAX_PLY_DEPTH + 1;
         ss->static_eval = static_eval;
 
         improving = !in_check && ply > 1 && (ss - 2)->static_eval != EVAL_NONE && ss->static_eval > (ss - 2)->static_eval;
 
         int eval = static_eval;
-        //Improve eval estimation based on TT score and bounds
+        // Improve eval estimation based on TT score and bounds
         if (entry != NULL && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
         {
-            if (tt_bound == TT_SCORE_EXACT
-                || (tt_bound == TT_SCORE_LOWER && tt_score > eval)
-                || (tt_bound == TT_SCORE_UPPER && tt_score < eval))
+            if (tt_bound == TT_SCORE_EXACT || (tt_bound == TT_SCORE_LOWER && tt_score > eval) || (tt_bound == TT_SCORE_UPPER && tt_score < eval))
             {
                 eval = tt_score;
             }
@@ -484,37 +491,33 @@ static SearchResult negamax(Board *board,
 
         // Reverse Futility Pruning: At relatively shallow non-PV nodes, if the static eval exceeds beta by a depth-dependent margin, prune the entire node (the position is so good it's already winning)
         int rfp_margin_val = (improving ? rfp_improving_margin : rfp_margin) * depth;
-        if (!pv_node && depth <= rfp_max_depth
-            && abs(eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
-            && eval - rfp_margin_val > beta) 
+        if (!pv_node && depth <= rfp_max_depth && abs(eval) < MATE_SCORE - MAX_PLY_DEPTH // Don't prune in mating sequences
+            && eval - rfp_margin_val > beta)
         {
             result.score = eval;
             return result;
-        }                    
+        }
         // Futility Pruning: At shallow depths, if static evaluation plus a safety margin is still less than alpha, prune all remaining quiet moves (a quiet move cannot save eval)
-        if (depth <= futility_max_depth && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH
-            && eval + futility_margin * depth < alpha)
+        if (depth <= futility_max_depth && abs(alpha) < MATE_SCORE - MAX_PLY_DEPTH && eval + futility_margin * depth < alpha)
         {
             futility_prune = true;
         }
-    }  
+    }
 
     // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
     if (context != NULL && entry == NULL && depth >= iir_min_depth && !pv_node)
     {
         depth -= iir_reduction;
-        if (depth < 0) depth = 0;
+        if (depth < 0)
+            depth = 0;
     }
 
     // Singular Extension: If a TT move exists and is significantly better than all alternative moves, extend its search depth by 1 to explore it deeper.
     int extension = 0;
-    if (ss->excluded_move == MOVE_NONE // Prevent an infinite loop
-        && depth > se_min_depth // Don't extend near leaves
-        && tt_move != MOVE_NONE
-        && entry != NULL
-        && tt_depth >= depth - se_depth_margin // Only use good TT moves
-        && tt_bound != TT_SCORE_UPPER
-        && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
+    if (ss->excluded_move == MOVE_NONE                                                  // Prevent an infinite loop
+        && depth > se_min_depth                                                         // Don't extend near leaves
+        && tt_move != MOVE_NONE && entry != NULL && tt_depth >= depth - se_depth_margin // Only use good TT moves
+        && tt_bound != TT_SCORE_UPPER && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
     {
         // If all other moves are below beta_target then node is considered singular
         int beta_target = tt_score - se_margin * depth;
@@ -551,7 +554,7 @@ static SearchResult negamax(Board *board,
             result.score = beta_target;
             return result;
         }
-        else if (tt_score >= beta)  // Expected fail high so negative extension
+        else if (tt_score >= beta) // Expected fail high so negative extension
         {
             extension = -se_negative_extension;
         }
@@ -652,7 +655,7 @@ static SearchResult negamax(Board *board,
                 {
                     r++;
                 }
-                child = negamax(board, depth -1 -r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 if (control->stop)
                 {
                     --history->count;
@@ -660,7 +663,7 @@ static SearchResult negamax(Board *board,
                     break;
                 }
                 int score = -child.score;
-                if (score > alpha) //If it fails high do a full search
+                if (score > alpha) // If it fails high do a full search
                 {
                     child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 }
@@ -731,7 +734,6 @@ static SearchResult negamax(Board *board,
                         context->killer_moves[ply][0] = move;
                     }
                 }
-
 
                 if (previous_move != MOVE_NONE)
                 {
@@ -861,8 +863,10 @@ SearchResult search_root(Board *board,
             raw_eval = evaluate_position(board);
         }
         int static_eval = raw_eval + pawn_corr_score(context, board);
-        if (static_eval >= MATE_SCORE - MAX_PLY_DEPTH) static_eval = MATE_SCORE - MAX_PLY_DEPTH - 1;
-        else if (static_eval <= -MATE_SCORE + MAX_PLY_DEPTH) static_eval = -MATE_SCORE + MAX_PLY_DEPTH + 1;
+        if (static_eval >= MATE_SCORE - MAX_PLY_DEPTH)
+            static_eval = MATE_SCORE - MAX_PLY_DEPTH - 1;
+        else if (static_eval <= -MATE_SCORE + MAX_PLY_DEPTH)
+            static_eval = -MATE_SCORE + MAX_PLY_DEPTH + 1;
         ss->static_eval = static_eval;
     }
     else

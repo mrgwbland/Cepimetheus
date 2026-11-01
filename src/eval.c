@@ -13,73 +13,55 @@
 #include <omp.h>
 
 int base_piece_values_mg[6] = {
-    1000, 2110, 2740, 2955, 6820, 0
-};
+    1000, 2110, 2740, 2955, 6820, 0};
 
 int piece_values_mg[6] = {
-    1000, 2110, 2740, 2955, 6820, 0
-};
+    1000, 2110, 2740, 2955, 6820, 0};
 
 int base_piece_values_eg[6] = {
-    1000, 3850, 3475, 6480, 11570, 0
-};
+    1000, 3850, 3475, 6480, 11570, 0};
 
 int piece_values_eg[6] = {
-    1000, 3850, 3475, 6480, 11570, 0
-};
+    1000, 3850, 3475, 6480, 11570, 0};
 
 int eval_parameters_mg[NUM_EVAL_PARAMS] = {
-    175, 220, 72, 494, 158, 17, 56, 0, 0, 34, 14, 0, 96, 288, 58, 44, 67, 64, 86, 211, 100, 84, 0, 66, 37, 169, 126, 146, 22, 19, 0, 42, 21, 9, 136
-};
+    175, 220, 72, 494, 158, 17, 56, 0, 0, 34, 14, 0, 96, 288, 58, 44, 67, 64, 86, 211, 100, 84, 0, 66, 37, 169, 126, 146, 22, 19, 0, 42, 21, 9, 136};
 
 int eval_parameters_eg[NUM_EVAL_PARAMS] = {
-    105, 16, 103, 1025, 83, 114, 56, 41, 163, 0, 108, 88, 99, 86, 30, 40, 62, 105, 706, 0, 113, 1, 153, 16, 0, 112, 156, 0, 37, 7, 65, 141, 30, 0, 192
-};
+    105, 16, 103, 1025, 83, 114, 56, 41, 163, 0, 108, 88, 99, 86, 30, 40, 62, 105, 706, 0, 113, 1, 153, 16, 0, 112, 156, 0, 37, 7, 65, 141, 30, 0, 192};
 
 int passed_pawn_rank_bonus_mg[6] = {
-    0, 0, 0, 323, 527, 571
-};
+    0, 0, 0, 323, 527, 571};
 
 int passed_pawn_rank_bonus_eg[6] = {
-    0, 0, 360, 600, 1052, 1981
-};
+    0, 0, 360, 600, 1052, 1981};
 
 int phalanx_pawn_rank_bonus_mg[6] = {
-    0, 8, 31, 110, 514, 1061
-};
+    0, 8, 31, 110, 514, 1061};
 
 int phalanx_pawn_rank_bonus_eg[6] = {
-    0, 42, 19, 144, 294, 486
-};
+    0, 42, 19, 144, 294, 486};
 
 int piece_attack_weights_mg[5] = {
-    36, 66, 53, 46, 63
-};
+    36, 66, 53, 46, 63};
 
 int piece_attack_weights_eg[5] = {
-    0, 0, 0, 0, 0
-};
+    0, 0, 0, 0, 0};
 
 int piece_defense_weights_mg[5] = {
-    23, 31, 19, 7, 0
-};
+    23, 31, 19, 7, 0};
 
 int piece_defense_weights_eg[5] = {
-    124, 79, 235, 223, 172
-};
+    124, 79, 235, 223, 172};
 
 int check_bonus_mg[16] = {
-    76, 478, 100, 870, 29, 55, 3, 60, 159, 353, 203, 571, 0, 57, 31, 102
-};
+    76, 478, 100, 870, 29, 55, 3, 60, 159, 353, 203, 571, 0, 57, 31, 102};
 
 int check_bonus_eg[16] = {
-    26, 52, 15, 0, 125, 162, 208, 234, 22, 140, 0, 98, 47, 162, 200, 349
-};
+    26, 52, 15, 0, 125, 162, 208, 234, 22, 140, 0, 98, 47, 162, 200, 349};
 
 int endgame_contribution_weights[4] = {
-    1490, 2470, 2665, 7500
-};
-
+    1490, 2470, 2665, 7500};
 
 // Macros for parameter indices
 // General
@@ -127,16 +109,16 @@ int endgame_contribution_weights[4] = {
 #define KING_EXPOSURE_PENALTY 33
 #define KING_CORNER_DISTANCE_BONUS 34
 
-
 #define DARK_SQUARES 0xAA55AA55AA55AA55ULL
-
 
 static int current_materialism = 100;
 
 void set_materialism(int materialism)
 {
-    if (materialism < 0) materialism = 0;
-    if (materialism > 199) materialism = 199;
+    if (materialism < 0)
+        materialism = 0;
+    if (materialism > 199)
+        materialism = 199;
     if (current_materialism != materialism)
     {
         clear_pawn_table();
@@ -190,8 +172,7 @@ static const U64 king_sq_central_files[64] = {
     0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL,
     // Rank 8
     0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL, 0x3838383838383838ULL,
-    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL
-};
+    0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL, 0x1C1C1C1C1C1C1C1CULL};
 
 typedef struct
 {
@@ -251,7 +232,8 @@ static inline void record_king_ring_defenses(int type, int count, bool is_hangin
                                              int *def_mg, int *def_eg,
                                              int16_t *trace_def)
 {
-    if (is_hanging) return;
+    if (is_hanging)
+        return;
     if (def_mg && def_eg)
     {
         *def_mg += piece_defense_weights_mg[type] * count;
@@ -289,7 +271,8 @@ void clear_pawn_table(void)
     memset((void *)pawn_table, 0, sizeof(pawn_table));
 }
 
-static inline U64 pawn_mix_u64(U64 value) {
+static inline U64 pawn_mix_u64(U64 value)
+{
     value ^= value >> 33;
     value *= 0xff51afd7ed558ccdULL;
     value ^= value >> 33;
@@ -298,13 +281,15 @@ static inline U64 pawn_mix_u64(U64 value) {
     return value;
 }
 
-static inline U64 pawn_hash_combine(U64 hash, U64 value) {
+static inline U64 pawn_hash_combine(U64 hash, U64 value)
+{
     hash ^= pawn_mix_u64(value + 0x9e3779b97f4a7c15ULL);
     hash *= 1099511628211ULL;
     return hash;
 }
 
-U64 board_pawn_key(const Board *board) {
+U64 board_pawn_key(const Board *board)
+{
     U64 key = 1469598103934665603ULL;
     key = pawn_hash_combine(key, board->pieces[WHITE_PAWN]);
     key = pawn_hash_combine(key, board->pieces[BLACK_PAWN]);
@@ -326,8 +311,7 @@ static const U64 ranks_gt[8] = {
     0xFFFFFF0000000000ULL,
     0xFFFF000000000000ULL,
     0xFF00000000000000ULL,
-    0x0000000000000000ULL
-};
+    0x0000000000000000ULL};
 
 static const U64 ranks_lt[8] = {
     0x0000000000000000ULL,
@@ -337,8 +321,7 @@ static const U64 ranks_lt[8] = {
     0x00000000FFFFFFFFULL,
     0x000000FFFFFFFFFFULL,
     0x0000FFFFFFFFFFFFULL,
-    0x00FFFFFFFFFFFFFFULL
-};
+    0x00FFFFFFFFFFFFFFULL};
 
 void init_eval(void)
 {
@@ -362,8 +345,10 @@ void init_eval(void)
             {
                 outpost_eligible[side][sq] = true;
                 U64 adj_files = 0;
-                if (file > 0) adj_files |= file_masks[file - 1];
-                if (file < 7) adj_files |= file_masks[file + 1];
+                if (file > 0)
+                    adj_files |= file_masks[file - 1];
+                if (file < 7)
+                    adj_files |= file_masks[file + 1];
 
                 if (side == WHITE)
                 {
@@ -450,23 +435,23 @@ static inline void compute_side_attacks(const Board *board, int side, U64 pawn_a
 }
 
 static inline void apply_check_bonus(Score *s,
-                                      EvalTrace *trace,
-                                      int pt_idx,
-                                      U64 attacks,
-                                      U64 check_target_sqs,
-                                      U64 own_occ,
-                                      U64 safe_squares,
-                                      int side,
-                                      int board_side,
-                                      bool is_white)
+                                     EvalTrace *trace,
+                                     int pt_idx,
+                                     U64 attacks,
+                                     U64 check_target_sqs,
+                                     U64 own_occ,
+                                     U64 safe_squares,
+                                     int side,
+                                     int board_side,
+                                     bool is_white)
 {
     // Fast exit for pieces with no checks
     U64 checks = attacks & check_target_sqs & ~own_occ;
     if (checks)
     {
-        int stm_idx = (board_side == side) ? 1 : 0;// STM vs NSTM get different bonus
+        int stm_idx = (board_side == side) ? 1 : 0; // STM vs NSTM get different bonus
         bool is_safe = (checks & safe_squares) != 0;
-        int safe_idx = is_safe ? 1 : 0;// Safe vs unsafe checks get different bonus
+        int safe_idx = is_safe ? 1 : 0; // Safe vs unsafe checks get different bonus
         int check_idx = pt_idx * 4 + stm_idx * 2 + safe_idx;
 
         s->mg += check_bonus_mg[check_idx];
@@ -546,14 +531,18 @@ static Score evaluate_piece(const Board *board,
         if (file > 0)
         {
             connected_mask |= (1ULL << (square - 1));
-            if (rank > 0) connected_mask |= (1ULL << (square - 9));
-            if (rank < 7) connected_mask |= (1ULL << (square + 7));
+            if (rank > 0)
+                connected_mask |= (1ULL << (square - 9));
+            if (rank < 7)
+                connected_mask |= (1ULL << (square + 7));
         }
         if (file < 7)
         {
             connected_mask |= (1ULL << (square + 1));
-            if (rank > 0) connected_mask |= (1ULL << (square - 7));
-            if (rank < 7) connected_mask |= (1ULL << (square + 9));
+            if (rank > 0)
+                connected_mask |= (1ULL << (square - 7));
+            if (rank < 7)
+                connected_mask |= (1ULL << (square + 9));
         }
 
         if (own_pawns & connected_mask)
@@ -673,10 +662,10 @@ static Score evaluate_piece(const Board *board,
         // Batteries
         U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
         // Pins
-        U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];        
+        U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
         // All X-ray attacks
         U64 frontline_diagonals = attacks & (own_bishops_queens | enemy_bishops_queens);
-        
+
         // Attacks without x-rayed pieces
         U64 xray_occupancy = all_pieces ^ frontline_diagonals;
         U64 xray_attacks = bitboard_bishop_attacks(square, xray_occupancy);
@@ -700,11 +689,11 @@ static Score evaluate_piece(const Board *board,
         score_param(&s, trace, ROOK_XRAY_CONTROL_BONUS, xray_control, is_white);
 
         U64 file_mask = file_masks[file];
-        if ((all_pawns & file_mask) == 0)// Open file bonus: + points if no pawns on the file
+        if ((all_pawns & file_mask) == 0) // Open file bonus: + points if no pawns on the file
         {
             score_param(&s, trace, ROOK_OPEN_FILE_BONUS, 1, is_white);
         }
-        else if ((own_pawns & file_mask) == 0)// Half-open file, no friendly pawns on the file
+        else if ((own_pawns & file_mask) == 0) // Half-open file, no friendly pawns on the file
         {
             score_param(&s, trace, ROOK_HALF_OPEN_FILE_BONUS, 1, is_white);
         }
@@ -715,7 +704,7 @@ static Score evaluate_piece(const Board *board,
         U64 enemy_rooks_queens = board->pieces[side == WHITE ? BLACK_ROOK : WHITE_ROOK] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
         // All X-ray attacks
         U64 frontline_orthogonals = attacks & (own_rooks_queens | enemy_rooks_queens);
-        
+
         // Attacks without x-rayed pieces
         U64 xray_occupancy = all_pieces ^ frontline_orthogonals;
         U64 xray_attacks = bitboard_rook_attacks(square, xray_occupancy);
@@ -732,7 +721,7 @@ static Score evaluate_piece(const Board *board,
         U64 bishop_atk = bitboard_bishop_attacks(square, all_pieces);
         U64 rook_atk = bitboard_rook_attacks(square, all_pieces);
         U64 attacks = bishop_atk | rook_atk;
-        
+
         int control = __builtin_popcountll(attacks);
         score_param(&s, trace, QUEEN_CONTROL_BONUS, control, is_white);
 
@@ -753,7 +742,7 @@ static Score evaluate_piece(const Board *board,
         U64 own_bishops_queens = board->pieces[side == WHITE ? WHITE_BISHOP : BLACK_BISHOP] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
         U64 enemy_bishops_queens = board->pieces[side == WHITE ? BLACK_BISHOP : WHITE_BISHOP] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
         U64 frontline_diagonals = bishop_atk & (own_bishops_queens | enemy_bishops_queens);
-        
+
         // Attacks without x-rayed pieces
         U64 xray_occupancy = all_pieces ^ frontline_diagonals;
         U64 xray_bishop_attacks = bitboard_bishop_attacks(square, xray_occupancy);
@@ -766,7 +755,7 @@ static Score evaluate_piece(const Board *board,
         U64 own_rooks_queens = board->pieces[side == WHITE ? WHITE_ROOK : BLACK_ROOK] | board->pieces[side == WHITE ? WHITE_QUEEN : BLACK_QUEEN];
         U64 enemy_rooks_queens = board->pieces[side == WHITE ? BLACK_ROOK : WHITE_ROOK] | board->pieces[side == WHITE ? BLACK_QUEEN : WHITE_QUEEN];
         U64 frontline_orthogonals = rook_atk & (own_rooks_queens | enemy_rooks_queens);
-        
+
         // Attacks without x-rayed pieces
         xray_occupancy = all_pieces ^ frontline_orthogonals;
         U64 xray_rook_attacks = bitboard_rook_attacks(square, xray_occupancy);
@@ -805,7 +794,6 @@ static Score evaluate_piece(const Board *board,
     }
     return s;
 }
-
 
 static Score evaluate_pawn_structure(const Board *board,
                                      U64 white_pawns,
@@ -871,68 +859,89 @@ static void calculate_hanging_piece_penalties(const Board *board,
     U64 white_targets = wn | wb | wr | wq;
     U64 black_attackers = bp | bn | bb | br;
 
-    if (white_targets && black_attackers) {
+    if (white_targets && black_attackers)
+    {
         int penalty = 0;
-        if (bp) {
+        if (bp)
+        {
             U64 temp = wn;
-            while (temp) {
+            while (temp)
+            {
                 int sq = bitboard_pop_lsb(&temp);
                 U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
-                if (pawns) {
+                if (pawns)
+                {
                     *white_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(pawns) * 2;
                 }
             }
             temp = wb;
-            while (temp) {
+            while (temp)
+            {
                 int sq = bitboard_pop_lsb(&temp);
                 U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
-                if (pawns) {
+                if (pawns)
+                {
                     *white_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(pawns) * 2;
                 }
             }
         }
-        if (bp || bn || bb) {
+        if (bp || bn || bb)
+        {
             U64 temp = wr;
-            while (temp) {
+            while (temp)
+            {
                 int sq = bitboard_pop_lsb(&temp);
-                if (bp) {
+                if (bp)
+                {
                     U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
-                    if (pawns) {
+                    if (pawns)
+                    {
                         *white_hanging_mask |= (1ULL << sq);
                         penalty += __builtin_popcountll(pawns) * 4;
                     }
                 }
                 U64 kb = 0;
-                if (bn) kb |= bitboard_knight_attacks(sq) & bn;
-                if (bb) kb |= bitboard_bishop_attacks(sq, occupancy) & bb;
-                if (kb) {
+                if (bn)
+                    kb |= bitboard_knight_attacks(sq) & bn;
+                if (bb)
+                    kb |= bitboard_bishop_attacks(sq, occupancy) & bb;
+                if (kb)
+                {
                     *white_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(kb) * 2;
                 }
             }
         }
         U64 temp = wq;
-        while (temp) {
+        while (temp)
+        {
             int sq = bitboard_pop_lsb(&temp);
-            if (bp) {
+            if (bp)
+            {
                 U64 pawns = bitboard_pawn_attacks(WHITE, sq) & bp;
-                if (pawns) {
+                if (pawns)
+                {
                     *white_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(pawns) * 8;
                 }
             }
             U64 kb = 0;
-            if (bn) kb |= bitboard_knight_attacks(sq) & bn;
-            if (bb) kb |= bitboard_bishop_attacks(sq, occupancy) & bb;
-            if (kb) {
+            if (bn)
+                kb |= bitboard_knight_attacks(sq) & bn;
+            if (bb)
+                kb |= bitboard_bishop_attacks(sq, occupancy) & bb;
+            if (kb)
+            {
                 *white_hanging_mask |= (1ULL << sq);
                 penalty += __builtin_popcountll(kb) * 6;
             }
-            if (br) {
+            if (br)
+            {
                 U64 rooks = bitboard_rook_attacks(sq, occupancy) & br;
-                if (rooks) {
+                if (rooks)
+                {
                     *white_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(rooks) * 4;
                 }
@@ -945,68 +954,89 @@ static void calculate_hanging_piece_penalties(const Board *board,
     U64 black_targets = bn | bb | br | bq;
     U64 white_attackers = wp | wn | wb | wr;
 
-    if (black_targets && white_attackers) {
+    if (black_targets && white_attackers)
+    {
         int penalty = 0;
-        if (wp) {
+        if (wp)
+        {
             U64 temp = bn;
-            while (temp) {
+            while (temp)
+            {
                 int sq = bitboard_pop_lsb(&temp);
                 U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
-                if (pawns) {
+                if (pawns)
+                {
                     *black_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(pawns) * 2;
                 }
             }
             temp = bb;
-            while (temp) {
+            while (temp)
+            {
                 int sq = bitboard_pop_lsb(&temp);
                 U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
-                if (pawns) {
+                if (pawns)
+                {
                     *black_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(pawns) * 2;
                 }
             }
         }
-        if (wp || wn || wb) {
+        if (wp || wn || wb)
+        {
             U64 temp = br;
-            while (temp) {
+            while (temp)
+            {
                 int sq = bitboard_pop_lsb(&temp);
-                if (wp) {
+                if (wp)
+                {
                     U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
-                    if (pawns) {
+                    if (pawns)
+                    {
                         *black_hanging_mask |= (1ULL << sq);
                         penalty += __builtin_popcountll(pawns) * 4;
                     }
                 }
                 U64 kb = 0;
-                if (wn) kb |= bitboard_knight_attacks(sq) & wn;
-                if (wb) kb |= bitboard_bishop_attacks(sq, occupancy) & wb;
-                if (kb) {
+                if (wn)
+                    kb |= bitboard_knight_attacks(sq) & wn;
+                if (wb)
+                    kb |= bitboard_bishop_attacks(sq, occupancy) & wb;
+                if (kb)
+                {
                     *black_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(kb) * 2;
                 }
             }
         }
         U64 temp = bq;
-        while (temp) {
+        while (temp)
+        {
             int sq = bitboard_pop_lsb(&temp);
-            if (wp) {
+            if (wp)
+            {
                 U64 pawns = bitboard_pawn_attacks(BLACK, sq) & wp;
-                if (pawns) {
+                if (pawns)
+                {
                     *black_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(pawns) * 8;
                 }
             }
             U64 kb = 0;
-            if (wn) kb |= bitboard_knight_attacks(sq) & wn;
-            if (wb) kb |= bitboard_bishop_attacks(sq, occupancy) & wb;
-            if (kb) {
+            if (wn)
+                kb |= bitboard_knight_attacks(sq) & wn;
+            if (wb)
+                kb |= bitboard_bishop_attacks(sq, occupancy) & wb;
+            if (kb)
+            {
                 *black_hanging_mask |= (1ULL << sq);
                 penalty += __builtin_popcountll(kb) * 6;
             }
-            if (wr) {
+            if (wr)
+            {
                 U64 rooks = bitboard_rook_attacks(sq, occupancy) & wr;
-                if (rooks) {
+                if (rooks)
+                {
                     *black_hanging_mask |= (1ULL << sq);
                     penalty += __builtin_popcountll(rooks) * 4;
                 }
@@ -1155,7 +1185,7 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     int pawns_lost = 16 - __builtin_popcountll(all_pawns);
     int knight_open_position_penalty_mg = eval_parameters_mg[KNIGHT_PAWN_COUNT_PENALTY] * pawns_lost;
     int knight_open_position_penalty_eg = eval_parameters_eg[KNIGHT_PAWN_COUNT_PENALTY] * pawns_lost;
-    
+
     // Probe pawn structure cache
     U64 pawn_key = board_pawn_key(board);
     int pawn_idx = (int)(pawn_key & (PAWN_TABLE_SIZE - 1));
@@ -1293,38 +1323,38 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     // Generate attacks from king square to determine possible checks
     U64 w_knight_checks = (black_king_sq >= 0) ? bitboard_knight_attacks(black_king_sq) : 0ULL;
     U64 w_bishop_checks = (black_king_sq >= 0) ? bitboard_bishop_attacks(black_king_sq, all_pieces) : 0ULL;
-    U64 w_rook_checks   = (black_king_sq >= 0) ? bitboard_rook_attacks(black_king_sq, all_pieces) : 0ULL;
-    U64 w_queen_checks  = w_bishop_checks | w_rook_checks;
+    U64 w_rook_checks = (black_king_sq >= 0) ? bitboard_rook_attacks(black_king_sq, all_pieces) : 0ULL;
+    U64 w_queen_checks = w_bishop_checks | w_rook_checks;
 
     U64 b_knight_checks = (white_king_sq >= 0) ? bitboard_knight_attacks(white_king_sq) : 0ULL;
     U64 b_bishop_checks = (white_king_sq >= 0) ? bitboard_bishop_attacks(white_king_sq, all_pieces) : 0ULL;
-    U64 b_rook_checks   = (white_king_sq >= 0) ? bitboard_rook_attacks(white_king_sq, all_pieces) : 0ULL;
-    U64 b_queen_checks  = b_bishop_checks | b_rook_checks;
+    U64 b_rook_checks = (white_king_sq >= 0) ? bitboard_rook_attacks(white_king_sq, all_pieces) : 0ULL;
+    U64 b_queen_checks = b_bishop_checks | b_rook_checks;
 
     // Sliding piece alignment with enemy king
     U64 w_bishop_align = (black_king_sq >= 0) ? bitboard_bishop_attacks(black_king_sq, 0ULL) : 0ULL;
-    U64 w_rook_align   = (black_king_sq >= 0) ? bitboard_rook_attacks(black_king_sq, 0ULL) : 0ULL;
-    U64 w_queen_align  = w_bishop_align | w_rook_align;
+    U64 w_rook_align = (black_king_sq >= 0) ? bitboard_rook_attacks(black_king_sq, 0ULL) : 0ULL;
+    U64 w_queen_align = w_bishop_align | w_rook_align;
 
     U64 b_bishop_align = (white_king_sq >= 0) ? bitboard_bishop_attacks(white_king_sq, 0ULL) : 0ULL;
-    U64 b_rook_align   = (white_king_sq >= 0) ? bitboard_rook_attacks(white_king_sq, 0ULL) : 0ULL;
-    U64 b_queen_align  = b_bishop_align | b_rook_align;
+    U64 b_rook_align = (white_king_sq >= 0) ? bitboard_rook_attacks(white_king_sq, 0ULL) : 0ULL;
+    U64 b_queen_align = b_bishop_align | b_rook_align;
 
     int w_bishop_align_cnt = __builtin_popcountll(board->pieces[WHITE_BISHOP] & w_bishop_align);
-    int w_rook_align_cnt   = __builtin_popcountll(board->pieces[WHITE_ROOK] & w_rook_align);
-    int w_queen_align_cnt  = __builtin_popcountll(board->pieces[WHITE_QUEEN] & w_queen_align);
+    int w_rook_align_cnt = __builtin_popcountll(board->pieces[WHITE_ROOK] & w_rook_align);
+    int w_queen_align_cnt = __builtin_popcountll(board->pieces[WHITE_QUEEN] & w_queen_align);
 
     int b_bishop_align_cnt = __builtin_popcountll(board->pieces[BLACK_BISHOP] & b_bishop_align);
-    int b_rook_align_cnt   = __builtin_popcountll(board->pieces[BLACK_ROOK] & b_rook_align);
-    int b_queen_align_cnt  = __builtin_popcountll(board->pieces[BLACK_QUEEN] & b_queen_align);
+    int b_rook_align_cnt = __builtin_popcountll(board->pieces[BLACK_ROOK] & b_rook_align);
+    int b_queen_align_cnt = __builtin_popcountll(board->pieces[BLACK_QUEEN] & b_queen_align);
 
     score_param(&white_score, trace, BISHOP_ALIGNMENT_BONUS, w_bishop_align_cnt, true);
-    score_param(&white_score, trace, ROOK_ALIGNMENT_BONUS,   w_rook_align_cnt,   true);
-    score_param(&white_score, trace, QUEEN_ALIGNMENT_BONUS,  w_queen_align_cnt,  true);
+    score_param(&white_score, trace, ROOK_ALIGNMENT_BONUS, w_rook_align_cnt, true);
+    score_param(&white_score, trace, QUEEN_ALIGNMENT_BONUS, w_queen_align_cnt, true);
 
     score_param(&black_score, trace, BISHOP_ALIGNMENT_BONUS, b_bishop_align_cnt, false);
-    score_param(&black_score, trace, ROOK_ALIGNMENT_BONUS,   b_rook_align_cnt,   false);
-    score_param(&black_score, trace, QUEEN_ALIGNMENT_BONUS,  b_queen_align_cnt,  false);
+    score_param(&black_score, trace, ROOK_ALIGNMENT_BONUS, b_rook_align_cnt, false);
+    score_param(&black_score, trace, QUEEN_ALIGNMENT_BONUS, b_queen_align_cnt, false);
 
     for (int piece = 0; piece < PIECE_NB; ++piece)
     {
@@ -1335,10 +1365,14 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
         int side = board_piece_color(piece);
         int type = board_piece_type(piece);
         U64 check_target_sqs = 0ULL;
-        if (type == WHITE_KNIGHT) check_target_sqs = (side == WHITE) ? w_knight_checks : b_knight_checks;
-        else if (type == WHITE_BISHOP) check_target_sqs = (side == WHITE) ? w_bishop_checks : b_bishop_checks;
-        else if (type == WHITE_ROOK) check_target_sqs = (side == WHITE) ? w_rook_checks : b_rook_checks;
-        else if (type == WHITE_QUEEN) check_target_sqs = (side == WHITE) ? w_queen_checks : b_queen_checks;
+        if (type == WHITE_KNIGHT)
+            check_target_sqs = (side == WHITE) ? w_knight_checks : b_knight_checks;
+        else if (type == WHITE_BISHOP)
+            check_target_sqs = (side == WHITE) ? w_bishop_checks : b_bishop_checks;
+        else if (type == WHITE_ROOK)
+            check_target_sqs = (side == WHITE) ? w_rook_checks : b_rook_checks;
+        else if (type == WHITE_QUEEN)
+            check_target_sqs = (side == WHITE) ? w_queen_checks : b_queen_checks;
 
         U64 safe_squares = (side == WHITE) ? white_safe_squares : black_safe_squares;
 
@@ -1495,16 +1529,20 @@ static int evaluate_internal(Board *board, EvalTrace *trace)
     }
 
     int net_white_attackers_mg = white_king_ring_attackers_mg - white_king_ring_defenders_mg;
-    if (net_white_attackers_mg < 0) net_white_attackers_mg = 0;
+    if (net_white_attackers_mg < 0)
+        net_white_attackers_mg = 0;
 
     int net_white_attackers_eg = white_king_ring_attackers_eg - white_king_ring_defenders_eg;
-    if (net_white_attackers_eg < 0) net_white_attackers_eg = 0;
+    if (net_white_attackers_eg < 0)
+        net_white_attackers_eg = 0;
 
     int net_black_attackers_mg = black_king_ring_attackers_mg - black_king_ring_defenders_mg;
-    if (net_black_attackers_mg < 0) net_black_attackers_mg = 0;
+    if (net_black_attackers_mg < 0)
+        net_black_attackers_mg = 0;
 
     int net_black_attackers_eg = black_king_ring_attackers_eg - black_king_ring_defenders_eg;
-    if (net_black_attackers_eg < 0) net_black_attackers_eg = 0;
+    if (net_black_attackers_eg < 0)
+        net_black_attackers_eg = 0;
 
     white_score.mg -= (net_white_attackers_mg * net_white_attackers_mg) >> 6; // Quadratic penalty
     black_score.mg -= (net_black_attackers_mg * net_black_attackers_mg) >> 6;
@@ -1606,15 +1644,19 @@ static void apply_evaluation_weights(const int *weights)
     bool weights_changed = false;
     int offset = 0;
 
-    for (int i = 0; i < 6; ++i) {
-        if (base_piece_values_mg[i] != weights[offset]) {
+    for (int i = 0; i < 6; ++i)
+    {
+        if (base_piece_values_mg[i] != weights[offset])
+        {
             base_piece_values_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 6; ++i) {
-        if (base_piece_values_eg[i] != weights[offset]) {
+    for (int i = 0; i < 6; ++i)
+    {
+        if (base_piece_values_eg[i] != weights[offset])
+        {
             base_piece_values_eg[i] = weights[offset];
             weights_changed = true;
         }
@@ -1623,98 +1665,124 @@ static void apply_evaluation_weights(const int *weights)
 
     set_materialism(100);
 
-    for (int i = 0; i < NUM_EVAL_PARAMS; ++i) {
-        if (eval_parameters_mg[i] != weights[offset]) {
+    for (int i = 0; i < NUM_EVAL_PARAMS; ++i)
+    {
+        if (eval_parameters_mg[i] != weights[offset])
+        {
             eval_parameters_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < NUM_EVAL_PARAMS; ++i) {
-        if (eval_parameters_eg[i] != weights[offset]) {
+    for (int i = 0; i < NUM_EVAL_PARAMS; ++i)
+    {
+        if (eval_parameters_eg[i] != weights[offset])
+        {
             eval_parameters_eg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
 
-    for (int i = 0; i < 6; ++i) {
-        if (passed_pawn_rank_bonus_mg[i] != weights[offset]) {
+    for (int i = 0; i < 6; ++i)
+    {
+        if (passed_pawn_rank_bonus_mg[i] != weights[offset])
+        {
             passed_pawn_rank_bonus_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 6; ++i) {
-        if (passed_pawn_rank_bonus_eg[i] != weights[offset]) {
+    for (int i = 0; i < 6; ++i)
+    {
+        if (passed_pawn_rank_bonus_eg[i] != weights[offset])
+        {
             passed_pawn_rank_bonus_eg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
 
-    for (int i = 0; i < 6; ++i) {
-        if (phalanx_pawn_rank_bonus_mg[i] != weights[offset]) {
+    for (int i = 0; i < 6; ++i)
+    {
+        if (phalanx_pawn_rank_bonus_mg[i] != weights[offset])
+        {
             phalanx_pawn_rank_bonus_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 6; ++i) {
-        if (phalanx_pawn_rank_bonus_eg[i] != weights[offset]) {
+    for (int i = 0; i < 6; ++i)
+    {
+        if (phalanx_pawn_rank_bonus_eg[i] != weights[offset])
+        {
             phalanx_pawn_rank_bonus_eg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
 
-    for (int i = 0; i < 5; ++i) {
-        if (piece_attack_weights_mg[i] != weights[offset]) {
+    for (int i = 0; i < 5; ++i)
+    {
+        if (piece_attack_weights_mg[i] != weights[offset])
+        {
             piece_attack_weights_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 5; ++i) {
-        if (piece_attack_weights_eg[i] != weights[offset]) {
+    for (int i = 0; i < 5; ++i)
+    {
+        if (piece_attack_weights_eg[i] != weights[offset])
+        {
             piece_attack_weights_eg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
 
-    for (int i = 0; i < 5; ++i) {
-        if (piece_defense_weights_mg[i] != weights[offset]) {
+    for (int i = 0; i < 5; ++i)
+    {
+        if (piece_defense_weights_mg[i] != weights[offset])
+        {
             piece_defense_weights_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 5; ++i) {
-        if (piece_defense_weights_eg[i] != weights[offset]) {
+    for (int i = 0; i < 5; ++i)
+    {
+        if (piece_defense_weights_eg[i] != weights[offset])
+        {
             piece_defense_weights_eg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
 
-    for (int i = 0; i < 16; ++i) {
-        if (check_bonus_mg[i] != weights[offset]) {
+    for (int i = 0; i < 16; ++i)
+    {
+        if (check_bonus_mg[i] != weights[offset])
+        {
             check_bonus_mg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
-    for (int i = 0; i < 16; ++i) {
-        if (check_bonus_eg[i] != weights[offset]) {
+    for (int i = 0; i < 16; ++i)
+    {
+        if (check_bonus_eg[i] != weights[offset])
+        {
             check_bonus_eg[i] = weights[offset];
             weights_changed = true;
         }
         offset++;
     }
 
-    for (int i = 0; i < 4; ++i) {
-        if (endgame_contribution_weights[i] != weights[offset]) {
+    for (int i = 0; i < 4; ++i)
+    {
+        if (endgame_contribution_weights[i] != weights[offset])
+        {
             endgame_contribution_weights[i] = weights[offset];
             weights_changed = true;
         }
@@ -1732,7 +1800,8 @@ static PositionFeatures *tuning_features = NULL;
 static void extract_position_features(const Board *board, PositionFeatures *feat)
 {
     memset(feat, 0, sizeof(PositionFeatures));
-    if (board == NULL) return;
+    if (board == NULL)
+        return;
     evaluate_internal((Board *)board, feat);
 }
 
@@ -1740,7 +1809,8 @@ static inline uint64_t compute_phase_reciprocal(const int *weights)
 {
     const int *ec_w = &weights[88 + 2 * NUM_EVAL_PARAMS];
     int initial_piece_value = 4 * ec_w[0] + 4 * ec_w[1] + 4 * ec_w[2] + 2 * ec_w[3];
-    if (initial_piece_value <= 0) return 0;
+    if (initial_piece_value <= 0)
+        return 0;
     return ((1024ULL << 32) + (initial_piece_value / 2)) / initial_piece_value;
 }
 
@@ -1760,7 +1830,7 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     const int *df_eg = &weights[51 + 2 * NUM_EVAL_PARAMS];
     const int *cb_mg = &weights[56 + 2 * NUM_EVAL_PARAMS];
     const int *cb_eg = &weights[72 + 2 * NUM_EVAL_PARAMS];
-    const int *ec_w  = &weights[88 + 2 * NUM_EVAL_PARAMS];
+    const int *ec_w = &weights[88 + 2 * NUM_EVAL_PARAMS];
 
     int total_piece_value =
         feat->total_pieces[0] * ec_w[0] +
@@ -1769,8 +1839,10 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
         feat->total_pieces[3] * ec_w[3];
 
     int phase = 1024 - (int)(((uint64_t)total_piece_value * phase_reciprocal + (1ULL << 31)) >> 32);
-    if (phase < 0) phase = 0;
-    else if (phase > 1024) phase = 1024;
+    if (phase < 0)
+        phase = 0;
+    else if (phase > 1024)
+        phase = 1024;
 
     if (phase >= 512 && feat->is_special_eval)
     {
@@ -1825,10 +1897,18 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
         b_def_eg += df_eg[i] * feat->black_defenders[i];
     }
 
-    int net_w_mg = w_atk_mg - w_def_mg; if (net_w_mg < 0) net_w_mg = 0;
-    int net_w_eg = w_atk_eg - w_def_eg; if (net_w_eg < 0) net_w_eg = 0;
-    int net_b_mg = b_atk_mg - b_def_mg; if (net_b_mg < 0) net_b_mg = 0;
-    int net_b_eg = b_atk_eg - b_def_eg; if (net_b_eg < 0) net_b_eg = 0;
+    int net_w_mg = w_atk_mg - w_def_mg;
+    if (net_w_mg < 0)
+        net_w_mg = 0;
+    int net_w_eg = w_atk_eg - w_def_eg;
+    if (net_w_eg < 0)
+        net_w_eg = 0;
+    int net_b_mg = b_atk_mg - b_def_mg;
+    if (net_b_mg < 0)
+        net_b_mg = 0;
+    int net_b_eg = b_atk_eg - b_def_eg;
+    if (net_b_eg < 0)
+        net_b_eg = 0;
 
     mg_total -= (net_w_mg * net_w_mg) >> 6;
     mg_total += (net_b_mg * net_b_mg) >> 6;
@@ -1862,8 +1942,10 @@ static inline int fast_eval_from_features(const PositionFeatures *feat, const in
     }
 
     int final_score = ((1024 - phase) * mg_total + phase * eg_total) >> 10;
-    if (final_score > 30000) final_score = 30000;
-    else if (final_score < -30000) final_score = -30000;
+    if (final_score > 30000)
+        final_score = 30000;
+    else if (final_score < -30000)
+        final_score = -30000;
 
     return (feat->side_to_move == 1) ? final_score : -final_score;
 }
@@ -1903,12 +1985,14 @@ int init_tuning_dataset(const char *dataset_path)
 
     bitboard_init_tables();
     zobrist_init();
-    if (!eval_initialised) {
+    if (!eval_initialised)
+    {
         init_eval();
     }
 
     FILE *f = fopen(dataset_path, "r");
-    if (!f) {
+    if (!f)
+    {
         return -1;
     }
 
@@ -1916,7 +2000,8 @@ int init_tuning_dataset(const char *dataset_path)
     tuning_boards = (Board *)malloc(capacity * sizeof(Board));
     tuning_features = (PositionFeatures *)malloc(capacity * sizeof(PositionFeatures));
     tuning_targets = (double *)malloc(capacity * sizeof(double));
-    if (!tuning_boards || !tuning_features || !tuning_targets) {
+    if (!tuning_boards || !tuning_features || !tuning_targets)
+    {
         fclose(f);
         free_tuning_dataset();
         return -1;
@@ -1925,35 +2010,47 @@ int init_tuning_dataset(const char *dataset_path)
     char line[512];
     int count = 0;
 
-    while (fgets(line, sizeof(line), f)) {
+    while (fgets(line, sizeof(line), f))
+    {
         size_t len = strlen(line);
-        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r' || line[len - 1] == ' ')) {
+        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r' || line[len - 1] == ' '))
+        {
             line[--len] = '\0';
         }
-        if (len == 0) continue;
+        if (len == 0)
+            continue;
 
         char *first_comma = strchr(line, ',');
-        if (!first_comma) continue;
+        if (!first_comma)
+            continue;
         *first_comma = '\0';
         char *fen = line;
 
         char *second_comma = strchr(first_comma + 1, ',');
         double target_cp = 0.0;
-        if (second_comma) {
+        if (second_comma)
+        {
             target_cp = atof(second_comma + 1);
-        } else {
+        }
+        else
+        {
             target_cp = atof(first_comma + 1);
         }
 
-        if (count >= capacity) {
+        if (count >= capacity)
+        {
             capacity *= 2;
             Board *nb = (Board *)realloc(tuning_boards, capacity * sizeof(Board));
             PositionFeatures *nf = (PositionFeatures *)realloc(tuning_features, capacity * sizeof(PositionFeatures));
             double *nt = (double *)realloc(tuning_targets, capacity * sizeof(double));
-            if (!nb || !nf || !nt) {
-                if (nb) tuning_boards = nb;
-                if (nf) tuning_features = nf;
-                if (nt) tuning_targets = nt;
+            if (!nb || !nf || !nt)
+            {
+                if (nb)
+                    tuning_boards = nb;
+                if (nf)
+                    tuning_features = nf;
+                if (nt)
+                    tuning_targets = nt;
                 break;
             }
             tuning_boards = nb;
@@ -1962,7 +2059,8 @@ int init_tuning_dataset(const char *dataset_path)
         }
 
         board_clear(&tuning_boards[count]);
-        if (board_set_fen(&tuning_boards[count], fen)) {
+        if (board_set_fen(&tuning_boards[count], fen))
+        {
             tuning_targets[count] = 1.0 / (1.0 + exp(-target_cp * 0.00575646273248511421));
             extract_position_features(&tuning_boards[count], &tuning_features[count]);
             count++;
@@ -1983,7 +2081,7 @@ double calculate_tuning_mse(const int *weights)
 
     uint64_t phase_reciprocal = compute_phase_reciprocal(weights);
     double total_loss = 0.0;
-    #pragma omp parallel for reduction(+:total_loss) schedule(static)
+#pragma omp parallel for reduction(+ : total_loss) schedule(static)
     for (int i = 0; i < tuning_dataset_size; ++i)
     {
         int relative_score = fast_eval_from_features(&tuning_features[i], weights, phase_reciprocal);
@@ -2005,7 +2103,7 @@ void get_tuning_evaluations(const int *weights, double *out_cep_wp)
     }
 
     uint64_t phase_reciprocal = compute_phase_reciprocal(weights);
-    #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
     for (int i = 0; i < tuning_dataset_size; ++i)
     {
         int relative_score = fast_eval_from_features(&tuning_features[i], weights, phase_reciprocal);
@@ -2020,7 +2118,7 @@ int evaluate_position_with_weights(const char *fen, const int *weights)
     apply_evaluation_weights(weights);
 
     Board board;
-    board_init(&board); 
+    board_init(&board);
 
     if (!board_set_fen(&board, fen))
     {
