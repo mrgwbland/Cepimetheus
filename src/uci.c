@@ -106,6 +106,7 @@ typedef struct
     bool thread_valid;
     bool searching;
     volatile bool stop_requested;
+    volatile bool ignore_limits;
     pthread_mutex_t mutex;
 } SearchThreadState;
 
@@ -117,11 +118,12 @@ typedef struct
     SearchOptions options;
     SearchContext *context;
     volatile bool *stop_requested;
+    volatile bool *ignore_limits;
     bool *searching;
     pthread_mutex_t *mutex;
 } SearchTask;
 
-static void print_bestmove(Move best, const Board *board)
+static void print_bestmove(Move best, const SearchResult *result, const Board *board, bool ponder_enabled)
 {
     if (best == MOVE_NONE)
     {
@@ -132,7 +134,15 @@ static void print_bestmove(Move best, const Board *board)
 
     char buffer[6];
     move_to_string(best, board, buffer);
-    printf("bestmove %s\n", buffer);
+    printf("bestmove %s", buffer);
+    // Output ponder move if ponder is enabled and PV has a second move.
+    if (ponder_enabled && result != NULL && result->pv_length >= 2)
+    {
+        char ponder_buffer[6];
+        move_to_string(result->pv[1], board, ponder_buffer);
+        printf(" ponder %s", ponder_buffer);
+    }
+    printf("\n");
     fflush(stdout);
 }
 
@@ -258,6 +268,15 @@ static void parse_go_limits(SearchLimits *limits, const char *line, const Board 
         {
             limits->infinite = true;
         }
+        else if (strcmp(token, "ponder") == 0)
+        {
+            limits->ponder = true;
+        }
+    }
+
+    if (!limits->has_clock_time && limits->movetime_ms <= 0 && limits->depth <= 0 && !limits->ponder)
+    {
+        limits->infinite = true;
     }
 }
 
@@ -273,15 +292,17 @@ static void fnv1a_update(unsigned long long *hash, const void *data, size_t size
 static void *search_thread_main(void *arg)
 {
     SearchTask *task = (SearchTask *)arg;
+    SearchResult result = {0};
     Move best = think(&task->board,
                       &task->limits,
                       &task->options,
                       &task->history,
                       task->stop_requested,
+                      task->ignore_limits,
                       NULL,
-                      NULL,
+                      &result,
                       task->context);
-    print_bestmove(best, &task->board);
+    print_bestmove(best, &result, &task->board, task->options.ponder);
 
     pthread_mutex_lock(task->mutex);
     *task->searching = false;
@@ -304,6 +325,7 @@ static void search_thread_request_stop(SearchThreadState *state)
 {
     pthread_mutex_lock(&state->mutex);
     state->stop_requested = true;
+    state->ignore_limits = false;
     pthread_mutex_unlock(&state->mutex);
 }
 
@@ -352,11 +374,13 @@ static bool search_thread_start(SearchThreadState *state,
     task->options = *options;
     task->context = context;
     task->stop_requested = &state->stop_requested;
+    task->ignore_limits = &state->ignore_limits;
     task->searching = &state->searching;
     task->mutex = &state->mutex;
 
     pthread_mutex_lock(&state->mutex);
     state->stop_requested = false;
+    state->ignore_limits = limits->infinite || limits->ponder; // Only stop pondering when receive stop/ponderhit
     state->searching = true;
     pthread_mutex_unlock(&state->mutex);
 
@@ -543,6 +567,7 @@ void uci_loop(int argc, char *argv[])
             printf("option name Lichess_Draw_Rules type check default false\n");
             printf("option name Display_Currmove type check default false\n");
             printf("option name UCI_Chess960 type check default false\n");
+            printf("option name Ponder type check default false\n");
             printf("option name Materialism type spin default 100 min 0 max 199\n");
 #ifdef SPSA_TUNING
             // Pruning & reductions
@@ -728,6 +753,13 @@ void uci_loop(int argc, char *argv[])
                     {
                         option_chess960 = true;
                     }
+                }
+                else if (strncmp(nametoken, "ponder", 6) == 0)
+                {
+                    valuetoken += 5;
+                    while (*valuetoken == ' ' || *valuetoken == '\t')
+                        valuetoken++;
+                    options.ponder = (strncmp(valuetoken, "true", 4) == 0);
                 }
                 else if (strncmp(nametoken, "materialism", 11) == 0 && valuetoken != NULL)
                 {
@@ -1007,7 +1039,7 @@ void uci_loop(int argc, char *argv[])
                 SearchResult result = {0};
 
                 search_context_clear(global_search_context);
-                think(&bench_board, &limits, &bench_options, &bench_history, &stop_signal, &nodes, &result, global_search_context);
+                think(&bench_board, &limits, &bench_options, &bench_history, &stop_signal, NULL, &nodes, &result, global_search_context);
 
                 // Update benchmark hash with search result fields to verify correctness across edits
                 fnv1a_update(&bench_hash, &result.score, sizeof(result.score));
@@ -1055,8 +1087,18 @@ void uci_loop(int argc, char *argv[])
             parse_go_limits(&limits, line, &board);
             if (!search_thread_start(&search_thread, &board, &history, &limits, &options, global_search_context))
             {
-                print_bestmove(MOVE_NONE, &board);
+                print_bestmove(MOVE_NONE, NULL, &board, false);
             }
+            continue;
+        }
+
+        if (strncmp(line, "ponderhit", 9) == 0)
+        {
+            // Ponder search is now subject to time controls
+            // Has the potential to immediately return
+            pthread_mutex_lock(&search_thread.mutex);
+            search_thread.ignore_limits = false;
+            pthread_mutex_unlock(&search_thread.mutex);
             continue;
         }
 

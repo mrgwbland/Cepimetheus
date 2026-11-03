@@ -52,13 +52,22 @@ typedef struct
     int hashfull;
 } SearchStats;
 
-typedef struct
+typedef struct SearchControl SearchControl;
+
+struct SearchControl
 {
-    bool hard_time_limited;
-    long long hard_stop_time_ms;
+    long long start_time_ms;
+    int max_depth;
+
+    bool has_time_limit;
+    int base_soft_ms;
+    int hard_ms;
+    bool scale_soft_time;
+
     bool stop;
     volatile bool *external_stop;
-} SearchControl;
+    volatile bool *ignore_limits;
+};
 
 typedef struct
 {

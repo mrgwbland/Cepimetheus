@@ -13,6 +13,7 @@ typedef struct SearchOptions
     bool lichess_draw_rules;
     bool display_currmove;
     bool silent;
+    bool ponder;
 } SearchOptions;
 
 typedef struct SearchLimits
@@ -26,6 +27,7 @@ typedef struct SearchLimits
     int movestogo;
     bool has_clock_time;
     bool infinite;
+    bool ponder;
     Move search_moves[256];
     int search_move_count;
     bool has_search_moves;
@@ -36,6 +38,7 @@ Move think(Board *board,
            const SearchOptions *options,
            const RepetitionHistory *history,
            volatile bool *stop_signal,
+           volatile bool *ignore_limits,
            unsigned long long *out_nodes,
            SearchResult *out_result,
            SearchContext *context);

@@ -5,11 +5,13 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #if defined(_WIN32)
 #include <windows.h>
 #else
 #include <sys/time.h>
+#include <unistd.h>
 #endif
 
 TUNE_VAR asp_min_depth = 5;
@@ -230,11 +232,101 @@ static int compute_scaled_soft_limit(int base_soft_limit_ms,
     return (int)(base_soft_limit_ms * scale);
 }
 
+// Upon receiving "go" determine limits
+static void search_control_init(SearchControl *control,
+                                const Board *board,
+                                const SearchLimits *limits,
+                                const SearchOptions *options,
+                                volatile bool *stop_signal,
+                                volatile bool *ignore_limits)
+{
+    memset(control, 0, sizeof(*control));
+    control->start_time_ms = current_time_ms();
+    control->external_stop = stop_signal;
+    control->ignore_limits = ignore_limits;
+
+    const int max_iterative_depth = 64;
+    control->max_depth = max_iterative_depth;
+
+    int overhead_ms = 50;
+    if (options != NULL)
+    {
+        overhead_ms = options->overhead_ms;
+    }
+
+    if (limits->depth > 0)
+    {
+        control->max_depth = limits->depth;
+    }
+
+    if (limits->movetime_ms > 0)
+    {
+        int budget = clamp_time_budget(limits->movetime_ms - overhead_ms);
+        control->has_time_limit = true;
+        control->base_soft_ms = budget;
+        control->hard_ms = budget;
+        control->scale_soft_time = false;
+    }
+    else if (limits->has_clock_time)
+    {
+        int soft_budget = 0;
+        int hard_budget = 0;
+        if (compute_clock_budget(board, limits, options, &soft_budget, &hard_budget))
+        {
+            control->has_time_limit = true;
+            control->base_soft_ms = soft_budget;
+            control->hard_ms = hard_budget;
+            control->scale_soft_time = true;
+        }
+    }
+}
+
+static bool search_should_stop_soft(const SearchControl *control,
+                                    int depth,
+                                    Move best_move,
+                                    unsigned long long total_nodes,
+                                    const SearchContext *context)
+{
+    if (!control->has_time_limit || (control->ignore_limits != NULL && *control->ignore_limits))
+    {
+        return false;
+    }
+
+    long long elapsed_ms = current_time_ms() - control->start_time_ms;
+    if (elapsed_ms < 0)
+    {
+        elapsed_ms = 0;
+    }
+
+    int soft_limit_ms = control->scale_soft_time
+        ? compute_scaled_soft_limit(control->base_soft_ms, depth, best_move, total_nodes, context)
+        : control->base_soft_ms;
+
+    return elapsed_ms >= soft_limit_ms;
+}
+
+// For when searching infinite don't return even if search has exhausted all moves
+static void search_wait(const SearchControl *control)
+{
+    if (control->ignore_limits != NULL)
+    {
+        while (*control->ignore_limits && (control->external_stop == NULL || !*control->external_stop))
+        {
+#if defined(_WIN32)
+            Sleep(1);
+#else
+            usleep(1000);
+#endif
+        }
+    }
+}
+
 Move think(Board *board,
            const SearchLimits *limits,
            const SearchOptions *options,
            const RepetitionHistory *history,
            volatile bool *stop_signal,
+           volatile bool *ignore_limits,
            unsigned long long *out_nodes,
            SearchResult *out_result,
            SearchContext *context)
@@ -244,77 +336,27 @@ Move think(Board *board,
         return MOVE_NONE;
     }
 
-    int target_depth = 4; // Default if no limits provided
-    int movetime_ms = 0;
-    int soft_time_limit_ms = 0;
-    int hard_time_limit_ms = 0;
-    int overhead_ms = 50;
-    int multipv = 1;
-    bool depth_explicitly_set = false;
-    bool time_limited = false;
-    bool infinite_search = false;
-    const int max_iterative_depth = 64;
+    SearchControl control;
+    search_control_init(&control, board, limits, options, stop_signal, ignore_limits);
+
     SearchStats stats = {0ULL, 0, 0};
 
-    if (options != NULL)
+    int multipv = 1;
+    if (options != NULL && options->multipv > 0)
     {
-        overhead_ms = options->overhead_ms;
-        if (options->multipv > 0)
+        multipv = options->multipv;
+        if (multipv > 256)
         {
-            multipv = options->multipv;
-            if (multipv > 256)
-            {
-                multipv = 256;
-            }
+            multipv = 256;
         }
     }
 
-    if (limits != NULL)
+    if (limits != NULL && limits->has_search_moves)
     {
-        if (limits->has_search_moves)
+        if (multipv > limits->search_move_count)
         {
-            if (multipv > limits->search_move_count)
-            {
-                multipv = limits->search_move_count;
-            }
+            multipv = limits->search_move_count;
         }
-        if (limits->depth > 0)
-        {
-            target_depth = limits->depth;
-            depth_explicitly_set = true;
-        }
-        if (limits->movetime_ms > 0)
-        {
-            movetime_ms = limits->movetime_ms;
-        }
-        else if (limits->has_clock_time && compute_clock_budget(board, limits, options, &soft_time_limit_ms, &hard_time_limit_ms))
-        {
-            time_limited = true;
-        }
-
-        if (limits->infinite)
-        {
-            infinite_search = true;
-        }
-    }
-
-    if (movetime_ms > 0 && !depth_explicitly_set)
-    {
-        // In pure movetime mode, deepen until the time budget is consumed.
-        target_depth = max_iterative_depth;
-    }
-
-    if (movetime_ms > 0)
-    {
-        soft_time_limit_ms = movetime_ms - overhead_ms;
-        hard_time_limit_ms = soft_time_limit_ms;
-        soft_time_limit_ms = clamp_time_budget(soft_time_limit_ms);
-        hard_time_limit_ms = clamp_time_budget(hard_time_limit_ms);
-        time_limited = true;
-    }
-    else if (time_limited && !depth_explicitly_set)
-    {
-        target_depth = max_iterative_depth;
     }
 
     RepetitionHistory search_history;
@@ -322,16 +364,6 @@ Move think(Board *board,
     if (history != NULL)
     {
         search_history = *history;
-    }
-
-    long long start_time_ms = current_time_ms();
-
-    SearchControl control = {0};
-    control.external_stop = stop_signal;
-    if (time_limited)
-    {
-        control.hard_time_limited = true;
-        control.hard_stop_time_ms = start_time_ms + (long long)hard_time_limit_ms;
     }
 
     SearchContext *search_context = context;
@@ -364,6 +396,7 @@ Move think(Board *board,
             out_result->move = MOVE_NONE;
             out_result->pv_length = 0;
         }
+        search_wait(&control);
         if (local_context && search_context != NULL)
         {
             search_context_destroy(search_context);
@@ -379,54 +412,32 @@ Move think(Board *board,
     SearchResult best_result = {0, MOVE_NONE, {0}, 0};
 
     // Iterative deepening: search depths 1 through target_depth.
-    int depth_limit = target_depth;
-    if (infinite_search && !depth_explicitly_set && !time_limited && movetime_ms <= 0)
+    for (int depth = 1; depth <= control.max_depth; ++depth)
     {
-        depth_limit = INT_MAX;
-    }
-
-    for (int depth = 1; depth <= depth_limit; ++depth)
-    {
-        if (stop_signal != NULL && *stop_signal)
+        if (control.stop || (stop_signal != NULL && *stop_signal))
         {
             break;
         }
 
         if (depth > 1)
         {
-            root_moves_seed_iteration(&search_context->root_moves);
-        }
-
-        if (time_limited)
-        {
-            long long elapsed_before_depth_ms = current_time_ms() - start_time_ms;
-            if (elapsed_before_depth_ms < 0)
-            {
-                elapsed_before_depth_ms = 0;
-            }
-
-            int effective_soft_limit_ms = compute_scaled_soft_limit(soft_time_limit_ms,
-                                                                    depth - 1,
-                                                                    best_result.move,
-                                                                    stats.nodes,
-                                                                    search_context);
-
-            if (elapsed_before_depth_ms >= effective_soft_limit_ms && best_result.move != MOVE_NONE)
+            if (best_result.move != MOVE_NONE && search_should_stop_soft(&control, depth - 1, best_result.move, stats.nodes, search_context))
             {
                 break;
             }
+            root_moves_seed_iteration(&search_context->root_moves);
         }
 
         bool lichess_draw_rules = (options != NULL) ? options->lichess_draw_rules : false;
         bool display_currmove = (options != NULL && options->display_currmove && !options->silent) &&
-                                ((current_time_ms() - start_time_ms) >= 1000);
+                                ((current_time_ms() - control.start_time_ms) >= 1000);
         Move excluded_root_moves[256] = {0};
         int excluded_root_move_count = 0;
         SearchResult depth_best_result = {0, MOVE_NONE, {0}, 0};
 
         for (int multipv_index = 0; multipv_index < multipv; ++multipv_index)
         {
-            if (stop_signal != NULL && *stop_signal)
+            if (control.stop || (stop_signal != NULL && *stop_signal))
             {
                 break;
             }
@@ -511,17 +522,12 @@ Move think(Board *board,
                                      search_move_count);
             }
 
-            if (control.stop)
+            if (control.stop || result.move == MOVE_NONE)
             {
                 break;
             }
 
-            if (result.move == MOVE_NONE)
-            {
-                break;
-            }
-
-            long long elapsed_ms = current_time_ms() - start_time_ms;
+            long long elapsed_ms = current_time_ms() - control.start_time_ms;
             if (elapsed_ms < 0)
             {
                 elapsed_ms = 0;
@@ -542,13 +548,7 @@ Move think(Board *board,
                 excluded_root_moves[excluded_root_move_count++] = result.move;
             }
 
-            int effective_soft_limit_ms = compute_scaled_soft_limit(soft_time_limit_ms,
-                                                                    depth,
-                                                                    depth_best_result.move,
-                                                                    stats.nodes,
-                                                                    search_context);
-
-            if (time_limited && elapsed_ms >= effective_soft_limit_ms)
+            if (search_should_stop_soft(&control, depth, depth_best_result.move, stats.nodes, search_context))
             {
                 break;
             }
@@ -588,23 +588,13 @@ Move think(Board *board,
             best_result = depth_best_result;
         }
 
-        long long elapsed_ms = current_time_ms() - start_time_ms;
-        if (elapsed_ms < 0)
-        {
-            elapsed_ms = 0;
-        }
-
-        int effective_soft_limit_ms = compute_scaled_soft_limit(soft_time_limit_ms,
-                                                                depth,
-                                                                best_result.move,
-                                                                stats.nodes,
-                                                                search_context);
-
-        if (time_limited && elapsed_ms >= effective_soft_limit_ms)
+        if (search_should_stop_soft(&control, depth, best_result.move, stats.nodes, search_context))
         {
             break;
         }
     }
+    // If infinite don't return until stop
+    search_wait(&control);
 
     if (out_nodes != NULL)
     {

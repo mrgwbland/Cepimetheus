@@ -132,24 +132,25 @@ bool search_should_stop(SearchControl *control, long long nodes)
         return false;
     }
 
+    if (control->stop)
+    {
+        return true;
+    }
+
     if (control->external_stop != NULL && *control->external_stop)
     {
         control->stop = true;
         return true;
     }
 
-    if (control->stop)
-    {
-        return true;
-    }
-
-    if (!control->hard_time_limited)
+    if (!control->has_time_limit || (control->ignore_limits != NULL && *control->ignore_limits))
     {
         return false;
     }
+
     if ((nodes & 1023) == 0)
     {
-        if (current_time_ms() >= control->hard_stop_time_ms)
+        if ((current_time_ms() - control->start_time_ms) >= control->hard_ms)
         {
             control->stop = true;
             return true;
