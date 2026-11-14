@@ -7,8 +7,8 @@ WIN_CC ?= x86_64-w64-mingw32-gcc
 WIN32_CC ?= i686-w64-mingw32-gcc
 BUILD_DIR ?= release
 
-TARGET := $(BUILD_DIR)/Cepimetheus
-TUNING_TARGET := $(BUILD_DIR)/engine.so
+EXE := $(BUILD_DIR)/Cepimetheus
+TUNING_EXE := $(BUILD_DIR)/engine.so
 
 SRC := \
     src/main.c \
@@ -43,34 +43,34 @@ OBJ := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(SRC))
 
 .PHONY: all clean run windows tuning release spsa
 
-all: $(TARGET)
+all: $(EXE)
 
 spsa: CFLAGS += -DSPSA_TUNING
-spsa: clean $(TARGET)
+spsa: clean $(EXE)
 
 
 $(BUILD_DIR)/%.o: src/%.c
 	mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(TARGET): $(OBJ)
+$(EXE): $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ -lm
 
 -include $(OBJ:.o=.d)
 
 # Compiles the shared library directly from sources to safely inject -fPIC
-tuning: $(TUNING_TARGET)
+tuning: $(TUNING_EXE)
 
-$(TUNING_TARGET): $(TUNING_SRC)
+$(TUNING_EXE): $(TUNING_SRC)
 	mkdir -p $(BUILD_DIR)
-	$(CC) $(CFLAGS) -fPIC -shared $^ -o $(TUNING_TARGET)
+	$(CC) $(CFLAGS) -fPIC -shared $^ -o $(TUNING_EXE)
 
-run: $(TARGET)
-	./$(TARGET)
+run: $(EXE)
+	./$(EXE)
 
 windows:
 	$(MAKE) clean
-	$(MAKE) CC=$(WIN_CC) TARGET=$(BUILD_DIR)/Cepimetheus.exe THREAD_FLAGS='-pthread -static -static-libgcc'
+	$(MAKE) CC=$(WIN_CC) EXE=$(BUILD_DIR)/Cepimetheus.exe THREAD_FLAGS='-pthread -static -static-libgcc'
 
 release:
 	mkdir -p $(BUILD_DIR)
