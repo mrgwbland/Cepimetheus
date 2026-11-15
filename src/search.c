@@ -1080,7 +1080,7 @@ SearchResult search_root(Board *board,
         }
     }
 
-    if (context != NULL && !control->stop)
+    if (context != NULL && !control->stop && excluded_move_count == 0 && search_move_count == 0) // Don't store to TT with excluded moves
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
         transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, board_is_in_check(board, board->side) ? EVAL_NONE : raw_eval, 0);
