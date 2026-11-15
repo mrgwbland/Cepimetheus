@@ -106,23 +106,25 @@ static size_t transposition_table_index(const TranspositionTable *table, U64 has
     return (size_t)(hash & (table->size - 1U));
 }
 
-const TranspositionEntry *transposition_table_lookup(const TranspositionTable *table, U64 hash)
+TranspositionEntry transposition_table_lookup(const TranspositionTable *table, U64 hash)
 {
-    if (table == NULL || table->buckets == NULL || table->size == 0)
+    TranspositionEntry empty = {0};
+    if (table == NULL || table->buckets == NULL || table->size == 0 || hash == 0)
     {
-        return NULL;
+        return empty;
     }
 
     const TranspositionBucket *bucket = &table->buckets[transposition_table_index(table, hash)];
     for (int i = 0; i < 4; i++)
     {
-        if (bucket->entries[i].hash == hash)
+        TranspositionEntry entry = bucket->entries[i];
+        if (entry.hash == hash)
         {
-            return &bucket->entries[i];
+            return entry;
         }
     }
 
-    return NULL;
+    return empty;
 }
 
 // Test whether a position exists and can cause a cutoff
@@ -134,14 +136,14 @@ bool transposition_table_probe(const TranspositionTable *table,
                                int ply,
                                int *score)
 {
-    const TranspositionEntry *entry = transposition_table_lookup(table, hash);
-    if (entry == NULL || entry->depth < depth || score == NULL)
+    TranspositionEntry entry = transposition_table_lookup(table, hash);
+    if (entry.hash == 0 || entry.depth < depth || score == NULL)
     {
         return false;
     }
 
-    int entry_score = score_from_tt(entry->score, ply);
-    TranspositionScoreType score_type = tt_entry_bound(entry);
+    int entry_score = score_from_tt(entry.score, ply);
+    TranspositionScoreType score_type = tt_entry_bound(&entry);
 
     switch (score_type)
     {
@@ -176,15 +178,15 @@ bool transposition_table_probe_exact(const TranspositionTable *table,
                                      int ply,
                                      int *score)
 {
-    const TranspositionEntry *entry = transposition_table_lookup(table, hash);
-    if (entry == NULL || entry->depth < depth || score == NULL)
+    TranspositionEntry entry = transposition_table_lookup(table, hash);
+    if (entry.hash == 0 || entry.depth < depth || score == NULL)
     {
         return false;
     }
 
-    if (tt_entry_bound(entry) == TT_SCORE_EXACT)
+    if (tt_entry_bound(&entry) == TT_SCORE_EXACT)
     {
-        *score = score_from_tt(entry->score, ply);
+        *score = score_from_tt(entry.score, ply);
         return true;
     }
 

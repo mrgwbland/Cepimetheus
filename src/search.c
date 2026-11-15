@@ -204,18 +204,20 @@ static SearchResult negamax(Board *board,
     int tt_score = 0;
     int tt_depth = -1;
     TranspositionScoreType tt_bound = TT_SCORE_UPPER;
-    const TranspositionEntry *entry = NULL;
+    TranspositionEntry entry = {0};
+    bool tt_hit = false;
     if (context != NULL)
     {
         entry = transposition_table_lookup(&context->table, board->hash);
+        tt_hit = (entry.hash != 0);
         bool tt_cutoff = false;
 
-        if (entry != NULL)
+        if (tt_hit)
         {
-            tt_move = entry->best_move;
-            tt_score = score_from_tt(entry->score, ply);
-            tt_depth = entry->depth;
-            tt_bound = tt_entry_bound(entry);
+            tt_move = entry.best_move;
+            tt_score = score_from_tt(entry.score, ply);
+            tt_depth = entry.depth;
+            tt_bound = tt_entry_bound(&entry);
 
             if (ss->excluded_move == MOVE_NONE && tt_depth >= depth)
             {
@@ -306,18 +308,18 @@ static SearchResult negamax(Board *board,
                 }
 
                 pv_hashes[pv_depth] = hash;
-                const TranspositionEntry *pv_entry = (pv_depth == 0) ? entry : transposition_table_lookup(&context->table, hash);
-                if (pv_entry == NULL || pv_entry->best_move == MOVE_NONE)
+                TranspositionEntry pv_entry = (pv_depth == 0) ? entry : transposition_table_lookup(&context->table, hash);
+                if (pv_entry.hash == 0 || pv_entry.best_move == MOVE_NONE)
                 {
                     break;
                 }
 
-                if (!is_move_pseudo_legal(board, pv_entry->best_move))
+                if (!is_move_pseudo_legal(board, pv_entry.best_move))
                 {
                     break;
                 }
 
-                if (!board_make_move(board, pv_entry->best_move, &undos[pv_depth]))
+                if (!board_make_move(board, pv_entry.best_move, &undos[pv_depth]))
                 {
                     break;
                 }
@@ -331,7 +333,7 @@ static SearchResult negamax(Board *board,
                     break;
                 }
 
-                result.pv[result.pv_length++] = pv_entry->best_move;
+                result.pv[result.pv_length++] = pv_entry.best_move;
                 pv_depth++;
             }
             // Now unmake all the moves we made
@@ -462,9 +464,9 @@ static SearchResult negamax(Board *board,
     }
     else // The following pruning doesn't occur when in check so we can reuse this is_in_check to save compute
     {
-        if (entry != NULL && entry->static_eval != EVAL_NONE)
+        if (tt_hit && entry.static_eval != EVAL_NONE)
         {
-            raw_eval = entry->static_eval; // Cached static eval
+            raw_eval = entry.static_eval; // Cached static eval
         }
         else
         {
@@ -481,7 +483,7 @@ static SearchResult negamax(Board *board,
 
         int eval = static_eval;
         // Improve eval estimation based on TT score and bounds
-        if (entry != NULL && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
+        if (tt_hit && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
         {
             if (tt_bound == TT_SCORE_EXACT || (tt_bound == TT_SCORE_LOWER && tt_score > eval) || (tt_bound == TT_SCORE_UPPER && tt_score < eval))
             {
@@ -505,7 +507,7 @@ static SearchResult negamax(Board *board,
     }
 
     // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
-    if (context != NULL && entry == NULL && depth >= iir_min_depth && !pv_node)
+    if (context != NULL && !tt_hit && depth >= iir_min_depth && !pv_node)
     {
         depth -= iir_reduction;
         if (depth < 0)
@@ -516,7 +518,7 @@ static SearchResult negamax(Board *board,
     int extension = 0;
     if (ss->excluded_move == MOVE_NONE                                                  // Prevent an infinite loop
         && depth > se_min_depth                                                         // Don't extend near leaves
-        && tt_move != MOVE_NONE && entry != NULL && tt_depth >= depth - se_depth_margin // Only use good TT moves
+        && tt_move != MOVE_NONE && tt_hit && tt_depth >= depth - se_depth_margin // Only use good TT moves
         && tt_bound != TT_SCORE_UPPER && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
     {
         // If all other moves are below beta_target then node is considered singular
@@ -853,10 +855,10 @@ SearchResult search_root(Board *board,
     int raw_eval = EVAL_NONE;
     if (!board_is_in_check(board, board->side))
     {
-        const TranspositionEntry *root_entry = (context != NULL) ? transposition_table_lookup(&context->table, board->hash) : NULL;
-        if (root_entry != NULL && root_entry->static_eval != EVAL_NONE)
+        TranspositionEntry root_entry = (context != NULL) ? transposition_table_lookup(&context->table, board->hash) : (TranspositionEntry){0};
+        if (root_entry.hash != 0 && root_entry.static_eval != EVAL_NONE)
         {
-            raw_eval = root_entry->static_eval;
+            raw_eval = root_entry.static_eval;
         }
         else
         {
