@@ -1067,7 +1067,7 @@ SearchResult search_root(Board *board,
     {
         root_moves_sort(&context->root_moves, excluded_move_count);
         // hashfull of 0 means empty TT, 1000 means full TT
-        stats->hashfull = (int)((context->table.count * 1000) / (context->table.size * 4));
+        stats->hashfull = transposition_table_hashfull(&context->table);
     }
 
     if (legal_moves_searched == 0)
