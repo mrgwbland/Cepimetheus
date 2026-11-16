@@ -89,7 +89,8 @@ typedef struct SearchContext SearchContext;
 
 struct SearchContext
 {
-    TranspositionTable table;
+    TranspositionTable *table;
+    bool primary_thread;
     // For a ply the move that caused the most recent beta cutoff, and the second most recent move that caused a beta cutoff
     Move killer_moves[MAX_PLY_DEPTH][2];
     // Functions like a per move killer instead of a per ply killer, stores two moves for each piece/to pair

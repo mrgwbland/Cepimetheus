@@ -151,10 +151,10 @@ static int quiescence(Board *board,
         }
     }
 
-    if (context != NULL && !control->stop)
+    if (context != NULL && context->table != NULL && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha, beta);
-        transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, in_check ? EVAL_NONE : raw_eval, ply);
+        transposition_table_store(context->table, board->hash, 0, alpha, score_type, best_move, in_check ? EVAL_NONE : raw_eval, ply);
     }
 
     return alpha;
@@ -206,9 +206,9 @@ static SearchResult negamax(Board *board,
     TranspositionScoreType tt_bound = TT_SCORE_UPPER;
     TranspositionEntry entry = {0};
     bool tt_hit = false;
-    if (context != NULL)
+    if (context != NULL && context->table != NULL)
     {
-        entry = transposition_table_lookup(&context->table, board->hash);
+        entry = transposition_table_lookup(context->table, board->hash);
         tt_hit = (entry.hash != 0);
         bool tt_cutoff = false;
 
@@ -308,7 +308,7 @@ static SearchResult negamax(Board *board,
                 }
 
                 pv_hashes[pv_depth] = hash;
-                TranspositionEntry pv_entry = (pv_depth == 0) ? entry : transposition_table_lookup(&context->table, hash);
+                TranspositionEntry pv_entry = (pv_depth == 0) ? entry : transposition_table_lookup(context->table, hash);
                 if (pv_entry.hash == 0 || pv_entry.best_move == MOVE_NONE)
                 {
                     break;
@@ -807,7 +807,10 @@ static SearchResult negamax(Board *board,
     if (context != NULL && ss->excluded_move == MOVE_NONE && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : raw_eval, ply);
+        if (context->table != NULL)
+        {
+            transposition_table_store(context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : raw_eval, ply);
+        }
 
         if (!in_check && ss->static_eval != EVAL_NONE &&
             (result.move == MOVE_NONE || move_is_quiet(result.move)) &&
@@ -855,7 +858,7 @@ SearchResult search_root(Board *board,
     int raw_eval = EVAL_NONE;
     if (!board_is_in_check(board, board->side))
     {
-        TranspositionEntry root_entry = (context != NULL) ? transposition_table_lookup(&context->table, board->hash) : (TranspositionEntry){0};
+        TranspositionEntry root_entry = (context != NULL && context->table != NULL) ? transposition_table_lookup(context->table, board->hash) : (TranspositionEntry){0};
         if (root_entry.hash != 0 && root_entry.static_eval != EVAL_NONE)
         {
             raw_eval = root_entry.static_eval;
@@ -1069,7 +1072,7 @@ SearchResult search_root(Board *board,
     {
         root_moves_sort(&context->root_moves, excluded_move_count);
         // hashfull of 0 means empty TT, 1000 means full TT
-        stats->hashfull = transposition_table_hashfull(&context->table);
+        stats->hashfull = (context->table != NULL) ? transposition_table_hashfull(context->table) : 0;
     }
 
     if (legal_moves_searched == 0)
@@ -1085,7 +1088,10 @@ SearchResult search_root(Board *board,
     if (context != NULL && !control->stop && excluded_move_count == 0 && search_move_count == 0) // Don't store to TT with excluded moves
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, board_is_in_check(board, board->side) ? EVAL_NONE : raw_eval, 0);
+        if (context->table != NULL)
+        {
+            transposition_table_store(context->table, board->hash, depth, result.score, score_type, result.move, board_is_in_check(board, board->side) ? EVAL_NONE : raw_eval, 0);
+        }
 
         if (!board_is_in_check(board, board->side) && ss->static_eval != EVAL_NONE &&
             (result.move == MOVE_NONE || move_is_quiet(result.move)) &&

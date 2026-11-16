@@ -232,11 +232,14 @@ SearchContext *search_context_create(size_t hash_power)
         }
     }
 
-    if (!transposition_table_init(&context->table, hash_power))
+    context->table = calloc(1, sizeof(*context->table));
+    if (context->table == NULL || !transposition_table_init(context->table, hash_power))
     {
+        free(context->table);
         free(context);
         return NULL;
     }
+    context->primary_thread = true;
 
     return context;
 }
@@ -248,7 +251,11 @@ void search_context_destroy(SearchContext *context)
         return;
     }
 
-    transposition_table_destroy(&context->table);
+    if (context->primary_thread && context->table != NULL)
+    {
+        transposition_table_destroy(context->table);
+        free(context->table);
+    }
     free(context);
 }
 
@@ -260,7 +267,10 @@ void search_context_reset_search(SearchContext *context)
         return;
     }
 
-    transposition_table_new_search(&context->table);
+    if (context->primary_thread)
+    {
+        transposition_table_new_search(context->table);
+    }
 
     for (int p = 0; p < MAX_PLY_DEPTH - 1; ++p)
     {
@@ -301,20 +311,23 @@ void search_context_clear(SearchContext *context)
     memset(context->cont_hist, 0, sizeof(context->cont_hist));
     memset(context->pawn_corr_hist, 0, sizeof(context->pawn_corr_hist));
     memset(&context->root_moves, 0, sizeof(context->root_moves));
-    transposition_table_clear(&context->table);
-    clear_pawn_table();
+    if (context->primary_thread)
+    {
+        transposition_table_clear(context->table);
+        clear_pawn_table();
+    }
 }
 
 // Destroy and reinit TT with new size, reset all search heuristics
 bool search_context_resize(SearchContext *context, size_t hash_power)
 {
-    if (context == NULL)
+    if (context == NULL || !context->primary_thread || context->table == NULL)
     {
         return false;
     }
 
-    transposition_table_destroy(&context->table);
-    if (!transposition_table_init(&context->table, hash_power))
+    transposition_table_destroy(context->table);
+    if (!transposition_table_init(context->table, hash_power))
     {
         return false;
     }
