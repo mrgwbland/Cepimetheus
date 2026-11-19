@@ -410,16 +410,18 @@ Move think(Board *board,
     }
 
     SearchResult best_result = {0, MOVE_NONE, {0}, 0};
+    int start_depth = 1 + (search_context->thread_index);
 
-    // Iterative deepening: search depths 1 through target_depth.
-    for (int depth = 1; depth <= control.max_depth; ++depth)
+    // Iterative deepening: search depths start_depth through target_depth
+    // Start depth used to stagger depths across threads
+    for (int depth = start_depth; depth <= control.max_depth; ++depth)
     {
         if (control.stop || (stop_signal != NULL && *stop_signal))
         {
             break;
         }
 
-        if (depth > 1)
+        if (depth > start_depth)
         {
             if (best_result.move != MOVE_NONE && search_should_stop_soft(&control, depth - 1, best_result.move, stats.nodes, search_context))
             {
@@ -446,7 +448,7 @@ Move think(Board *board,
 
             SearchResult result;
             int prev_score = search_context->root_moves.entries[multipv_index].previous_score;
-            bool use_aspiration = (depth >= asp_min_depth && prev_score > -MATE_SCORE && prev_score < MATE_SCORE);
+            bool use_aspiration = (depth > start_depth && depth >= asp_min_depth && prev_score > -MATE_SCORE && prev_score < MATE_SCORE);
 
             if (use_aspiration)
             {
