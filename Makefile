@@ -21,6 +21,7 @@ SRC := \
     src/tt.c \
     src/movepicker.c \
     src/think.c \
+    src/thread.c \
     src/movegen.c \
     src/move.c \
     src/board.c \

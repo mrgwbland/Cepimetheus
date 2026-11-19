@@ -3,6 +3,7 @@
 #include "movegen.h"
 #include "movepicker.h"
 #include "think.h"
+#include "thread.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -210,7 +211,7 @@ int get_captured_piece_value(const Board *board, Move move)
     return 0;
 }
 
-SearchContext *search_context_create(size_t hash_power)
+SearchContext *search_context_create(size_t hash_power, TranspositionTable *shared_table, int thread_index)
 {
     SearchContext *context = calloc(1, sizeof(*context));
     if (context == NULL)
@@ -232,14 +233,21 @@ SearchContext *search_context_create(size_t hash_power)
         }
     }
 
-    context->table = calloc(1, sizeof(*context->table));
-    if (context->table == NULL || !transposition_table_init(context->table, hash_power))
+    if (thread_index == 0)
     {
-        free(context->table);
-        free(context);
-        return NULL;
+        context->table = calloc(1, sizeof(*context->table));
+        if (context->table == NULL || !transposition_table_init(context->table, hash_power))
+        {
+            free(context->table);
+            free(context);
+            return NULL;
+        }
     }
-    context->thread_index = 0;
+    else
+    {
+        context->table = shared_table;
+    }
+    context->thread_index = thread_index;
 
     return context;
 }
@@ -251,10 +259,15 @@ void search_context_destroy(SearchContext *context)
         return;
     }
 
-    if (context->thread_index == 0 && context->table != NULL)
+    if (context->thread_index == 0)
     {
-        transposition_table_destroy(context->table);
-        free(context->table);
+        smp_pool_destroy(context->smp_pool);
+        context->smp_pool = NULL;
+        if (context->table != NULL)
+        {
+            transposition_table_destroy(context->table);
+            free(context->table);
+        }
     }
     free(context);
 }
@@ -315,6 +328,7 @@ void search_context_clear(SearchContext *context)
     {
         transposition_table_clear(context->table);
         clear_pawn_table();
+        smp_pool_clear(context);
     }
 }
 

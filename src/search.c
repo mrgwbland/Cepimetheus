@@ -277,12 +277,12 @@ static SearchResult negamax(Board *board,
             result.score = tt_score;
 
             int pv_depth = 0;
-            Undo undos[MAX_PV_MOVES];
-            U64 pv_hashes[MAX_PV_MOVES];
+            Undo undos[MAX_SEARCH_DEPTH];
+            U64 pv_hashes[MAX_SEARCH_DEPTH];
             // Build a temporary history that includes the current path so that
             // board_is_draw() can detect threefold repetitions inside the PV.
             RepetitionHistory pv_history = *history;
-            while (pv_depth < depth && result.pv_length < MAX_PV_MOVES)
+            while (pv_depth < depth && result.pv_length < MAX_SEARCH_DEPTH)
             {
                 U64 hash = board->hash;
 
@@ -712,7 +712,7 @@ static SearchResult negamax(Board *board,
             result.move = move;
             result.pv[0] = move;
             result.pv_length = 1;
-            for (int j = 0; j < child.pv_length && result.pv_length < MAX_PV_MOVES; ++j)
+            for (int j = 0; j < child.pv_length && result.pv_length < MAX_SEARCH_DEPTH; ++j)
             {
                 result.pv[result.pv_length++] = child.pv[j];
             }
@@ -1038,7 +1038,7 @@ SearchResult search_root(Board *board,
             {
                 context->root_moves.entries[i].pv[0] = move;
                 context->root_moves.entries[i].pv_length = 1;
-                for (int j = 0; j < child.pv_length && context->root_moves.entries[i].pv_length < MAX_PV_MOVES; ++j)
+                for (int j = 0; j < child.pv_length && context->root_moves.entries[i].pv_length < MAX_SEARCH_DEPTH; ++j)
                 {
                     context->root_moves.entries[i].pv[context->root_moves.entries[i].pv_length++] = child.pv[j];
                 }
@@ -1051,7 +1051,7 @@ SearchResult search_root(Board *board,
             result.move = move;
             result.pv[0] = move;
             result.pv_length = 1;
-            for (int j = 0; j < child.pv_length && result.pv_length < MAX_PV_MOVES; ++j)
+            for (int j = 0; j < child.pv_length && result.pv_length < MAX_SEARCH_DEPTH; ++j)
             {
                 result.pv[result.pv_length++] = child.pv[j];
             }

@@ -3,10 +3,11 @@
 
 #include "board.h"
 #include "tt.h"
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdlib.h>
 
-#define MAX_PV_MOVES 128
+#define MAX_SEARCH_DEPTH 127
 #define MAX_QUIET_TRACKED 256
 #define STACK_OFFSET 6 // Offset to allow negative checks at root
 
@@ -41,7 +42,7 @@ typedef struct
 {
     int score;
     Move move;
-    Move pv[MAX_PV_MOVES];
+    Move pv[MAX_SEARCH_DEPTH];
     int pv_length;
 } SearchResult;
 
@@ -75,7 +76,7 @@ typedef struct
     int score;
     int previous_score;
     unsigned long long nodes;
-    Move pv[MAX_PV_MOVES];
+    Move pv[MAX_SEARCH_DEPTH];
     int pv_length;
 } RootMoveEntry;
 
@@ -85,12 +86,15 @@ typedef struct
     int count;
 } RootMoveTable;
 
+typedef struct SmpPool SmpPool;
 typedef struct SearchContext SearchContext;
 
 struct SearchContext
 {
     TranspositionTable *table;
     int thread_index;
+    _Atomic unsigned long long thread_nodes;
+    SmpPool *smp_pool;
     // For a ply the move that caused the most recent beta cutoff, and the second most recent move that caused a beta cutoff
     Move killer_moves[MAX_PLY_DEPTH][2];
     // Functions like a per move killer instead of a per ply killer, stores two moves for each piece/to pair
@@ -185,7 +189,7 @@ extern TUNE_VAR asp_min_depth;
 extern TUNE_VAR asp_initial_delta;
 extern TUNE_VAR asp_growth_factor;
 
-SearchContext *search_context_create(size_t hash_power);
+SearchContext *search_context_create(size_t hash_power, TranspositionTable *shared_table, int thread_index);
 void search_context_destroy(SearchContext *context);
 void search_context_clear(SearchContext *context);
 void search_context_reset_search(SearchContext *context);
