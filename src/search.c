@@ -151,10 +151,10 @@ static int quiescence(Board *board,
         }
     }
 
-    if (context != NULL && !control->stop)
+    if (context != NULL && context->table != NULL && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(alpha, alpha, beta);
-        transposition_table_store(&context->table, board->hash, 0, alpha, score_type, best_move, in_check ? EVAL_NONE : raw_eval, ply);
+        transposition_table_store(context->table, board->hash, 0, alpha, score_type, best_move, in_check ? EVAL_NONE : raw_eval, ply);
     }
 
     return alpha;
@@ -204,18 +204,20 @@ static SearchResult negamax(Board *board,
     int tt_score = 0;
     int tt_depth = -1;
     TranspositionScoreType tt_bound = TT_SCORE_UPPER;
-    const TranspositionEntry *entry = NULL;
-    if (context != NULL)
+    TranspositionEntry entry = {0};
+    bool tt_hit = false;
+    if (context != NULL && context->table != NULL)
     {
-        entry = transposition_table_lookup(&context->table, board->hash);
+        entry = transposition_table_lookup(context->table, board->hash);
+        tt_hit = (entry.hash != 0);
         bool tt_cutoff = false;
 
-        if (entry != NULL)
+        if (tt_hit)
         {
-            tt_move = entry->best_move;
-            tt_score = score_from_tt(entry->score, ply);
-            tt_depth = entry->depth;
-            tt_bound = tt_entry_bound(entry);
+            tt_move = entry.best_move;
+            tt_score = score_from_tt(entry.score, ply);
+            tt_depth = entry.depth;
+            tt_bound = tt_entry_bound(&entry);
 
             if (ss->excluded_move == MOVE_NONE && tt_depth >= depth)
             {
@@ -275,12 +277,12 @@ static SearchResult negamax(Board *board,
             result.score = tt_score;
 
             int pv_depth = 0;
-            Undo undos[MAX_PV_MOVES];
-            U64 pv_hashes[MAX_PV_MOVES];
+            Undo undos[MAX_SEARCH_DEPTH];
+            U64 pv_hashes[MAX_SEARCH_DEPTH];
             // Build a temporary history that includes the current path so that
             // board_is_draw() can detect threefold repetitions inside the PV.
             RepetitionHistory pv_history = *history;
-            while (pv_depth < depth && result.pv_length < MAX_PV_MOVES)
+            while (pv_depth < depth && result.pv_length < MAX_SEARCH_DEPTH)
             {
                 U64 hash = board->hash;
 
@@ -306,18 +308,18 @@ static SearchResult negamax(Board *board,
                 }
 
                 pv_hashes[pv_depth] = hash;
-                const TranspositionEntry *pv_entry = (pv_depth == 0) ? entry : transposition_table_lookup(&context->table, hash);
-                if (pv_entry == NULL || pv_entry->best_move == MOVE_NONE)
+                TranspositionEntry pv_entry = (pv_depth == 0) ? entry : transposition_table_lookup(context->table, hash);
+                if (pv_entry.hash == 0 || pv_entry.best_move == MOVE_NONE)
                 {
                     break;
                 }
 
-                if (!is_move_pseudo_legal(board, pv_entry->best_move))
+                if (!is_move_pseudo_legal(board, pv_entry.best_move))
                 {
                     break;
                 }
 
-                if (!board_make_move(board, pv_entry->best_move, &undos[pv_depth]))
+                if (!board_make_move(board, pv_entry.best_move, &undos[pv_depth]))
                 {
                     break;
                 }
@@ -331,7 +333,7 @@ static SearchResult negamax(Board *board,
                     break;
                 }
 
-                result.pv[result.pv_length++] = pv_entry->best_move;
+                result.pv[result.pv_length++] = pv_entry.best_move;
                 pv_depth++;
             }
             // Now unmake all the moves we made
@@ -462,9 +464,9 @@ static SearchResult negamax(Board *board,
     }
     else // The following pruning doesn't occur when in check so we can reuse this is_in_check to save compute
     {
-        if (entry != NULL && entry->static_eval != EVAL_NONE)
+        if (tt_hit && entry.static_eval != EVAL_NONE)
         {
-            raw_eval = entry->static_eval; // Cached static eval
+            raw_eval = entry.static_eval; // Cached static eval
         }
         else
         {
@@ -481,7 +483,7 @@ static SearchResult negamax(Board *board,
 
         int eval = static_eval;
         // Improve eval estimation based on TT score and bounds
-        if (entry != NULL && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
+        if (tt_hit && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
         {
             if (tt_bound == TT_SCORE_EXACT || (tt_bound == TT_SCORE_LOWER && tt_score > eval) || (tt_bound == TT_SCORE_UPPER && tt_score < eval))
             {
@@ -505,7 +507,7 @@ static SearchResult negamax(Board *board,
     }
 
     // Internal Iterative Reductions, if no TT move then move ordering will be worse so reduce depth to save time
-    if (context != NULL && entry == NULL && depth >= iir_min_depth && !pv_node)
+    if (context != NULL && !tt_hit && depth >= iir_min_depth && !pv_node)
     {
         depth -= iir_reduction;
         if (depth < 0)
@@ -516,7 +518,7 @@ static SearchResult negamax(Board *board,
     int extension = 0;
     if (ss->excluded_move == MOVE_NONE                                                  // Prevent an infinite loop
         && depth > se_min_depth                                                         // Don't extend near leaves
-        && tt_move != MOVE_NONE && entry != NULL && tt_depth >= depth - se_depth_margin // Only use good TT moves
+        && tt_move != MOVE_NONE && tt_hit && tt_depth >= depth - se_depth_margin // Only use good TT moves
         && tt_bound != TT_SCORE_UPPER && abs(tt_score) < MATE_SCORE - MAX_PLY_DEPTH)
     {
         // If all other moves are below beta_target then node is considered singular
@@ -710,7 +712,7 @@ static SearchResult negamax(Board *board,
             result.move = move;
             result.pv[0] = move;
             result.pv_length = 1;
-            for (int j = 0; j < child.pv_length && result.pv_length < MAX_PV_MOVES; ++j)
+            for (int j = 0; j < child.pv_length && result.pv_length < MAX_SEARCH_DEPTH; ++j)
             {
                 result.pv[result.pv_length++] = child.pv[j];
             }
@@ -805,7 +807,10 @@ static SearchResult negamax(Board *board,
     if (context != NULL && ss->excluded_move == MOVE_NONE && !control->stop)
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : raw_eval, ply);
+        if (context->table != NULL)
+        {
+            transposition_table_store(context->table, board->hash, depth, result.score, score_type, result.move, in_check ? EVAL_NONE : raw_eval, ply);
+        }
 
         if (!in_check && ss->static_eval != EVAL_NONE &&
             (result.move == MOVE_NONE || move_is_quiet(result.move)) &&
@@ -853,10 +858,10 @@ SearchResult search_root(Board *board,
     int raw_eval = EVAL_NONE;
     if (!board_is_in_check(board, board->side))
     {
-        const TranspositionEntry *root_entry = (context != NULL) ? transposition_table_lookup(&context->table, board->hash) : NULL;
-        if (root_entry != NULL && root_entry->static_eval != EVAL_NONE)
+        TranspositionEntry root_entry = (context != NULL && context->table != NULL) ? transposition_table_lookup(context->table, board->hash) : (TranspositionEntry){0};
+        if (root_entry.hash != 0 && root_entry.static_eval != EVAL_NONE)
         {
-            raw_eval = root_entry->static_eval;
+            raw_eval = root_entry.static_eval;
         }
         else
         {
@@ -1033,7 +1038,7 @@ SearchResult search_root(Board *board,
             {
                 context->root_moves.entries[i].pv[0] = move;
                 context->root_moves.entries[i].pv_length = 1;
-                for (int j = 0; j < child.pv_length && context->root_moves.entries[i].pv_length < MAX_PV_MOVES; ++j)
+                for (int j = 0; j < child.pv_length && context->root_moves.entries[i].pv_length < MAX_SEARCH_DEPTH; ++j)
                 {
                     context->root_moves.entries[i].pv[context->root_moves.entries[i].pv_length++] = child.pv[j];
                 }
@@ -1046,7 +1051,7 @@ SearchResult search_root(Board *board,
             result.move = move;
             result.pv[0] = move;
             result.pv_length = 1;
-            for (int j = 0; j < child.pv_length && result.pv_length < MAX_PV_MOVES; ++j)
+            for (int j = 0; j < child.pv_length && result.pv_length < MAX_SEARCH_DEPTH; ++j)
             {
                 result.pv[result.pv_length++] = child.pv[j];
             }
@@ -1067,7 +1072,7 @@ SearchResult search_root(Board *board,
     {
         root_moves_sort(&context->root_moves, excluded_move_count);
         // hashfull of 0 means empty TT, 1000 means full TT
-        stats->hashfull = (int)((context->table.count * 1000) / (context->table.size * 4));
+        stats->hashfull = (context->table != NULL) ? transposition_table_hashfull(context->table) : 0;
     }
 
     if (legal_moves_searched == 0)
@@ -1083,7 +1088,10 @@ SearchResult search_root(Board *board,
     if (context != NULL && !control->stop && excluded_move_count == 0 && search_move_count == 0) // Don't store to TT with excluded moves
     {
         TranspositionScoreType score_type = transposition_score_type(result.score, alpha_orig, beta_orig);
-        transposition_table_store(&context->table, board->hash, depth, result.score, score_type, result.move, board_is_in_check(board, board->side) ? EVAL_NONE : raw_eval, 0);
+        if (context->table != NULL)
+        {
+            transposition_table_store(context->table, board->hash, depth, result.score, score_type, result.move, board_is_in_check(board, board->side) ? EVAL_NONE : raw_eval, 0);
+        }
 
         if (!board_is_in_check(board, board->side) && ss->static_eval != EVAL_NONE &&
             (result.move == MOVE_NONE || move_is_quiet(result.move)) &&

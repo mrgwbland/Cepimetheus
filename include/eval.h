@@ -2,9 +2,9 @@
 #define EVAL_H
 
 #define NUM_EVAL_PARAMS 35
+#define MATE_SCORE 32000
 
 #include "board.h"
-#include "movegen.h"
 #include <stdint.h>
 
 typedef struct
@@ -38,11 +38,6 @@ typedef enum
     EVAL_TERMINAL_STALEMATE,
     EVAL_TERMINAL_CHECKMATE,
 } EvalTerminalState;
-
-enum
-{
-    MATE_SCORE = 32000
-};
 
 extern int endgame_contribution_weights[4];
 

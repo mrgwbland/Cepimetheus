@@ -6,8 +6,6 @@
 #include "movegen.h"
 #include "search.h"
 
-#define MAX_ORDERED_MOVES 256
-
 enum
 {
     STAGE_TT,

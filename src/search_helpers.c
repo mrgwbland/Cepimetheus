@@ -3,6 +3,7 @@
 #include "movegen.h"
 #include "movepicker.h"
 #include "think.h"
+#include "thread.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -210,7 +211,7 @@ int get_captured_piece_value(const Board *board, Move move)
     return 0;
 }
 
-SearchContext *search_context_create(size_t hash_power)
+SearchContext *search_context_create(size_t hash_power, TranspositionTable *shared_table, int thread_index)
 {
     SearchContext *context = calloc(1, sizeof(*context));
     if (context == NULL)
@@ -232,11 +233,21 @@ SearchContext *search_context_create(size_t hash_power)
         }
     }
 
-    if (!transposition_table_init(&context->table, hash_power))
+    if (thread_index == 0)
     {
-        free(context);
-        return NULL;
+        context->table = calloc(1, sizeof(*context->table));
+        if (context->table == NULL || !transposition_table_init(context->table, hash_power))
+        {
+            free(context->table);
+            free(context);
+            return NULL;
+        }
     }
+    else
+    {
+        context->table = shared_table;
+    }
+    context->thread_index = thread_index;
 
     return context;
 }
@@ -248,7 +259,16 @@ void search_context_destroy(SearchContext *context)
         return;
     }
 
-    transposition_table_destroy(&context->table);
+    if (context->thread_index == 0)
+    {
+        smp_pool_destroy(context->smp_pool);
+        context->smp_pool = NULL;
+        if (context->table != NULL)
+        {
+            transposition_table_destroy(context->table);
+            free(context->table);
+        }
+    }
     free(context);
 }
 
@@ -260,7 +280,10 @@ void search_context_reset_search(SearchContext *context)
         return;
     }
 
-    transposition_table_new_search(&context->table);
+    if (context->thread_index == 0) // Primary thread
+    {
+        transposition_table_new_search(context->table);
+    }
 
     for (int p = 0; p < MAX_PLY_DEPTH - 1; ++p)
     {
@@ -301,20 +324,24 @@ void search_context_clear(SearchContext *context)
     memset(context->cont_hist, 0, sizeof(context->cont_hist));
     memset(context->pawn_corr_hist, 0, sizeof(context->pawn_corr_hist));
     memset(&context->root_moves, 0, sizeof(context->root_moves));
-    transposition_table_clear(&context->table);
-    clear_pawn_table();
+    if (context->thread_index == 0)
+    {
+        transposition_table_clear(context->table);
+        clear_pawn_table();
+        smp_pool_clear(context);
+    }
 }
 
 // Destroy and reinit TT with new size, reset all search heuristics
 bool search_context_resize(SearchContext *context, size_t hash_power)
 {
-    if (context == NULL)
+    if (context == NULL || context->thread_index != 0 || context->table == NULL)
     {
         return false;
     }
 
-    transposition_table_destroy(&context->table);
-    if (!transposition_table_init(&context->table, hash_power))
+    transposition_table_destroy(context->table);
+    if (!transposition_table_init(context->table, hash_power))
     {
         return false;
     }

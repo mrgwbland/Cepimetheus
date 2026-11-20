@@ -513,12 +513,13 @@ void uci_loop(int argc, char *argv[])
     options.overhead_ms = 10;
     options.multipv = 1;
     options.hash_power = 22; // 64 MiB hash
+    options.threads = 1;
     options.lichess_draw_rules = false;
     options.display_currmove = false;
 
     int max_hash = (1 << 30) / 16;
 
-    SearchContext *global_search_context = search_context_create((size_t)options.hash_power);
+    SearchContext *global_search_context = search_context_create((size_t)options.hash_power, NULL, 0);
 
     SearchThreadState search_thread = {0};
     pthread_mutex_init(&search_thread.mutex, NULL);
@@ -563,6 +564,7 @@ void uci_loop(int argc, char *argv[])
             printf("option name Overhead type spin default 10 min 0 max 10000\n");
             printf("option name MultiPV type spin default 1 min 1 max 256\n");
             printf("option name Hash type spin default 64 min 0 max %d\n", max_hash);
+            printf("option name Threads type spin default 1 min 1 max %d\n", MAX_SEARCH_DEPTH);
             printf("option name Clear Hash type button\n");
             printf("option name Lichess_Draw_Rules type check default false\n");
             printf("option name Display_Currmove type check default false\n");
@@ -709,6 +711,17 @@ void uci_loop(int argc, char *argv[])
                         options.hash_power = new_hash_power;
                         search_thread_stop_and_join(&search_thread);
                         search_context_resize(global_search_context, (size_t)options.hash_power);
+                    }
+                }
+                else if (strncmp(nametoken, "threads", 7) == 0 && valuetoken != NULL)
+                {
+                    valuetoken += 5;
+                    while (*valuetoken == ' ' || *valuetoken == '\t')
+                        valuetoken++;
+                    int thread_count = atoi(valuetoken);
+                    if (thread_count >= 1 && thread_count <= MAX_SEARCH_DEPTH)
+                    {
+                        options.threads = thread_count;
                     }
                 }
                 else if (strncmp(nametoken, "lichess_draw_rules", 18) == 0)

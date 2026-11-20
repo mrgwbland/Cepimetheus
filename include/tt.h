@@ -21,6 +21,7 @@ typedef uint8_t TranspositionScoreType;
 
 #define EVAL_NONE ((int16_t)32002)
 
+// An entry representing a single position
 typedef struct
 {
     U64 hash;            // 8 bytes
@@ -31,6 +32,7 @@ typedef struct
     uint8_t gen_bound;   // 1 byte (first 6 bits = generation, last 2 bits = score_type)
 } TranspositionEntry;    // 16 bytes
 
+// Bucket of 4 entries benefitting from grouped retrieval
 typedef struct
 {
     TranspositionEntry entries[4];
@@ -38,10 +40,9 @@ typedef struct
 
 typedef struct
 {
-    TranspositionBucket *buckets;
-    size_t size;
-    size_t count;
-    uint8_t generation;
+    TranspositionBucket *buckets; // Pointer to array of buckets
+    size_t size; // Number of buckets
+    uint8_t generation; // Current generation
 } TranspositionTable;
 
 static inline TranspositionScoreType tt_entry_bound(const TranspositionEntry *entry)
@@ -85,7 +86,8 @@ bool transposition_table_init(TranspositionTable *table, size_t hash_power);
 void transposition_table_destroy(TranspositionTable *table);
 void transposition_table_clear(TranspositionTable *table);
 void transposition_table_new_search(TranspositionTable *table);
-const TranspositionEntry *transposition_table_lookup(const TranspositionTable *table, U64 hash);
+int transposition_table_hashfull(const TranspositionTable *table);
+TranspositionEntry transposition_table_lookup(const TranspositionTable *table, U64 hash);
 bool transposition_table_probe(const TranspositionTable *table, U64 hash, int depth, int alpha, int beta, int ply, int *score);
 bool transposition_table_probe_exact(const TranspositionTable *table, U64 hash, int depth, int ply, int *score);
 void transposition_table_store(TranspositionTable *table, U64 hash, int depth, int score, TranspositionScoreType score_type, Move best_move, int static_eval, int ply);

@@ -1,6 +1,7 @@
 #include "think.h"
 #include "../include/search.h"
 #include "../include/eval.h"
+#include "thread.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -245,8 +246,7 @@ static void search_control_init(SearchControl *control,
     control->external_stop = stop_signal;
     control->ignore_limits = ignore_limits;
 
-    const int max_iterative_depth = 64;
-    control->max_depth = max_iterative_depth;
+    control->max_depth = MAX_SEARCH_DEPTH;
 
     int overhead_ms = 50;
     if (options != NULL)
@@ -375,7 +375,7 @@ Move think(Board *board,
         {
             hash_power = (size_t)options->hash_power;
         }
-        search_context = search_context_create(hash_power);
+        search_context = search_context_create(hash_power, NULL, 0);
         local_context = true;
     }
     else
@@ -410,16 +410,24 @@ Move think(Board *board,
     }
 
     SearchResult best_result = {0, MOVE_NONE, {0}, 0};
+    int start_depth = 1 + (search_context->thread_index);
+    atomic_store_explicit(&search_context->thread_nodes, 0ULL, memory_order_relaxed);
 
-    // Iterative deepening: search depths 1 through target_depth.
-    for (int depth = 1; depth <= control.max_depth; ++depth)
+    if (search_context->thread_index == 0)
+    {
+        smp_pool_start(search_context, board, limits, options, &search_history);
+    }
+
+    // Iterative deepening: search depths start_depth through target_depth
+    // Start depth used to stagger depths across threads
+    for (int depth = start_depth; depth <= control.max_depth; ++depth)
     {
         if (control.stop || (stop_signal != NULL && *stop_signal))
         {
             break;
         }
 
-        if (depth > 1)
+        if (depth > start_depth)
         {
             if (best_result.move != MOVE_NONE && search_should_stop_soft(&control, depth - 1, best_result.move, stats.nodes, search_context))
             {
@@ -446,7 +454,7 @@ Move think(Board *board,
 
             SearchResult result;
             int prev_score = search_context->root_moves.entries[multipv_index].previous_score;
-            bool use_aspiration = (depth >= asp_min_depth && prev_score > -MATE_SCORE && prev_score < MATE_SCORE);
+            bool use_aspiration = (depth > start_depth && depth >= asp_min_depth && prev_score > -MATE_SCORE && prev_score < MATE_SCORE);
 
             if (use_aspiration)
             {
@@ -527,6 +535,8 @@ Move think(Board *board,
                 break;
             }
 
+            atomic_store_explicit(&search_context->thread_nodes, stats.nodes, memory_order_relaxed);
+
             long long elapsed_ms = current_time_ms() - control.start_time_ms;
             if (elapsed_ms < 0)
             {
@@ -535,7 +545,12 @@ Move think(Board *board,
 
             if (options == NULL || !options->silent)
             {
-                print_depth_info(depth, multipv_index + 1, &result, &stats, elapsed_ms, board);
+                SearchStats display_stats = stats;
+                if (search_context->thread_index == 0)
+                {
+                    display_stats.nodes += smp_pool_nodes(search_context);
+                }
+                print_depth_info(depth, multipv_index + 1, &result, &display_stats, elapsed_ms, board);
             }
 
             if (multipv_index == 0)
@@ -578,7 +593,7 @@ Move think(Board *board,
             best_result.score = search_context->root_moves.entries[0].score;
             best_result.move = search_context->root_moves.entries[0].move;
             best_result.pv_length = search_context->root_moves.entries[0].pv_length;
-            for (int j = 0; j < search_context->root_moves.entries[0].pv_length && j < MAX_PV_MOVES; ++j)
+            for (int j = 0; j < search_context->root_moves.entries[0].pv_length && j < MAX_SEARCH_DEPTH; ++j)
             {
                 best_result.pv[j] = search_context->root_moves.entries[0].pv[j];
             }
@@ -593,12 +608,16 @@ Move think(Board *board,
             break;
         }
     }
+    if (search_context->thread_index == 0)
+    {
+        smp_pool_stop_and_join(search_context);
+    }
     // If infinite don't return until stop
     search_wait(&control);
 
     if (out_nodes != NULL)
     {
-        *out_nodes = stats.nodes;
+        *out_nodes = stats.nodes + (search_context->thread_index == 0 ? smp_pool_nodes(search_context) : 0ULL);
     }
 
     if (out_result != NULL)

@@ -30,12 +30,10 @@ bool transposition_table_init(TranspositionTable *table, size_t hash_power)
     {
         table->buckets = NULL;
         table->size = 0;
-        table->count = 0;
         return false;
     }
 
     memset(table->buckets, 0, bytes);
-    table->count = 0;
     return true;
 }
 
@@ -51,7 +49,6 @@ void transposition_table_destroy(TranspositionTable *table)
 #endif
         table->buckets = NULL;
         table->size = 0;
-        table->count = 0;
     }
 }
 
@@ -62,7 +59,6 @@ void transposition_table_clear(TranspositionTable *table)
     {
         size_t bytes = table->size * sizeof(TranspositionBucket);
         memset(table->buckets, 0, bytes);
-        table->count = 0;
         table->generation = 0;
     }
 }
@@ -76,29 +72,59 @@ void transposition_table_new_search(TranspositionTable *table)
     }
 }
 
+// Estimate hashfull by sampling 1000 buckets
+int transposition_table_hashfull(const TranspositionTable *table)
+{
+    if (table == NULL || table->buckets == NULL || table->size == 0)
+    {
+        return 0;
+    }
+
+    // If less than 1000 buckets, count all
+    size_t sample_buckets = table->size < 1000 ? table->size : 1000;
+    size_t count = 0;
+
+    for (size_t i = 0; i < sample_buckets; i++)
+    {
+        const TranspositionBucket *bucket = &table->buckets[i];
+        for (int j = 0; j < 4; j++)
+        {
+            const TranspositionEntry *entry = &bucket->entries[j];
+            if (entry->hash != 0 && tt_entry_gen(entry) == table->generation)
+            {
+                count++;
+            }
+        }
+    }
+
+    return (int)((count * 1000ULL) / (sample_buckets * 4ULL));
+}
+
 // Get the index of the bucket for a given hash
 static size_t transposition_table_index(const TranspositionTable *table, U64 hash)
 {
     return (size_t)(hash & (table->size - 1U));
 }
 
-const TranspositionEntry *transposition_table_lookup(const TranspositionTable *table, U64 hash)
+TranspositionEntry transposition_table_lookup(const TranspositionTable *table, U64 hash)
 {
-    if (table == NULL || table->buckets == NULL || table->size == 0)
+    TranspositionEntry empty = {0};
+    if (table == NULL || table->buckets == NULL || table->size == 0 || hash == 0)
     {
-        return NULL;
+        return empty;
     }
 
     const TranspositionBucket *bucket = &table->buckets[transposition_table_index(table, hash)];
     for (int i = 0; i < 4; i++)
     {
-        if (bucket->entries[i].hash == hash)
+        TranspositionEntry entry = bucket->entries[i];
+        if (entry.hash == hash)
         {
-            return &bucket->entries[i];
+            return entry;
         }
     }
 
-    return NULL;
+    return empty;
 }
 
 // Test whether a position exists and can cause a cutoff
@@ -110,14 +136,14 @@ bool transposition_table_probe(const TranspositionTable *table,
                                int ply,
                                int *score)
 {
-    const TranspositionEntry *entry = transposition_table_lookup(table, hash);
-    if (entry == NULL || entry->depth < depth || score == NULL)
+    TranspositionEntry entry = transposition_table_lookup(table, hash);
+    if (entry.hash == 0 || entry.depth < depth || score == NULL)
     {
         return false;
     }
 
-    int entry_score = score_from_tt(entry->score, ply);
-    TranspositionScoreType score_type = tt_entry_bound(entry);
+    int entry_score = score_from_tt(entry.score, ply);
+    TranspositionScoreType score_type = tt_entry_bound(&entry);
 
     switch (score_type)
     {
@@ -152,15 +178,15 @@ bool transposition_table_probe_exact(const TranspositionTable *table,
                                      int ply,
                                      int *score)
 {
-    const TranspositionEntry *entry = transposition_table_lookup(table, hash);
-    if (entry == NULL || entry->depth < depth || score == NULL)
+    TranspositionEntry entry = transposition_table_lookup(table, hash);
+    if (entry.hash == 0 || entry.depth < depth || score == NULL)
     {
         return false;
     }
 
-    if (tt_entry_bound(entry) == TT_SCORE_EXACT)
+    if (tt_entry_bound(&entry) == TT_SCORE_EXACT)
     {
-        *score = score_from_tt(entry->score, ply);
+        *score = score_from_tt(entry.score, ply);
         return true;
     }
 
@@ -229,7 +255,6 @@ void transposition_table_store(TranspositionTable *table,
             if (bucket->entries[i].hash == 0)
             {
                 target = &bucket->entries[i];
-                table->count++;
                 break;
             }
         }

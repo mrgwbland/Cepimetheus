@@ -3,9 +3,11 @@
 
 #include "board.h"
 
+#define MAX_ORDERED_MOVES 256
+
 typedef struct MoveList
 {
-    Move moves[256];
+    Move moves[MAX_ORDERED_MOVES];
     int count;
 } MoveList;
 
