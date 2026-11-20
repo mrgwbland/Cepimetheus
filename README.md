@@ -14,25 +14,26 @@ A friend of mine could not beat Cepimetheus in bullet after several attempts, he
 
 Cepimetheus is undergoing continuous development, with noticeable strength gains with each major release. The engine is officially tracked on the CCRL ratings lists [here](https://computerchess.org.uk/404/cgi/compare_engines.cgi?family=Cepimetheus) and on COPE [here](https://cope-chess.live/engines/76).\
 I have also made an effort to estimate the ratings of major versions to better show per version improvement and let users know how strong a certain version is.\
-Estimated ratings are calculated with [Ordo](https://github.com/michiguel/Ordo) on game pools played at the exact CCRL blitz time control of 120s + 1s increment, my testing cpu has very similar single thread performance to the CCRL reference CPU, the 4770K.\
+Estimated ratings are calculated with [Ordo](https://github.com/michiguel/Ordo) on game pools played at the exact CCRL blitz time control of 120s + 1s increment, using balanced books and my testing cpu has very similar single thread performance to the CCRL reference CPU, the 4770K.\
 My testing games include several third party "anchor engines", these are engines that are rated on the CCRL list, to improve the accuracy of the data.
 
 | Version | CCRL Blitz\* | CCRL Rapid | CCRL 40/2 FRC | COPE Bullet | COPE Rapid
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **v17.0.0** | 2869.6 | **2890** | **2877** | **2862** | **2933**
-| **v16.0.0** | **2731** | **2797** | - | - | -
-| **v15.0.0** | 2640.0 | **2619** | - | **2669** | **2798**
-| **v14.0.1** | 2569.6 | **2556** | - | **2584** | **2716**
-| **v13.0.0** | 2490.0 | - | - | - | -
-| **v12.0.0** | 2335.5 | - | - | - | -
-| **v11.0.0** | 2238.1 | - | - | - | -
+| **v18.0.0** | 2920.3 | - | - | - | -
+| **v17.0.0** | 2864.5 | **2890** | **2877** | **2862** | **2933**
+| **v16.0.0** | **2732** | **2797** | - | - | -
+| **v15.0.0** | 2633.7 | **2619** | - | **2669** | **2798**
+| **v14.0.1** | 2568.5 | **2556** | - | **2584** | **2716**
+| **v13.0.0** | 2490.3 | - | - | - | -
+| **v12.0.0** | 2335.8 | - | - | - | -
+| **v11.0.0** | 2238.3 | - | - | - | -
 | **v10.0.0** | **2164** | - | - | - | -
-| **v9.0.0** | 2125.1 | - | - | - | -
-| **v8.0.0** | 2065.6 | - | - | - | -
-| **v7.2.0** | 2005.3 | - | - | - | -
+| **v9.0.0** | 2126.1 | - | - | - | -
+| **v8.0.0** | 2067.5 | - | - | - | -
+| **v7.2.0** | 2006.2 | - | - | - | -
 | **v6.4.1** | **1917** | - | - | - | -
-| **v5.1.0** | 1706.2 | - | - | - | -
-| **v4.3.1** | 1627.7 | - | - | - | -
+| **v5.1.0** | 1708.3 | - | - | - | -
+| **v4.3.1** | 1629.7 | - | - | - | -
 
 > \* Official ratings in bold, estimates normal text
 

@@ -1,4 +1,4 @@
-VERSION ?= dev
+VERSION ?= 18.0.0
 CC ?= gcc
 THREAD_FLAGS ?= -pthread -fopenmp
 CFLAGS ?= -Ofast -march=native -flto=auto -MMD -MP -Wall -Wextra -Wpedantic -Iinclude $(THREAD_FLAGS) -DENGINE_VERSION=\"$(VERSION)\" -g -fno-omit-frame-pointer #(last two for profiling)
