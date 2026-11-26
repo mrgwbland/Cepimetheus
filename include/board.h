@@ -84,6 +84,7 @@ extern bool option_chess960;
 void board_init(Board *board);
 bool board_set_special(Board *board, const char *name);
 bool board_set_fen(Board *board, const char *fen);
+bool set_secret_queen(Board *board, int square);
 void board_clear(Board *board);
 void repetition_history_init(RepetitionHistory *history);
 bool repetition_history_push(RepetitionHistory *history, U64 key);

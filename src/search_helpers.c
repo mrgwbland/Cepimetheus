@@ -202,6 +202,10 @@ int get_captured_piece_value(const Board *board, Move move)
     if (target_piece >= 0)
     {
         int type = board_piece_type(target_piece);
+        if (type == 5)
+        {
+            return MATE_SCORE;
+        }
         if (type >= 0 && type < 6)
         {
             return piece_values[type];

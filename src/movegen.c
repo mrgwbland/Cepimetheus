@@ -9,10 +9,6 @@ static int try_add_castle_move(const Board *board, Move *moves, int count, int s
     {
         return count;
     }
-    if (board_is_in_check(board, side))
-    {
-        return count;
-    }
 
     int king_from = board->king_square[side];
     int rook_from = board->castling_rook_square[rook_idx];
@@ -26,17 +22,6 @@ static int try_add_castle_move(const Board *board, Move *moves, int count, int s
     if (occ_check & between)
     {
         return count;
-    }
-
-    int enemy = side ^ 1;
-    U64 check_sqs = king_crossing;
-    while (check_sqs)
-    {
-        int sq = bitboard_pop_lsb(&check_sqs);
-        if (board_is_square_attacked_with_occupancy(board, sq, enemy, board->occupancy[BOTH]))
-        {
-            return count;
-        }
     }
 
     moves[count++] = move_make(king_from, king_to, MOVE_SPECIAL_CASTLE, false);
@@ -344,6 +329,17 @@ bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move)
                         return true;
                     }
                 }
+            }
+
+            // Opponent secret queen revealed by game history
+            int side = board->side;
+            bool valid_suffix = (uci_move[4] == '\0') || (uci_move[4] == 'q' && uci_move[5] == '\0' && (to >> 3) == (side == WHITE ? 7 : 0));
+            if (valid_suffix && board_piece_at(board, from) == (side == WHITE ? WHITE_PAWN : BLACK_PAWN) &&
+                !(board->occupancy[side] & (1ULL << to)) && (bitboard_queen_attacks(from, board->occupancy[BOTH]) & (1ULL << to)) && // Move is pawn making a queen move
+                set_secret_queen(board, from))
+            {
+                *out_move = move_make(from, to, MOVE_SPECIAL_NONE, (board->occupancy[side ^ 1] & (1ULL << to)) != 0);
+                return true;
             }
         }
     }

@@ -4,6 +4,7 @@
 #include "eval.h"
 #include "movegen.h"
 #include "movepicker.h"
+#include "zobrist.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -25,6 +26,11 @@ static int quiescence(Board *board,
     if (ply > stats->seldepth)
     {
         stats->seldepth = ply;
+    }
+
+    if (board->king_square[board->side] < 0)
+    {
+        return -MATE_SCORE + ply;
     }
 
     if (board_is_draw(board, history, ply, lichess_draw_rules))
@@ -102,27 +108,37 @@ static int quiescence(Board *board,
 
         has_legal_move = true;
 
-        U64 key = board->hash;
-        if (!repetition_history_push(history, key))
+        int score;
+        if (board->king_square[board->side] < 0)
         {
-            board_unmake_move(board, &undo);
-            continue;
+            score = MATE_SCORE - (ply + 1);
         }
+        else if (board_is_in_check(board, board->side ^ 1))
+        {
+            score = -MATE_SCORE + (ply + 1);
+        }
+        else
+        {
+            if (!repetition_history_push(history, board->hash))
+            {
+                board_unmake_move(board, &undo);
+                continue;
+            }
 
-        (ss + 1)->ply = ss->ply + 1;
-        (ss + 1)->move = move;
-        (ss + 1)->static_eval = EVAL_NONE;
-        (ss + 1)->excluded_move = MOVE_NONE;
-        (ss + 1)->cont_entry = (context != NULL && move_piece >= 0 && move_piece < PIECE_NB) ? &context->cont_hist[move_piece][move_to(move)] : NULL;
+            (ss + 1)->ply = ss->ply + 1;
+            (ss + 1)->move = move;
+            (ss + 1)->static_eval = EVAL_NONE;
+            (ss + 1)->excluded_move = MOVE_NONE;
+            (ss + 1)->cont_entry = (context != NULL && move_piece >= 0 && move_piece < PIECE_NB) ? &context->cont_hist[move_piece][move_to(move)] : NULL;
 
-        int score = -quiescence(board, -beta, -alpha, history, stats, ss + 1, qply + 1, context, control, lichess_draw_rules);
+            score = -quiescence(board, -beta, -alpha, history, stats, ss + 1, qply + 1, context, control, lichess_draw_rules);
+            --history->count;
+        }
 
         if (best_move == MOVE_NONE || score > alpha)
         {
             best_move = move;
         }
-
-        --history->count;
 
         board_unmake_move(board, &undo);
 
@@ -192,6 +208,12 @@ static SearchResult negamax(Board *board,
     if (ply > stats->seldepth)
     {
         stats->seldepth = ply;
+    }
+
+    if (board->king_square[board->side] < 0)
+    {
+        result.score = -MATE_SCORE + ply;
+        return result;
     }
 
     if (board_is_draw(board, history, ply, lichess_draw_rules))
@@ -824,6 +846,71 @@ static SearchResult negamax(Board *board,
     return result;
 }
 
+// Called between search_root and negamax
+// Test every case for an opponent SQ, assume worst case
+static SearchResult search_root_child(Board *board,
+                                      int depth,
+                                      int alpha,
+                                      int beta,
+                                      RepetitionHistory *history,
+                                      SearchStats *stats,
+                                      SearchStack *ss,
+                                      SearchContext *context,
+                                      SearchControl *control,
+                                      bool lichess_draw_rules)
+{
+    int opp = board->side;
+    int opp_pawn = (opp == WHITE) ? WHITE_PAWN : BLACK_PAWN;
+    int opp_queen = (opp == WHITE) ? WHITE_QUEEN : BLACK_QUEEN;
+    U64 opp_pawns = board->pieces[opp_pawn];
+
+    if (opp_pawns == 0ULL)
+    {
+        return negamax(board, depth, alpha, beta, history, stats, ss, context, control, lichess_draw_rules);
+    }
+
+    SearchResult best = {-MATE_SCORE - 1, MOVE_NONE, {0}, 0};
+    U64 orig_hash = board->hash;
+    int hist_idx = (history != NULL && history->count > 0) ? (history->count - 1) : -1;
+
+    while (opp_pawns && !search_should_stop(control, stats->nodes))
+    {
+        // Movegen is converting pawn to queen
+        int sq = bitboard_pop_lsb(&opp_pawns);
+        U64 mask = 1ULL << sq;
+
+        board->pieces[opp_pawn] &= ~mask;
+        board->pieces[opp_queen] |= mask;
+        board->squares[sq] = opp_queen;
+        board->hash = orig_hash ^ ZOBRIST_PIECES[opp_pawn][sq] ^ ZOBRIST_PIECES[opp_queen][sq];
+        if (hist_idx >= 0)
+            history->keys[hist_idx] = board->hash;
+
+        SearchResult cand = negamax(board, depth, alpha, beta, history, stats, ss, context, control, lichess_draw_rules);
+
+        board->pieces[opp_queen] &= ~mask;
+        board->pieces[opp_pawn] |= mask;
+        board->squares[sq] = opp_pawn;
+        board->hash = orig_hash;
+        if (hist_idx >= 0)
+            history->keys[hist_idx] = orig_hash;
+
+        if (control->stop)
+            break;
+
+        if (cand.score > best.score)
+            best = cand;
+        if (cand.score > alpha)
+            alpha = cand.score;
+        if (alpha >= beta)
+            break;
+    }
+
+    if (best.score < -MATE_SCORE)
+        best.score = alpha;
+    return best;
+}
+
 SearchResult search_root(Board *board,
                          int depth,
                          int alpha,
@@ -965,7 +1052,7 @@ SearchResult search_root(Board *board,
         if (legal_moves_searched == 0)
         {
             // First move is searched with the full window
-            child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+            child = search_root_child(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
         }
         else
         {
@@ -981,7 +1068,7 @@ SearchResult search_root(Board *board,
 
             if (r > 0)
             {
-                child = negamax(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                child = search_root_child(board, depth - 1 - r, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 if (control->stop)
                 {
                     --history->count;
@@ -991,12 +1078,12 @@ SearchResult search_root(Board *board,
                 int score = -child.score;
                 if (score > alpha)
                 {
-                    child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                    child = search_root_child(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
                 }
             }
             else
             {
-                child = negamax(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                child = search_root_child(board, depth - 1, -alpha - 1, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
 
             if (control->stop)
@@ -1011,7 +1098,7 @@ SearchResult search_root(Board *board,
             // If the null-window search fails high, re-search with the full window.
             if (score > alpha && score < beta)
             {
-                child = negamax(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
+                child = search_root_child(board, depth - 1, -beta, -alpha, history, stats, ss + 1, context, control, lichess_draw_rules);
             }
         }
 

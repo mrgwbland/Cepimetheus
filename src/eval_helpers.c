@@ -95,7 +95,9 @@ EvalTerminalState eval_terminal_state(const Board *board, bool has_legal_move)
 {
     if (board == NULL || has_legal_move == true)
         return EVAL_TERMINAL_NONE;
-    return board_is_in_check(board, board->side) ? EVAL_TERMINAL_CHECKMATE : EVAL_TERMINAL_STALEMATE;
+    if (board->king_square[board->side] < 0)
+        return EVAL_TERMINAL_CHECKMATE; // Captured king
+    return EVAL_TERMINAL_STALEMATE;
 }
 
 int eval_terminal_score(EvalTerminalState terminal_state, int ply)

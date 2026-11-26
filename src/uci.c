@@ -57,13 +57,14 @@ static void apply_position(Board *board, RepetitionHistory *history, char *line)
     int move_start = 0;
     if (board_set_special(board, tokens[1]))
     {
-        push_current_position(board, history);
         move_start = 2;
     }
     else if (strcmp(tokens[1], "fen") == 0)
     {
         int fen_end = 2;
-        while (fen_end < token_count && fen_end < 2 + 6 && strcmp(tokens[fen_end], "moves") != 0)
+        while (fen_end < token_count && fen_end < 2 + 6 &&
+               strcmp(tokens[fen_end], "moves") != 0 &&
+               strcmp(tokens[fen_end], "sq") != 0)
         {
             fen_end++;
         }
@@ -81,13 +82,24 @@ static void apply_position(Board *board, RepetitionHistory *history, char *line)
         {
             board_set_special(board, "startpos");
         }
-        push_current_position(board, history);
         move_start = fen_end;
     }
     else
     {
         return;
     }
+
+    if (move_start + 1 < token_count && strcmp(tokens[move_start], "sq") == 0)
+    {
+        int sq = board_parse_square(tokens[move_start + 1]);
+        if (sq >= 0)
+        {
+            set_secret_queen(board, sq);
+        }
+        move_start += 2;
+    }
+
+    push_current_position(board, history);
 
     if (move_start < token_count && strcmp(tokens[move_start], "moves") == 0)
     {
@@ -569,6 +581,7 @@ void uci_loop(int argc, char *argv[])
             printf("option name Lichess_Draw_Rules type check default false\n");
             printf("option name Display_Currmove type check default false\n");
             printf("option name UCI_Chess960 type check default false\n");
+            printf("option name UCI_Variant type combo default secretqueen var secretqueen\n");
             printf("option name Ponder type check default false\n");
             printf("option name Materialism type spin default 100 min 0 max 199\n");
 #ifdef SPSA_TUNING
@@ -1081,6 +1094,31 @@ void uci_loop(int argc, char *argv[])
         if (strncmp(line, "go", 2) == 0 && (line[2] == '\0' || line[2] == ' ' || line[2] == '\t' || line[2] == '\r' || line[2] == '\n'))
         {
             search_thread_stop_and_join(&search_thread);
+
+            if (strstr(line, "choosequeen") != NULL) // Pick SQ randomly
+            {
+                srand((unsigned int)(current_time_ms() ^ (uintptr_t)&board)); // Seed rand from time and board memory address
+
+                U64 pawns = board.pieces[board.side == WHITE ? WHITE_PAWN : BLACK_PAWN];
+                int count = __builtin_popcountll(pawns);
+                if (count > 0)
+                {
+                    int pick = rand() % count;
+                    while (pick-- > 0)
+                    {
+                        bitboard_pop_lsb(&pawns);
+                    }
+                    char sq_str[3];
+                    board_square_to_string(bitboard_pop_lsb(&pawns), sq_str);
+                    printf("bestmove %s\n", sq_str);
+                }
+                else
+                {
+                    printf("bestmove 0000\n");
+                }
+                fflush(stdout);
+                continue;
+            }
 
             char *perft_token = strstr(line, "perft");
             if (perft_token != NULL)
