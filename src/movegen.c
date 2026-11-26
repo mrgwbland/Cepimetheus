@@ -338,6 +338,7 @@ bool movegen_find_legal_move(Board *board, const char *uci_move, Move *out_move)
                 !(board->occupancy[side] & (1ULL << to)) && (bitboard_queen_attacks(from, board->occupancy[BOTH]) & (1ULL << to)) && // Move is pawn making a queen move
                 set_secret_queen(board, from))
             {
+                board->sq_revealed[side] = true;
                 *out_move = move_make(from, to, MOVE_SPECIAL_NONE, (board->occupancy[side ^ 1] & (1ULL << to)) != 0);
                 return true;
             }

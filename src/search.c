@@ -864,7 +864,7 @@ static SearchResult search_root_child(Board *board,
     int opp_queen = (opp == WHITE) ? WHITE_QUEEN : BLACK_QUEEN;
     U64 opp_pawns = board->pieces[opp_pawn];
 
-    if (opp_pawns == 0ULL)
+    if (board->sq_revealed[opp] || opp_pawns == 0ULL)
     {
         return negamax(board, depth, alpha, beta, history, stats, ss, context, control, lichess_draw_rules);
     }
